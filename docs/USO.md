@@ -30,9 +30,29 @@ Imagens de *tamanho fixo* só restauram em discos iguais ou maiores que o origin
 
 ## Restaurar
 - **Poucas máquinas**: Painel → Restaurar imagem → imagem → máquinas → Apagar e restaurar. Ligue as máquinas pela rede.
-- **Sala inteira**: Painel → Restaurar em grupo → imagem → nome da sessão e quantidade → Criar sessão. Em cada
-  máquina: boot pela rede → *Entrar em sessao de grupo (multicast)* → digite o nome da sessão. A transmissão começa
-  quando todas entrarem (ou ao fim do tempo de espera). As máquinas não precisam estar cadastradas.
+- **Sala inteira**: Painel → Restaurar em grupo → imagem → nome da sessão, quantidade e prazo → Criar sessão. Em cada
+  máquina: boot pela rede → *Entrar em sessao de grupo (multicast)* → usuário e senha do painel (o teclado dessa tela
+  é americano: cuidado com símbolos) → nome da sessão. A transmissão começa quando todas entrarem; depois do prazo,
+  máquinas novas não entram mais (dê folga para ligar a sala inteira). As máquinas não precisam estar cadastradas.
+
+## Durante a clonagem, na tela da máquina
+A máquina mostra as etapas (conectando, verificando o disco, preparando as partições, gravando, finalizando), a
+porcentagem, a velocidade, o tempo restante e as últimas mensagens. **Alt+F2** mostra os detalhes técnicos;
+**Alt+F1** volta.
+
+No fim, a máquina **não reinicia sozinha**: mostra *Concluído com sucesso* ou *O processo terminou com erro* (com o
+motivo) e espera uma tecla: **R** reinicia, **D** desliga, **L** mostra o registro completo, **T** os detalhes
+técnicos. Se o agendamento marcou *Desligar quando terminar*, ela desliga sozinha em 60 s (qualquer tecla cancela).
+
+## Acompanhar e limpar (painel → Tarefas)
+- Cada máquina em andamento mostra a etapa informada por ela mesma, a porcentagem, o quanto já foi copiado, a
+  velocidade e o tempo restante. Se ficar mais de 3 minutos sem notícia, aparece um aviso (travou, desligou, cabo).
+- No histórico, falhas mostram o motivo em português; **Ver registro** abre o registro completo enviado pela máquina.
+- **Limpar histórico**: apaga o histórico de tarefas, cancela a fila de espera (máquinas que ainda não ligaram),
+  apaga o registro de clonagens e os registros internos — cada um opcional, com a contagem antes e a sua senha.
+  O que está em andamento nunca é apagado.
+- O Início avisa quando há tarefas agendadas há mais de 1 dia: se alguém der boot pela rede nessa máquina, o disco
+  é apagado. Cancele o que não vai usar.
 
 ## Configurações (painel)
 - **DHCP**: faixa de IPs, gateway, DNS, domínio, tempo de concessão, reservas de IP, ligar/desligar.

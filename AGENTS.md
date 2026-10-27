@@ -88,6 +88,12 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
 20. `Element.replaceChildren/append` escrevem `null` como texto; o `app.js` filtra null/false nesses métodos (topo do arquivo).
 21. `validatePw`/`authenticate` do FOG aceitam qualquer senha se já houver usuário na sessão: o login do painel confere com
     `passwordValidate` e regenera a sessão antes de `attemptLogin`.
+23. FOS: o partclone usa ncurses (`-N`): não redirecione a saída do `/bin/fog` para arquivo. A tela do LabFree roda o
+    `/bin/fog` no terminal 2 dentro de `script` (pty) e desenha no terminal 1. O console é 80x25: desligue a quebra de
+    linha (`ESC[?7l`) e corte os textos, senão uma linha longa rola a tela inteira.
+24. O FOG guarda a velocidade (`taskBPM`) só como número; o partclone manda "674.08MB" ou "3.9GB" (por minuto). A
+    unidade certa vem da tela da máquina (`labfreeEtapas.velocidade`).
+25. Reconstruir o `init.xz` leva ~7 min (xz -9 de um só processo, 2 arquivos): faça todas as mudanças do FOS antes.
 22. Nunca escreva um heredoc de bash contendo outro `EOF` dentro (o bash fecha no primeiro e executa o resto): scripts de
     edição vão em arquivo (Write) e rodam com `python3 -I arquivo`.
 
@@ -136,6 +142,15 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
 - **Testado**: API (23 verificações), troca de IP real pelo painel ida/volta (~2 s), falha forçada no meio (NM, arquivos e
   banco idênticos depois), trava, allowlist, ataque de symlink (/etc/passwd intacto), Chrome em todas as telas (desktop e
   celular, sem erros, sem rolagem horizontal), cadastro pelo boot em VM cliente (nome, Voltar, já cadastrada, servidor fora).
+
+## 7c. Versão 0.6.0 (27/10) — testes
+- Captura e restauração reais em VM (cliente com BIOS, disco GPT com EFI + 600 MB de dados): tela nova com etapas,
+  barra, registro e resultado; a máquina NÃO reiniciou; dados conferidos depois da restauração (arquivo íntegro,
+  partição ampliada 2→2,9 GB); painel mostrou "Etapa 4 de 5", a fase e "Ver registro".
+- Limpar histórico na VM (tarefas concluídas/falha/cancelada/fila/em andamento): só o pedido foi apagado, em andamento intacto.
+- Pendências conhecidas: multicast de máquinas cadastradas sem login em cada uma (hoje a sessão por nome pede usuário e
+  senha do painel na máquina); expirar tarefas esquecidas automaticamente (hoje só avisa); limpar `/images/dev`
+  órfãos; testar Ubuntu 22.04/Debian 12 (Kea 2.0/2.2); fuso FOG_TZ_INFO (UTC) diferente do sistema.
 
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,

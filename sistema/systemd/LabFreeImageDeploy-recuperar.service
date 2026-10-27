@@ -1,0 +1,13 @@
+[Unit]
+Description=LabFree ImageDeploy: desfaz uma troca de rede interrompida (queda de energia no meio)
+After=NetworkManager.service mariadb.service
+Wants=NetworkManager.service
+ConditionPathExists=/var/lib/LabFreeImageDeploy/rede-pendente.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root recuperar
+StandardInput=null
+
+[Install]
+WantedBy=multi-user.target

@@ -19,9 +19,11 @@ tmp=$(mktemp -d)
 trap 'rm -rf -- "$tmp"' EXIT
 
 # Banco do FOG (hosts, imagens, tarefas, configurações)
+sem_banco=0
 if mysqldump --single-transaction --routines fog > "$tmp/fog-banco.sql" 2>"$tmp/erro-banco.txt"; then
     rm -f "$tmp/erro-banco.txt"
 else
+    sem_banco=1
     echo "LabFreeImageDeploy-backup: AVISO: não foi possível exportar o banco (veja erro-banco.txt dentro do backup)" >&2
 fi
 
@@ -34,6 +36,7 @@ ARQUIVOS=(
     /usr/local/sbin/LabFreeImageDeploy-restaurar-backup
     /opt/fog/.fogsettings
     /opt/fog/snapins/ssl
+    /opt/fog/pki
     /var/www/html/fog/lib/fog/config.class.php
     /var/www/html/fog/service/LabFreeImageDeploy-cadastro.php
     /etc/apache2/conf-available/LabFreeImageDeploy.conf
@@ -80,3 +83,8 @@ ls -1t "$DESTINO"/LabFreeImageDeploy-*.tar.gz 2>/dev/null | tail -n +$((MANTER +
     [ "$velho" = "${LABFREE_PROTEGER:-}" ] || rm -f -- "$velho"
 done
 echo "Backup criado: $arquivo ($(du -h "$arquivo" | cut -f1))"
+if [ $sem_banco = 1 ]; then
+    # não conta como backup "recente" para o --se-antigo e o systemd registra a falha
+    touch -d '1 day ago' "$arquivo"
+    exit 2
+fi

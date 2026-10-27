@@ -5,6 +5,49 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.6.0] - 2026-10-27
+
+### Novo
+- **Tela nova na máquina durante a captura/restauração**: etapas (conectando, verificando o disco, preparando as
+  partições, gravando/copiando — com "parte N de M" —, finalizando), barra de porcentagem, velocidade, tempo restante
+  e as últimas mensagens em português. Alt+F2 mostra os detalhes técnicos.
+- **A máquina não reinicia sozinha no fim**: mostra "Concluído com sucesso" ou "O processo terminou com erro" com o
+  motivo, e deixa escolher Reiniciar, Desligar, Ver o registro completo ou Detalhes técnicos. Com "Desligar quando
+  terminar" marcado no painel, desliga sozinha depois de 60 s (qualquer tecla cancela).
+- **Acompanhamento ao vivo no painel**: cada máquina mostra a fase e a etapa que ela mesma informa ("Etapa 4 de 5"),
+  porcentagem, quanto já foi copiado, velocidade com a unidade certa e tempo restante; aviso quando a máquina fica
+  mais de 3 min sem dar notícia (travou, desligou, cabo); sessões em grupo mostram máquina por máquina.
+- **Registro de cada tarefa no painel**: o histórico mostra o motivo das falhas em português e o botão "Ver registro"
+  (o registro completo que a máquina enviou e os erros que o servidor recebeu).
+- **Limpar histórico** (Tarefas): histórico de tarefas, fila de espera, registro de clonagens e registros internos,
+  com contagem antes, confirmação por senha e sem tocar no que está em andamento.
+- Aviso no Início de tarefas agendadas há mais de 1 dia (um boot pela rede esquecido apagaria o disco).
+
+### Correções
+- Wake-on-LAN ("tentar ligar pela rede") nunca funcionava: agora o painel envia o pacote direto na rede de clonagem.
+- Captura recusada quando falta espaço no servidor (antes podia lotar o disco e derrubar o painel).
+- Agendamento que falha não troca mais a imagem padrão da máquina; erros do FOG traduzidos.
+- Acompanhamento depois de agendar funciona com qualquer quantidade de máquinas (antes errava acima de 30).
+- Sessões em grupo antigas presas apareciam fora da lista e travavam a exclusão da imagem.
+- Botões "Cancelar" não somem mais no meio do clique durante a atualização ao vivo.
+- Cadastro automático do FOG: nome virava o MAC depois da primeira colisão; mensagem "falhou" quando a tarefa era criada.
+- Cadastro pelo boot: nome tomado por outra máquina ao mesmo tempo volta ao passo do nome (antes repetia para sempre).
+- Item "Secure Boot" escondido do menu de boot (não funciona com o iPXE do produto).
+- Troca de rede interrompida (queda de energia) é desfeita sozinha no próximo boot ou na próxima alteração (diário).
+- Desfazer do DHCP desligado para de verdade o serviço; troca de placa mantendo a mesma rede permitida.
+- Ajudante root: certificado gerado com configurações numa pasta só do root; apagar imagem não segue links;
+  gravações com fsync; o original do sistema de clonagem guardado numa pasta só do root.
+- Backup inclui as chaves da CA (`/opt/fog/pki`); backup sem banco sai com erro; restauração recusa backup de outra
+  rede, não troca a senha do banco de uma instalação nova e não grava através de links.
+- Instalador cria o admin numa instalação que parou depois da base; publicar.sh só marca a versão depois do envio e
+  atualiza a versão dos arquivos do painel (cache do navegador).
+
+### Segurança
+- Limite de tentativas de login sem brechas em pedidos paralelos e sem prender processos do PHP.
+- Criar usuário pede a senha de quem está no painel; a própria senha só por "Trocar minha senha".
+- Troca de usuário em outra aba recarrega o painel (não age como outra pessoa).
+- Registro de logins com erro deixa de ser legível pelo site.
+
 ## [0.5.0] - 2026-10-26
 
 Varredura completa de todos os módulos (painel, API, ajudante root, instalador, scripts, cadastro pelo boot).

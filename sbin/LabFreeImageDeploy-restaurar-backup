@@ -50,17 +50,39 @@ case "$oque" in
         echo "Painel restaurado de $(basename "$arq")."
         ;;
     configuracoes)
-        # só configurações: /etc, respostas do FOG, site do FOG, certificado e menu de boot
+        # a rede do backup precisa ser a atual: senão o DHCP e o boot ficariam com um IP que a placa não tem
+        ip_bk=$(sed -n 's/^FOG_IP=//p' "$tmp/etc/LabFreeImageDeploy/LabFreeImageDeploy.conf" 2>/dev/null)
+        if_bk=$(sed -n 's/^FOG_IFACE=//p' "$tmp/etc/LabFreeImageDeploy/LabFreeImageDeploy.conf" 2>/dev/null)
+        ip_at=$(sed -n 's/^FOG_IP=//p' /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf 2>/dev/null)
+        if_at=$(sed -n 's/^FOG_IFACE=//p' /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf 2>/dev/null)
+        if [ -n "$ip_bk" ] && { [ "$ip_bk" != "$ip_at" ] || [ "$if_bk" != "$if_at" ]; }; then
+            echo "Este backup é de outra rede de clonagem ($if_bk, $ip_bk); a atual é $if_at, $ip_at."
+            echo "Primeiro aplique a placa e o IP do backup pelo painel (Configurações → Placa de rede) e rode de novo."
+            exit 1
+        fi
+        # senha do banco: se a do backup não abre o banco atual (instalação nova), mantém a atual
+        senha_bk=$(grep -oP "^snmysqlpass='\K[^']*" "$tmp/opt/fog/.fogsettings" 2>/dev/null || true)
+        senha_at=$(grep -oP "^snmysqlpass='\K[^']*" /opt/fog/.fogsettings 2>/dev/null || true)
+        manter_banco=0
+        [ "$senha_bk" != "$senha_at" ] && manter_banco=1 && echo "Aviso: a senha do banco mudou desde o backup; o acesso ao banco atual é mantido."
+        # só configurações: /etc, respostas do FOG, site do FOG, certificados e menu de boot
         (cd "$tmp" && find etc opt/fog var/www/html/fog tftpboot -type f 2>/dev/null) | while read -r f; do
-            case "$f" in etc/sudoers.d/*) continue ;; esac   # tratado abaixo, com conferência
-            mkdir -p "$(dirname "/$f")"
-            cp -a "$tmp/$f" "/$f"
+            case "$f" in
+                etc/sudoers.d/*) continue ;;   # tratado abaixo, com conferência
+                opt/fog/.fogsettings|var/www/html/fog/lib/fog/config.class.php) [ $manter_banco = 1 ] && continue ;;
+            esac
+            pasta="/$(dirname "$f")"
+            mkdir -p "$pasta"
+            # nunca gravar através de link (pastas do site são graváveis por outros usuários)
+            [ "$(realpath -m "$pasta")" = "$pasta" ] || { echo "Ignorado (pasta é um link): /$f"; continue; }
+            cp -a --remove-destination "$tmp/$f" "/$f"
         done
         if [ -f "$tmp/etc/sudoers.d/LabFreeImageDeploy" ] && visudo -cf "$tmp/etc/sudoers.d/LabFreeImageDeploy" >/dev/null; then
             install -m 440 -o root -g root "$tmp/etc/sudoers.d/LabFreeImageDeploy" /etc/sudoers.d/LabFreeImageDeploy
         fi
         systemctl daemon-reload
         nmcli general reload conf 2>/dev/null || true
+        nmcli connection reload 2>/dev/null || true
         # devolve tudo que depende da configuração (Kea, NTP, marca, serviços) a partir do que foi restaurado
         /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root reaplicar </dev/null >/dev/null || echo "Aviso: o reaplicar reclamou; veja /var/log/LabFreeImageDeploy/sistema.log"
         systemctl reload apache2 2>/dev/null || systemctl restart apache2 || true

@@ -67,7 +67,7 @@ final class Painel
     public static function responder($dados, $codigo = 200)
     {
         http_response_code($codigo);
-        echo json_encode($dados, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        echo json_encode($dados, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
         exit;
     }
 
@@ -126,6 +126,19 @@ final class Painel
         return substr(hash('sha256', $hash), 0, 16);
     }
 
+    /** A sessão ainda vale? (mesmas regras de exigirLogin, sem responder) */
+    public static function sessaoValida()
+    {
+        $u = self::usuario();
+        if (!$u) {
+            return false;
+        }
+        if (isset($_SESSION['PAINEL_SENHA']) && !hash_equals((string)$_SESSION['PAINEL_SENHA'], self::marcaSenha($u->get('id')))) {
+            return false;
+        }
+        return !(isset($_SESSION['PAINEL_ATIVIDADE']) && time() - (int)$_SESSION['PAINEL_ATIVIDADE'] > self::INATIVIDADE);
+    }
+
     public static function exigirLogin($acao = '')
     {
         $u = self::usuario();
@@ -163,31 +176,40 @@ final class Painel
         return rtrim($dir, '/') . '/LabFreeImageDeploy-login-' . md5((string)($_SERVER['REMOTE_ADDR'] ?? '')) . '.json';
     }
 
-    public static function tentativas()
+    /** Conta uma tentativa ANTES de conferir a senha, sob trava (pedidos em paralelo não escapam do limite). */
+    public static function loginContar()
     {
-        $t = json_decode((string)@file_get_contents(self::arqTentativas()), true);
-        if (!is_array($t) || time() - (int)($t['ultima'] ?? 0) > self::LOGIN_BLOQUEIO) {
-            return ['erros' => 0, 'ultima' => 0];
+        $arq = self::arqTentativas();
+        $fh = @fopen($arq, 'c+');
+        if (!$fh) {
+            return;
         }
-        return $t;
-    }
-
-    public static function loginBloqueado()
-    {
-        $t = self::tentativas();
+        flock($fh, LOCK_EX);
+        $t = json_decode((string)stream_get_contents($fh), true);
+        if (!is_array($t) || time() - (int)($t['ultima'] ?? 0) > self::LOGIN_BLOQUEIO) {
+            $t = ['erros' => 0, 'ultima' => 0];
+        }
         if ($t['erros'] >= self::LOGIN_LIMITE) {
+            flock($fh, LOCK_UN);
+            fclose($fh);
             $min = (int)ceil((self::LOGIN_BLOQUEIO - (time() - $t['ultima'])) / 60);
             self::erro("Muitas tentativas erradas. Aguarde $min minuto(s) e tente de novo.", 429);
         }
-    }
-
-    public static function loginFalhou()
-    {
-        $t = self::tentativas();
         $t['erros']++;
         $t['ultima'] = time();
-        @file_put_contents(self::arqTentativas(), json_encode($t), LOCK_EX);
-        sleep(min(5, max(1, $t['erros'] - 2))); // cada erro seguido demora mais
+        ftruncate($fh, 0);
+        rewind($fh);
+        fwrite($fh, json_encode($t));
+        flock($fh, LOCK_UN);
+        fclose($fh);
+        // de vez em quando apaga contadores velhos de outros endereços
+        if (mt_rand(1, 50) === 1) {
+            foreach (glob(dirname($arq) . '/LabFreeImageDeploy-login-*.json') ?: [] as $f) {
+                if (filemtime($f) < time() - 86400) {
+                    @unlink($f);
+                }
+            }
+        }
     }
 
     public static function loginOk()
@@ -422,14 +444,194 @@ final class Painel
             4 => 'Concluída', 5 => 'Cancelada', 6 => 'Falhou'][(int)$id] ?? 'Desconhecido';
     }
 
+    /**
+     * Acompanhamento ao vivo: a máquina manda o andamento (progress.php do FOG) a cada poucos segundos, mas o banco
+     * não guarda QUANDO chegou a última notícia nem em que parte do disco ela está. Este arquivo guarda, por tarefa,
+     * a última mudança vista e a sequência de partes (cada parte do disco recomeça em 0%).
+     */
+    private static function progressoMemoria($ativas)
+    {
+        $arq = rtrim(preg_replace('/^.*;/', '', session_save_path() ?: sys_get_temp_dir()), '/') . '/LabFreeImageDeploy-progresso.json';
+        $fh = @fopen($arq, 'c+');
+        $mem = [];
+        if ($fh && flock($fh, LOCK_EX)) {
+            $mem = json_decode((string)stream_get_contents($fh), true) ?: [];
+        }
+        $agora = time();
+        $nova = [];
+        foreach ($ativas as $t) {
+            $id = (string)$t['id'];
+            $assinatura = $t['estado'] . '|' . $t['pct'] . '|' . $t['copiado'] . '|' . $t['total'];
+            $m = $mem[$id] ?? ['assinatura' => '', 'mudou' => $agora, 'partes' => [], 'desde_inicio' => false];
+            if ($m['assinatura'] !== $assinatura) {
+                $m['assinatura'] = $assinatura;
+                $m['mudou'] = $agora;
+            }
+            if ((int)$t['estado'] === 3 && $t['total'] !== '' && $t['total'] !== null) {
+                if (!$m['partes']) {
+                    // só dá para numerar as partes se acompanhamos desde o começo da cópia
+                    $m['desde_inicio'] = (int)$t['pct'] <= 5;
+                }
+                if (end($m['partes']) !== $t['total']) {
+                    $m['partes'][] = $t['total'];
+                }
+            }
+            $nova[$id] = $m;
+        }
+        if ($fh) {
+            ftruncate($fh, 0);
+            rewind($fh);
+            fwrite($fh, json_encode($nova));
+            fflush($fh);
+            flock($fh, LOCK_UN);
+            fclose($fh);
+        }
+        return $nova;
+    }
+
+    /** Etapas informadas pelas máquinas (tela do LabFree no FOS), por tarefa. Tabela criada pelo ajudante. */
+    public static function etapas($ids)
+    {
+        $ids = array_values(array_filter(array_map('intval', (array)$ids)));
+        if (!$ids) {
+            return [];
+        }
+        try {
+            $r = self::q('SELECT taskID, etapa, etapas, texto, parte, velocidade, resultado, mensagem, (registro IS NOT NULL AND registro <> \'\') tem_registro,
+                    UNIX_TIMESTAMP(atualizada) quando FROM labfreeEtapas WHERE taskID IN (' . implode(',', $ids) . ')');
+        } catch (Throwable $e) {
+            return []; // tabela ainda não criada (versão antiga do sistema de clonagem)
+        }
+        return array_column($r, null, 'taskID');
+    }
+
+    /** Fase legível de uma tarefa ativa, para a tela. */
+    private static function fase(&$t, $mem, $maq = null)
+    {
+        $estado = (int)$t['estado'];
+        $captura = strpos($t['tipo'], 'Captura') === 0;
+        $temDados = $t['total'] !== '' && $t['total'] !== null;
+        $t['sem_noticia'] = max(0, time() - (int)($mem['mudou'] ?? time()));
+        $t['parte'] = ($mem['desde_inicio'] ?? false) ? count($mem['partes'] ?? []) : null;
+        if ($estado === 1) {
+            $t['fase'] = 'aguardando';
+            $t['fase_texto'] = 'Aguardando a máquina ligar pela rede';
+        } elseif ($estado === 2) {
+            $t['fase'] = 'fila';
+            $t['fase_texto'] = 'Máquina conectada, aguardando vaga para começar';
+        } elseif (!$temDados) {
+            $t['fase'] = 'preparando';
+            $t['fase_texto'] = $captura ? 'Preparando: lendo as partições do disco' : 'Preparando o disco (partições)';
+        } elseif ($t['pct'] >= 100) {
+            $t['fase'] = 'finalizando';
+            $t['fase_texto'] = $captura ? 'Finalizando: conferindo e guardando a imagem' : 'Finalizando: ajustando o disco para iniciar';
+        } else {
+            $t['fase'] = 'copiando';
+            $parte = $t['parte'] ? ' (parte ' . $t['parte'] . ' do disco)' : '';
+            $t['fase_texto'] = ($captura ? 'Copiando o disco para o servidor' : 'Gravando no disco') . $parte;
+        }
+        // a própria máquina disse em que etapa está (tela do LabFree): é a informação mais exata
+        if ($maq && (int)$t['estado'] === 3 && $maq['texto'] !== '') {
+            $t['etapa'] = (int)$maq['etapa'];
+            $t['etapas'] = (int)$maq['etapas'];
+            $t['fase_texto'] = $maq['texto'];
+            if (($maq['velocidade'] ?? '') !== '') {
+                $t['velocidade'] = $maq['velocidade']; // com a unidade que a máquina mediu (MB/min ou GB/min)
+            }
+            if ((int)$maq['parte'] > 0 && $t['fase'] === 'copiando') {
+                $t['parte'] = (int)$maq['parte'];
+            }
+            // notícia da máquina também conta como sinal de vida
+            $t['sem_noticia'] = min($t['sem_noticia'], max(0, time() - (int)$maq['quando']));
+        }
+        // sem notícia há muito tempo, enquanto deveria estar trabalhando: pode ter travado ou desligado
+        $limite = $t['fase'] === 'copiando' ? 180 : ($t['fase'] === 'preparando' || $t['fase'] === 'finalizando' ? 900 : 0);
+        $t['parada'] = $limite > 0 && $t['sem_noticia'] > $limite;
+    }
+
+    /** Mensagens de erro do FOS em português (as mais comuns); o texto original segue junto. */
+    public static function motivo($texto)
+    {
+        $texto = trim(preg_replace('/\s+/', ' ', (string)$texto));
+        if ($texto === '') {
+            return '';
+        }
+        $mapa = [
+            '/not (?:large|big) enough|too small|smaller than|minimum size/i' => 'O disco desta máquina é menor que o necessário para a imagem.',
+            '/could not find any.*(disk|drive)|no (hard )?dis[kc]s? (found|detected)|Unable to locate.*disk/i' => 'Nenhum disco foi encontrado na máquina (confira na BIOS se o disco aparece e se o modo SATA está em AHCI).',
+            '/hibernat|unclean|dirty/i' => 'O Windows não foi desligado por completo (hibernação/inicialização rápida). Desligue segurando Shift e tente de novo.',
+            '/BitLocker/i' => 'O disco está protegido pelo BitLocker. Desative o BitLocker no Windows e tente de novo.',
+            '/Unable to locate image store|Could not locate file|not exist.*image/i' => 'Os arquivos da imagem não foram encontrados no servidor.',
+            '/GPT partition tables|partition table|sgdisk|sfdisk/i' => 'Não foi possível recriar as partições: o disco desta máquina provavelmente é menor que o disco de onde a imagem veio (ou está com defeito).',
+            '/space|No space left/i' => 'Falta espaço no servidor para guardar a imagem.',
+            '/mount|nfs/i' => 'A máquina não conseguiu acessar a pasta de imagens do servidor (rede ou serviço NFS).',
+            '/partclone|exit code|failed to restore|restore.*failed/i' => 'A gravação dos dados falhou (problema no disco da máquina ou na rede durante a cópia).',
+        ];
+        foreach ($mapa as $re => $pt) {
+            if (preg_match($re, $texto)) {
+                return $pt; // o texto técnico completo fica em "Ver registro"
+            }
+        }
+        return mb_substr($texto, 0, 300);
+    }
+
+    /** Registro completo enviado pela máquina no fim de uma tarefa (tela do LabFree). */
+    public static function registro($id)
+    {
+        $id = (int)$id;
+        $r = [];
+        try {
+            $r = self::q('SELECT e.resultado, e.mensagem, e.registro, e.atualizada, h.hostName maquina FROM labfreeEtapas e
+                LEFT JOIN hosts h ON h.hostID = e.hostID WHERE e.taskID = ?', [$id]);
+        } catch (Throwable $e) {
+        }
+        $erros = self::q("SELECT logText, createTime FROM taskLog WHERE taskID = ? AND logType IN ('error','warning') ORDER BY id", [$id]);
+        if (!$r && !$erros) {
+            self::erro('Esta tarefa não tem registro (ela foi feita antes da versão que guarda o registro, ou a máquina não chegou a enviar).', 404);
+        }
+        $x = $r[0] ?? [];
+        return ['maquina' => self::txt($x['maquina'] ?? ''), 'resultado' => $x['resultado'] ?? '', 'mensagem' => (string)($x['mensagem'] ?? ''),
+            'registro' => (string)($x['registro'] ?? ''), 'quando' => self::data($x['atualizada'] ?? null),
+            'erros' => array_map(function ($l) {
+                return ['texto' => $l['logText'], 'motivo' => self::motivo($l['logText']), 'quando' => self::data($l['createTime'])];
+            }, $erros)];
+    }
+
+    /** Estado atual das tarefas indicadas (acompanhamento logo depois de agendar; sem limite de 30). */
+    public static function acompanhar($ids)
+    {
+        $ids = array_values(array_filter(array_map('intval', explode(',', (string)$ids))));
+        if (!$ids || count($ids) > 500) {
+            return ['tarefas' => []];
+        }
+        $ativas = array_column(self::tarefas(false)['ativas_todas'], null, 'id');
+        $etapas = self::etapas($ids);
+        $saida = [];
+        foreach (self::q('SELECT t.taskID id, h.hostName maquina, t.taskStateID estado FROM tasks t LEFT JOIN hosts h ON h.hostID = t.taskHostID
+                WHERE t.taskID IN (' . implode(',', $ids) . ')') as $t) {
+            if (isset($ativas[$t['id']])) {
+                $saida[] = $ativas[$t['id']] + ['ativa' => true];
+                continue;
+            }
+            $m = $etapas[$t['id']] ?? null;
+            $saida[] = ['id' => (int)$t['id'], 'maquina' => self::txt($t['maquina']), 'ativa' => false, 'estado' => (int)$t['estado'],
+                'estado_texto' => self::estadoTexto($t['estado']), 'motivo' => self::motivo($m['mensagem'] ?? ''),
+                'tem_registro' => $m ? (bool)$m['tem_registro'] : false];
+        }
+        return ['tarefas' => $saida];
+    }
+
     public static function tarefas($historico = true)
     {
         $ativas = self::q("SELECT t.taskID id, h.hostName maquina, tt.ttName tipo, t.taskStateID estado, t.taskCreateTime criada,
                 t.taskPercentText pct, t.taskDataCopied copiado, t.taskDataTotal total, t.taskTimeElapsed decorrido,
-                t.taskTimeRemaining restante, t.taskBPM velocidade, i.imageName imagem
+                t.taskTimeRemaining restante, t.taskBPM velocidade, i.imageName imagem,
+                (SELECT MAX(a.msID) FROM multicastSessionsAssoc a WHERE a.tID = t.taskID) sessao
             FROM tasks t JOIN hosts h ON h.hostID = t.taskHostID JOIN taskTypes tt ON tt.ttID = t.taskTypeID
             LEFT JOIN images i ON i.imageID = t.taskImageID
             WHERE t.taskStateID IN (1,2,3) ORDER BY t.taskID");
+        $memoria = self::progressoMemoria($ativas);
+        $daMaquina = self::etapas(array_column($ativas, 'id'));
         foreach ($ativas as &$t) {
             $t['maquina'] = self::txt($t['maquina']);
             $t['imagem'] = self::txt($t['imagem']);
@@ -437,11 +639,19 @@ final class Painel
             $t['estado_texto'] = self::estadoTexto($t['estado']);
             $t['criada'] = self::data($t['criada']);
             $t['pct'] = (int)$t['pct'];
+            $t['velocidade'] = ''; // o FOG guarda só o número (sem MB/GB); a tela do LabFree manda o valor com a unidade
+            $t['sessao'] = $t['sessao'] ? (int)$t['sessao'] : null;
+            self::fase($t, $memoria[(string)$t['id']] ?? [], $daMaquina[$t['id']] ?? null);
         }
         unset($t);
-        $sessoes = self::q("SELECT m.msID id, m.msName nome, m.msState estado, m.msSessClients esperadas, m.msClients conectadas,
+        // ativas sempre todas (uma sessão antiga presa precisa aparecer para ser cancelada); histórico só as 15 últimas
+        $sessoes = self::q("(SELECT m.msID id, m.msName nome, m.msState estado, m.msSessClients esperadas, m.msClients conectadas,
                 m.msPercent pct, m.msStartDateTime inicio, m.msCompleteDateTime fim, i.imageName imagem
-            FROM multicastSessions m LEFT JOIN images i ON i.imageID = m.msImage ORDER BY m.msID DESC LIMIT 15");
+            FROM multicastSessions m LEFT JOIN images i ON i.imageID = m.msImage WHERE m.msState IN (0,1,2,3))
+            UNION ALL
+            (SELECT m.msID, m.msName, m.msState, m.msSessClients, m.msClients, m.msPercent, m.msStartDateTime, m.msCompleteDateTime, i.imageName
+            FROM multicastSessions m LEFT JOIN images i ON i.imageID = m.msImage WHERE m.msState NOT IN (0,1,2,3) ORDER BY m.msID DESC LIMIT 15)
+            ORDER BY id DESC");
         $sessAtivas = [];
         $sessHist = [];
         foreach ($sessoes as $s) {
@@ -451,20 +661,47 @@ final class Painel
             $s['inicio'] = self::data($s['inicio']);
             $s['fim'] = self::data($s['fim']);
             if (in_array((int)$s['estado'], self::ESTADOS_ATIVOS, true)) {
+                // as máquinas desta sessão, cada uma com o seu andamento
+                $s['maquinas'] = array_values(array_filter($ativas, function ($t) use ($s) {
+                    return $t['sessao'] === (int)$s['id'];
+                }));
+                $s['conectadas'] = max((int)$s['conectadas'], count($s['maquinas']));
                 $sessAtivas[] = $s;
             } else {
                 $sessHist[] = $s;
             }
         }
+        $todas = $ativas;
+        // tarefas de sessões em grupo aparecem dentro da sessão, não soltas
+        $ids = array_column($sessAtivas, 'id');
+        $ativas = array_values(array_filter($ativas, function ($t) use ($ids) {
+            return !$t['sessao'] || !in_array($t['sessao'], $ids);
+        }));
+        // agendadas há mais de 1 dia: um boot pela rede esquecido apagaria o disco sem aviso
+        $esquecidas = count(array_filter($todas, function ($t) {
+            return (int)$t['estado'] === 1 && $t['criada'] && strtotime($t['criada']) < time() - 86400;
+        }));
         if (!$historico) {
-            return ['ativas' => $ativas, 'multicast_ativas' => $sessAtivas];
+            return ['ativas' => $ativas, 'multicast_ativas' => $sessAtivas, 'ativas_todas' => $todas, 'esquecidas' => $esquecidas];
         }
         $hist = self::q("SELECT t.taskID id, h.hostName maquina, tt.ttName tipo, t.taskStateID estado, t.taskCreateTime criada,
                 i.imageName imagem, t.taskCreateBy por
             FROM tasks t LEFT JOIN hosts h ON h.hostID = t.taskHostID JOIN taskTypes tt ON tt.ttID = t.taskTypeID
             LEFT JOIN images i ON i.imageID = t.taskImageID
             WHERE t.taskStateID NOT IN (1,2,3) ORDER BY t.taskID DESC LIMIT 30");
+        $daMaquina = self::etapas(array_column($hist, 'id'));
+        $motivos = [];
+        if ($hist) {
+            // motivo da falha que o FOS mandou (taskerror.php grava em taskLog)
+            foreach (self::q("SELECT taskID, logText FROM taskLog WHERE logType = 'error' AND taskID IN ("
+                . implode(',', array_map('intval', array_column($hist, 'id'))) . ") ORDER BY id") as $l) {
+                $motivos[$l['taskID']] = $l['logText'];
+            }
+        }
         foreach ($hist as &$t) {
+            $m = $daMaquina[$t['id']] ?? null;
+            $t['tem_registro'] = $m ? (bool)$m['tem_registro'] : false;
+            $t['motivo'] = self::motivo(($motivos[$t['id']] ?? '') ?: ($m['mensagem'] ?? ''));
             $t['maquina'] = self::txt($t['maquina']) ?: '(máquina excluída)';
             $t['imagem'] = self::txt($t['imagem']);
             $t['tipo'] = self::tipoTarefa($t['tipo']);
@@ -498,6 +735,7 @@ final class Painel
             ],
             'tarefas' => $tar['ativas'],
             'multicast' => $tar['multicast_ativas'],
+            'esquecidas' => $tar['esquecidas'],
             'versao_fog' => defined('FOG_VERSION') ? FOG_VERSION : '',
         ];
     }
@@ -702,7 +940,7 @@ final class Painel
                 $r = self::root('imagem-apagar', ['caminho' => $caminho]);
                 $msg .= sprintf(' %.1f GB liberados no servidor.', ($r['bytes'] ?? 0) / 1e9);
             } catch (Throwable $e) {
-                $msg .= ' Os arquivos não puderam ser apagados.';
+                $msg .= ' Os arquivos não puderam ser apagados (' . $e->getMessage() . "). A pasta continua em /images/$caminho.";
             }
         } else {
             $msg .= " Os arquivos continuam em /images/$caminho.";
@@ -794,6 +1032,7 @@ final class Painel
         if (FOGCore::getClass('UserManager')->exists($nome)) {
             self::erro("Já existe o usuário \"$nome\".");
         }
+        self::confirmarMinhaSenha($d);
         self::validarSenha($d['senha'] ?? '');
         $U = FOGCore::getClass('User')
             ->set('name', $nome)
@@ -824,7 +1063,10 @@ final class Painel
         if (!$U->isValid()) {
             self::erro('Usuário não encontrado.', 404);
         }
-        if (!$interno && (int)$U->get('id') !== (int)$currentUser->get('id')) {
+        if (!$interno) {
+            if ((int)$U->get('id') === (int)$currentUser->get('id')) {
+                self::erro('Para trocar a sua própria senha, use "Trocar minha senha" (pede a senha atual).');
+            }
             self::confirmarMinhaSenha($d);
         }
         self::validarSenha($d['senha'] ?? '');
@@ -868,6 +1110,58 @@ final class Painel
         return ['ok' => true, 'msg' => "Usuário \"$nome\" excluído."];
     }
 
+    /** Erros conhecidos do FOG ao criar tarefa, em português. */
+    public static function traduzirErroFog($msg)
+    {
+        $mapa = [
+            '/already a member of an active task|already has a task|in a tasking/i' => 'a máquina já tem uma tarefa em andamento ou agendada (veja em Tarefas)',
+            '/not enabled|disabled/i' => 'a imagem está desativada',
+            '/no image|image.*not.*(found|valid)|invalid image/i' => 'imagem não encontrada',
+            '/storage|node/i' => 'o armazenamento de imagens do servidor não está disponível',
+            '/protected/i' => 'a imagem está protegida',
+        ];
+        foreach ($mapa as $re => $pt) {
+            if (preg_match($re, $msg)) {
+                return $pt;
+            }
+        }
+        return $msg;
+    }
+
+    /** Wake-on-LAN direto pela rede de clonagem (o do FOG passa por /fog/management, que fica bloqueado). */
+    public static function acordar($Host)
+    {
+        if (!function_exists('socket_create')) {
+            return;
+        }
+        $macs = array_column(self::q('SELECT hmMAC FROM hostMAC WHERE hmHostID = ?', [(int)$Host->get('id')]), 'hmMAC');
+        $destinos = ['255.255.255.255'];
+        $conf = @parse_ini_file('/etc/LabFreeImageDeploy/LabFreeImageDeploy.conf');
+        if ($conf && !empty($conf['FOG_IP'])) {
+            $prefixo = (int)($conf['FOG_PREFIXO'] ?? 24);
+            $ip = ip2long($conf['FOG_IP']);
+            $destinos[] = long2ip($ip | ((1 << (32 - $prefixo)) - 1));
+        }
+        $sock = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+        if (!$sock) {
+            return;
+        }
+        socket_set_option($sock, SOL_SOCKET, SO_BROADCAST, 1);
+        foreach ($macs as $mac) {
+            $hex = preg_replace('/[^0-9a-f]/i', '', $mac);
+            if (strlen($hex) !== 12) {
+                continue;
+            }
+            $pacote = str_repeat(chr(0xff), 6) . str_repeat(hex2bin($hex), 16);
+            foreach ($destinos as $dst) {
+                foreach ([9, 7] as $porta) {
+                    @socket_sendto($sock, $pacote, strlen($pacote), 0, $dst, $porta);
+                }
+            }
+        }
+        socket_close($sock);
+    }
+
     public static function criarTarefa($Host, $tipo, $d)
     {
         global $currentUser;
@@ -882,12 +1176,22 @@ final class Painel
                 $currentUser->get('name'),
                 '',
                 false,
-                !empty($d['wol'])
+                false
             );
         } catch (Exception $e) {
-            return $e->getMessage();
+            return self::traduzirErroFog($e->getMessage());
+        }
+        if (!empty($d['wol'])) {
+            self::acordar($Host);
         }
         return null;
+    }
+
+    /** Id da tarefa ativa de uma máquina (para acompanhar depois de agendar). */
+    public static function tarefaAtiva($hostId)
+    {
+        $r = self::q('SELECT taskID FROM tasks WHERE taskHostID = ? AND taskStateID IN (1,2,3) ORDER BY taskID DESC LIMIT 1', [(int)$hostId]);
+        return $r ? (int)$r[0]['taskID'] : null;
     }
 
     public static function capturar($d)
@@ -897,14 +1201,27 @@ final class Painel
         if ($Image->get('protected')) {
             self::erro('Esta imagem está protegida contra sobrescrita. Desmarque a proteção na tela Imagens para capturar de novo.');
         }
-        if ((int)$Host->get('imageID') !== (int)$Image->get('id')) {
+        $no = self::noArmazenamento();
+        $livre = (float)@disk_free_space($no['raiz']);
+        $tamanho = (float)(self::infoDisco($Image->get('path'), (int)$Image->get('imageTypeID'))['bytes'] ?? 0);
+        $precisa = max(20e9, $tamanho * 1.2);
+        if ($livre > 0 && $livre < $precisa) {
+            self::erro(sprintf('Pouco espaço no servidor para uma captura: %.1f GB livres (o recomendado é pelo menos %.0f GB). '
+                . 'Exclua imagens que não usa mais em Imagens.', $livre / 1e9, $precisa / 1e9));
+        }
+        $antiga = (int)$Host->get('imageID');
+        if ($antiga !== (int)$Image->get('id')) {
             $Host->set('imageID', $Image->get('id'))->save();
         }
         $falha = self::criarTarefa($Host, 2, $d);
         if ($falha) {
+            if ($antiga !== (int)$Image->get('id')) {
+                $Host->set('imageID', $antiga)->save(); // não troca a imagem padrão se nada foi agendado
+            }
             self::erro('Não foi possível agendar a captura: ' . $falha);
         }
-        return ['ok' => true, 'msg' => 'Captura agendada para "' . self::txt($Host->get('name')) . '".'];
+        return ['ok' => true, 'msg' => 'Captura agendada para "' . self::txt($Host->get('name')) . '".',
+            'tarefas' => array_filter([self::tarefaAtiva($Host->get('id'))])];
     }
 
     public static function restaurar($d)
@@ -916,26 +1233,33 @@ final class Painel
         }
         $ok = [];
         $falhas = [];
+        $tarefas = [];
+        @set_time_limit(600); // muitas máquinas de uma vez
         foreach ($ids as $id) {
             $Host = new Host($id);
             if (!$Host->isValid()) {
                 continue;
             }
             $nome = self::txt($Host->get('name'));
-            if ((int)$Host->get('imageID') !== (int)$Image->get('id')) {
+            $antiga = (int)$Host->get('imageID');
+            if ($antiga !== (int)$Image->get('id')) {
                 $Host->set('imageID', $Image->get('id'))->save();
             }
             $falha = self::criarTarefa($Host, 1, $d);
             if ($falha) {
+                if ($antiga !== (int)$Image->get('id')) {
+                    $Host->set('imageID', $antiga)->save();
+                }
                 $falhas[] = "$nome: $falha";
             } else {
                 $ok[] = $nome;
+                $tarefas[] = self::tarefaAtiva($id);
             }
         }
         if (!$ok) {
             self::erro("Nenhuma restauração foi agendada.\n" . implode("\n", $falhas));
         }
-        return ['ok' => true, 'agendadas' => $ok, 'falhas' => $falhas,
+        return ['ok' => true, 'agendadas' => $ok, 'falhas' => $falhas, 'tarefas' => array_values(array_filter($tarefas)),
             'msg' => count($ok) . ' restauração(ões) agendada(s)' . ($falhas ? ', ' . count($falhas) . ' com problema' : '') . '.'];
     }
 
@@ -950,8 +1274,8 @@ final class Painel
         if ($qtd < 1 || $qtd > 200) {
             self::erro('Informe quantas máquinas vão receber a imagem (1 a 200).');
         }
-        if (FOGCore::getClass('MulticastSessionManager')->exists($nome)) {
-            self::erro("Já existe uma sessão chamada \"$nome\". Escolha outro nome.");
+        if (self::q('SELECT msID FROM multicastSessions WHERE msName = ? AND msState IN (0,1,2,3) LIMIT 1', [$nome])) {
+            self::erro("Já existe uma sessão em andamento chamada \"$nome\". Escolha outro nome.");
         }
         if (FOGCore::getClass('HostManager')->exists($nome)) {
             self::erro('O nome da sessão não pode ser igual ao nome de uma máquina.');
@@ -992,7 +1316,105 @@ final class Painel
             self::erro('Tarefa inválida.');
         }
         FOGCore::getClass('TaskManager')->cancel([$id]);
-        return ['ok' => true, 'msg' => 'Tarefa cancelada.'];
+        return ['ok' => true, 'msg' => 'Tarefa cancelada. Se a máquina já estava copiando, reinicie-a (ela não para sozinha).'];
+    }
+
+    // ------------------------------------------------------------ limpeza do histórico
+
+    /** Quantos registros cada opção da limpeza apagaria (a tela mostra antes de confirmar). */
+    public static function limpezaContagem()
+    {
+        $n = function ($sql) {
+            return (int)self::q($sql)[0]['n'];
+        };
+        return [
+            'historico' => $n("SELECT COUNT(*) n FROM tasks WHERE taskStateID NOT IN (1,2,3)")
+                + $n("SELECT COUNT(*) n FROM multicastSessions WHERE msState NOT IN (0,1,2,3)"),
+            'fila' => $n("SELECT COUNT(*) n FROM tasks WHERE taskStateID = 1")
+                + $n("SELECT COUNT(*) n FROM multicastSessions WHERE msState IN (0,1) AND msPercent = 0 AND msClients <= 0"),
+            'em_andamento' => $n("SELECT COUNT(*) n FROM tasks WHERE taskStateID IN (2,3)")
+                + $n("SELECT COUNT(*) n FROM multicastSessions WHERE msState IN (2,3) OR (msState IN (0,1) AND (msPercent > 0 OR msClients > 0))"),
+            'clonagens' => $n("SELECT COUNT(*) n FROM imagingLog"),
+            'registros' => $n("SELECT COUNT(*) n FROM history") + $n("SELECT COUNT(*) n FROM userTracking"),
+        ];
+    }
+
+    /**
+     * Apaga histórico de tarefas, fila de espera, registro de clonagens e registros internos (opções independentes).
+     * Nunca mexe no que está em andamento. Pede a senha de quem está usando o painel. Tudo numa transação.
+     */
+    public static function limparHistorico($d)
+    {
+        global $currentUser;
+        self::confirmarMinhaSenha($d);
+        $op = [
+            'fila' => !empty($d['fila']),
+            'historico' => !empty($d['historico']),
+            'clonagens' => !empty($d['clonagens']),
+            'registros' => !empty($d['registros']),
+        ];
+        if (!in_array(true, $op, true)) {
+            self::erro('Escolha pelo menos uma opção.');
+        }
+        $antes = self::limpezaContagem();
+        // 1) fila: cancela pelas classes do FOG (libera o boot das máquinas e encerra sessões que não começaram)
+        if ($op['fila']) {
+            $ids = array_column(self::q("SELECT taskID id FROM tasks WHERE taskStateID = 1"), 'id');
+            if ($ids) {
+                FOGCore::getClass('TaskManager')->cancel(array_map('intval', $ids));
+            }
+            $ms = array_column(self::q("SELECT msID id FROM multicastSessions WHERE msState IN (0,1) AND msPercent = 0 AND msClients <= 0"), 'id');
+            if ($ms) {
+                FOGCore::getClass('MulticastSessionManager')->cancel(array_map('intval', $ms));
+            }
+        }
+        // 2) apagar (tudo ou nada)
+        $db = self::db();
+        $db->beginTransaction();
+        try {
+            // as tarefas canceladas pela fila viram histórico: só somem se "histórico" também foi escolhido
+            if ($op['historico']) {
+                $db->exec("DELETE l FROM taskLog l JOIN tasks t ON t.taskID = l.taskID WHERE t.taskStateID NOT IN (1,2,3)");
+                // sessões que terminaram há menos de 1 h ficam: o FOG ainda encerra as máquinas por elas
+                $velhas = "m.msState NOT IN (0,1,2,3) AND (m.msCompleteDateTime IS NULL OR m.msCompleteDateTime < NOW() - INTERVAL 1 HOUR)";
+                $db->exec("DELETE a FROM multicastSessionsAssoc a LEFT JOIN multicastSessions m ON m.msID = a.msID WHERE m.msID IS NULL OR ($velhas)");
+                $db->exec("DELETE m FROM multicastSessions m WHERE $velhas");
+                $db->exec("DELETE FROM tasks WHERE taskStateID NOT IN (1,2,3)");
+                $db->exec("DELETE FROM snapinTasks WHERE stState NOT IN (1,2,3)");
+                $db->exec("DELETE j FROM snapinJobs j LEFT JOIN snapinTasks t ON t.stJobID = j.sjID WHERE t.stID IS NULL AND j.sjStateID NOT IN (1,2,3)");
+                if (self::q("SHOW TABLES LIKE 'labfreeEtapas'")) {
+                    $db->exec("DELETE e FROM labfreeEtapas e LEFT JOIN tasks t ON t.taskID = e.taskID WHERE t.taskID IS NULL");
+                }
+            }
+            if ($op['clonagens']) {
+                $db->exec("DELETE FROM imagingLog");
+            }
+            if ($op['registros']) {
+                $db->exec("DELETE FROM history");
+                $db->exec("DELETE FROM userTracking");
+            }
+            $db->commit();
+        } catch (Throwable $e) {
+            $db->rollBack();
+            error_log('[painel] limpeza desfeita: ' . $e->getMessage());
+            self::erro('Não foi possível limpar; nada foi apagado. Tente de novo.', 500);
+        }
+        $depois = self::limpezaContagem();
+        $feito = [];
+        if ($op['fila']) {
+            $feito[] = 'fila cancelada (' . max(0, $antes['fila'] - $depois['fila']) . ')';
+        }
+        if ($op['historico']) {
+            $feito[] = 'histórico apagado';
+        }
+        if ($op['clonagens']) {
+            $feito[] = 'registro de clonagens apagado';
+        }
+        if ($op['registros']) {
+            $feito[] = 'registros internos apagados';
+        }
+        error_log(sprintf('[painel] limpeza por %s: %s', self::txt($currentUser->get('name')), implode('; ', $feito)));
+        return ['ok' => true, 'msg' => 'Limpeza concluída: ' . implode(', ', $feito) . '.', 'contagem' => $depois];
     }
 
     public static function cancelarMulticast($d)
@@ -1118,7 +1540,7 @@ $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
     if ($acao === 'sessao') {
-        $u = Painel::usuario();
+        $u = Painel::sessaoValida() ? Painel::usuario() : null;
         $versao = trim((string)@file_get_contents('/etc/LabFreeImageDeploy/versao')) ?: 'dev';
         Painel::responder(['logado' => (bool)$u, 'usuario' => $u ? Painel::txt($u->get('name')) : null, 'token' => $u ? Painel::token() : null,
             'versao' => $versao, 'trocar_senha' => $u ? Painel::trocaPendente() : false]);
@@ -1130,16 +1552,16 @@ try {
         if ($usuario === '' || $senha === '') {
             Painel::erro('Informe usuário e senha.');
         }
-        Painel::loginBloqueado();
+        Painel::loginContar();
         if (session_status() !== PHP_SESSION_ACTIVE) {
             session_start();
         }
         // confere a senha SEM usar a sessão atual (o FOG aceitaria qualquer senha se já houvesse alguém logado nela)
         if (!preg_match('/(?=^.{3,40}$)^[\w][\w0-9]*[._-]?[\w0-9]*[.]?[\w0-9]+$/i', $usuario)
             || !FOGCore::getClass('User')->passwordValidate($usuario, $senha)) {
-            Painel::loginFalhou();
             error_log(sprintf("[%s] - %s - painel - Login failed - username: %s\n", date('Y-m-d H:i:s'), $_SERVER['REMOTE_ADDR'] ?? '',
                 preg_replace('/[^\w.@-]/', '?', substr($usuario, 0, 40))), 3, BASEPATH . 'fog_login_failed.log');
+            @chmod(BASEPATH . 'fog_login_failed.log', 0200); // o Apache não serve esse arquivo
             Painel::erro('Usuário ou senha incorretos.', 401);
         }
         if ($u = Painel::usuario()) {
@@ -1191,6 +1613,12 @@ try {
                 Painel::responder(Painel::root('rede-listar'));
             case 'usuarios':
                 Painel::responder(Painel::usuarios());
+            case 'acompanhar':
+                Painel::responder(Painel::acompanhar($_GET['ids'] ?? ''));
+            case 'registro':
+                Painel::responder(Painel::registro($_GET['id'] ?? 0));
+            case 'limpeza':
+                Painel::responder(Painel::limpezaContagem());
             case 'cadastro':
                 Painel::responder(Painel::cadastroConfig());
         }
@@ -1227,6 +1655,8 @@ try {
             Painel::responder(Painel::multicast($d));
         case 'cancelar_tarefa':
             Painel::responder(Painel::cancelarTarefa($d));
+        case 'limpar_historico':
+            Painel::responder(Painel::limparHistorico($d));
         case 'cancelar_multicast':
             Painel::responder(Painel::cancelarMulticast($d));
         case 'cadastro_salvar':

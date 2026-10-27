@@ -398,6 +398,9 @@ aplicar_camada() {
     install -m 644 "$ORIGEM/sistema/logrotate/LabFreeImageDeploy" /etc/logrotate.d/LabFreeImageDeploy
     rodar systemctl daemon-reload
     rodar systemctl enable --now LabFreeImageDeploy-backup.timer
+    install -m 644 "$ORIGEM/sistema/systemd/LabFreeImageDeploy-recuperar.service" /etc/systemd/system/
+    rodar systemctl daemon-reload
+    rodar systemctl enable LabFreeImageDeploy-recuperar.service   # desfaz no boot uma troca de rede interrompida
     ok "backup semanal, proteção contra o apt e atualizações automáticas desligadas"
     # PHP travado na versão em uso (o PPA ondrej trocaria de versão sozinho)
     local metas; metas=$(dpkg-query -W -f='${Package} ${Version}\n' php php-cli php-fpm libapache2-mod-php php-bcmath php-curl php-gd php-intl php-json php-ldap php-mbstring php-mysql 2>/dev/null | awk '$2 ~ /^2:/ {print $1}' || true)
@@ -414,7 +417,7 @@ aplicar_camada() {
         rodar systemctl reload systemd-logind || true
         ok "notebook: não suspende nem hiberna (nem ao fechar a tampa)"
     fi
-    passo "DHCP, boot pela rede, marca e proteções (inclui reconstruir o sistema de clonagem: ~2 min)"
+    passo "DHCP, boot pela rede, marca e proteções (inclui reconstruir o sistema de clonagem: até 10 min)"
     ajudante instalado reaplicar
     feito "DHCP, boot pela rede, marca e proteções aplicados"
 }
@@ -432,7 +435,11 @@ marca_ipxe() {
 
 usuario_admin() {
     # Instalação nova: usuário "admin" com senha "admin" (ou --senha); o painel exige trocar no primeiro acesso.
-    [ "$MODO" = nova ] || return 0
+    # Em atualização só age se o admin nunca foi criado (instalação anterior parou depois da base).
+    if [ "$MODO" != nova ]; then
+        [ "$(mysql -N fog -e "select count(*) from users where uName='admin'" 2>/dev/null)" = 0 ] \
+            && [ "$(mysql -N fog -e "select count(*) from users where uName='fog'" 2>/dev/null)" = 1 ] || return 0
+    fi
     titulo "Usuário do painel"
     local senha="${SENHA:-admin}" hash
     hash=$(SENHA="$senha" php -r 'echo password_hash(getenv("SENHA"), PASSWORD_BCRYPT, ["cost" => 11]);')

@@ -49,6 +49,8 @@ if git ls-files -co --exclude-standard -z | xargs -0 /usr/bin/grep -lE "BEGIN (R
 fi
 
 echo "== Commit e versão $TAG"
+# o navegador busca app.js/app.css novos a cada versão (sem misturar arquivo velho com API nova)
+sed -i -E "s/\?v=[0-9A-Za-z.-]+/?v=$VERSAO/g" web/index.html
 NOTAS=$(awk -v v="## [$VERSAO]" 'index($0, v) == 1 {ok = 1; next} ok && /^## \[/ {exit} ok' CHANGELOG.md)
 git add -A
 if git diff --cached --quiet; then
@@ -59,9 +61,9 @@ LabFree ImageDeploy $VERSAO
 $NOTAS
 MSG
 fi
-git tag -a "$TAG" -m "LabFree ImageDeploy $VERSAO"
 git push -q origin HEAD
-git push -q origin "$TAG"
+git tag -a "$TAG" -m "LabFree ImageDeploy $VERSAO"   # só marca depois que o código subiu
+git push -q origin "$TAG" || { git tag -d "$TAG" >/dev/null; erro "não consegui enviar a marca da versão; rode de novo."; }
 echo "  enviado: $(git remote get-url origin) ($TAG)"
 
 if [ $PACOTE = 1 ]; then

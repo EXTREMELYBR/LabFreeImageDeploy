@@ -65,6 +65,8 @@ PY
 
 instalar() {
     [ -f "$SAIDA/undionly.kkpxe" ] || { echo "Nada compilado. Rode: sudo $0 compilar"; exit 1; }
+    ativas=$(mysql -N fog -e "SELECT (SELECT COUNT(*) FROM tasks WHERE taskStateID IN (2,3)) + (SELECT COUNT(*) FROM multicastSessions WHERE msState IN (1,2,3))" 2>/dev/null || echo 0)
+    [ "${ativas:-0}" -gt 0 ] && { echo "Há clonagem em andamento: espere terminar antes de trocar os arquivos de boot."; exit 1; }
     conferir
     mkdir -p "$BACKUPS"
     bk="$BACKUPS/tftpboot-$(date +%Y%m%d-%H%M%S).tar"

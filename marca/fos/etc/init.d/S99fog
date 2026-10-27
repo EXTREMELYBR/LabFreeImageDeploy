@@ -1,0 +1,44 @@
+#!/bin/bash
+#
+#
+# rc.single     This file is executed by init when it goes into runlevel
+#               1, which is the administrative state. It kills all
+#               deamons and then puts the system into single user mode.
+#               Note that the file systems are kept mounted.
+#
+# Author:       Miquel van Smoorenburg, <miquels@drinkel.nl.mugnet.org>
+#               Modified for RHS Linux by Damien Neil
+#               Modified for FOG by Chuck Syperski
+#
+[[ ! -h /dev/fd ]] && ln -s /proc/self/fd /dev/fd
+[[ ! -h /dev/stdin ]] && ln -s /proc/self/fd/0 /dev/stdin
+[[ ! -h /dev/stdout ]] && ln -s /proc/self/fd/1 /dev/stdout
+[[ ! -h /dev/stderr ]] && ln -s /proc/self/fd/2 /dev/stderr
+if [[ $mdraid == true ]]; then
+    mdadm --auto-detect
+    mdadm --assemble --scan
+    mdadm --incremental --run --scan
+else
+    # Without mdraid=true FOS images the member disks, not the array.
+    # Release any array the kernel's own autodetect started at boot
+    # (CONFIG_MD_AUTODETECT); udev assembly is gated in
+    # etc/udev/rules.d/64-md-raid-assembly.rules.
+    mdadm --stop --scan >/dev/null 2>&1
+fi
+[[ -n $keymap ]] && loadkeys $keymap
+case $isdebug in
+    [Yy][Ee][Ss]|[Yy])
+        fog.debug
+        ;;
+    *)
+        # LabFree ImageDeploy: captura e restauracao rodam pela tela do LabFree, que mostra etapas e
+        # porcentagem e, no fim, NAO reinicia sozinha (mostra o resultado e as opcoes).
+        if [[ $type == up || $type == down ]] && [[ -x /bin/labfree-tela ]]; then
+            /bin/labfree-tela
+        else
+            fog
+            echo " * Rebooting system as task is complete"
+            [[ $shutdown -eq 1 ]] && poweroff || reboot -f
+        fi
+        ;;
+esac

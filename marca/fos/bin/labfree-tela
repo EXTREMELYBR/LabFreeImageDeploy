@@ -1,0 +1,379 @@
+#!/bin/bash
+# LabFree ImageDeploy - tela da maquina durante a captura ou restauracao (roda dentro do FOS).
+#
+# O processo original do FOG (/bin/fog) roda no terminal 2, gravado por "script" em /tmp/labfree.bruto.
+# Esta tela, no terminal principal, le esse registro e o andamento do partclone (/tmp/status.fog) e mostra:
+# etapas, porcentagem, velocidade, tempo restante e as ultimas mensagens - em portugues e sem acentos
+# (o console de boot nao tem acentos). Envia a etapa atual ao servidor (painel) e, no fim, NAO reinicia:
+# mostra o resultado e deixa reiniciar, desligar ou ver o registro completo.
+. /usr/share/fog/lib/funcs.sh
+export LABFREE_TELA=1
+
+BRUTO=/tmp/labfree.bruto     # tudo o que o FOG escreveu na tela (com codigos de terminal)
+LOG=/tmp/labfree.log         # mensagens limpas, uma por linha (o "registro")
+RC=/tmp/labfree.rc           # codigo de saida do /bin/fog
+RES=/tmp/labfree.resultado   # motivo do erro (gravado pelo handleError do LabFree)
+STATUS=/tmp/status.fog       # andamento do partclone: bpm@decorrido@restante@copiado@total@pct@...
+rm -f "$BRUTO" "$RC" "$RES" "$STATUS"
+: > "$LOG"
+OFF=0
+ETAPA=1
+PARTE=0
+INICIO=$SECONDS
+ULTIMO_ENVIO=""
+ULTIMO_ENVIO_T=0
+VELOCIDADE=""
+MACS=$(getMACAddresses)
+UUID=$(dmidecode -s system-uuid 2>/dev/null)
+UUID=${UUID,,}
+NOME_MAQ=${hostname:-$(hostname)}
+case $type in
+    up) TITULO="Capturando o disco para a imagem: $img"; TITULO_FIM="Disco capturado para a imagem: $img"
+        ETAPAS=("Conectando ao servidor" "Verificando o disco" "Preparando as particoes" "Copiando o disco para o servidor" "Finalizando") ;;
+    *)  TITULO="Restaurando a imagem: $img"; TITULO_FIM="Imagem restaurada: $img"
+        [[ $mc == yes ]] && TITULO="Restaurando em grupo (multicast): $img"
+        ETAPAS=("Conectando ao servidor" "Verificando o disco" "Preparando as particoes" "Gravando a imagem no disco" "Finalizando") ;;
+esac
+
+E=$'\e'
+Z="${E}[0m"; N="${E}[1m"; CAB="${E}[1;37;44m"; VERDE="${E}[1;32m"; AMARELO="${E}[1;33m"; VERMELHO="${E}[1;31m"
+CINZA="${E}[0;37m"; ESCURO="${E}[1;30m"; BARRA_CHEIA="${E}[42m"; BARRA_VAZIA="${E}[47m"
+FAIXA_OK="${E}[1;37;42m"; FAIXA_ERRO="${E}[1;37;41m"
+
+# ------------------------------------------------------------------ textos em portugues
+
+traduzir() { # " * Looking for Hard Disk(s)......Done" -> "Procurando o disco ... ok"
+    local l="$1" msg st
+    l="${l# }"; l="${l#\* }"
+    msg=$(printf '%s' "$l" | sed -E 's/\.{3,}.*$//; s/[[:space:]]+$//')
+    st=$(printf '%s' "$l" | sed -nE 's/.*\.{3,}[[:space:]]*([A-Za-z].*)$/\1/p')
+    case "$msg" in
+        "Attempting to check in"*) msg="Avisando o servidor que a maquina ligou" ;;
+        "Mounting File System"*|"Mounting directory"*) msg="Conectando a pasta de imagens do servidor" ;;
+        "Checking Mounted File System"*) msg="Conferindo a pasta de imagens" ;;
+        "Checking img variable"*) msg="Conferindo a imagem escolhida" ;;
+        "Using Image:"*) msg="Imagem: ${msg#Using Image: }" ;;
+        "Checking CPU Cores"*) msg="Contando os processadores" ;;
+        "Send method"*) msg="Forma de envio" ;;
+        "Write caching not supported"*) msg="Cache de gravacao nao disponivel neste disco (normal)" ;;
+        "Using Hard Disk:"*|"Using Disk:"*) msg="Disco: ${msg#*Disk: }" ;;
+        "Resetting UUIDs"*) msg="Restaurando os identificadores do disco" ;;
+        "Disk UUID being set"*|"Partition type being set"*|"Partition uuid being set"*) msg="Ajustando os identificadores das particoes" ;;
+        "Resetting swap"*) msg="Ajustando a particao de troca (swap)" ;;
+        "Using partclone."*) msg="Copiando com partclone (${msg#Using partclone.})" ;;
+        "Processing Hard Disk:"*) msg="Disco: ${msg#Processing Hard Disk: }" ;;
+        "Image Captured"*) msg="Parte copiada para o servidor" ;;
+        "Image Restored"*|"Image restored"*) msg="Parte gravada no disco" ;;
+        "Not expanding"*"fixed size"*) msg="Particao de tamanho fixo mantida (${msg#*(}"; msg="${msg%%)*})" ;;
+        "Expanding"*) msg="Expandindo a particao para ocupar o disco" ;;
+        "Task Complete"*) msg="Tarefa concluida" ;;
+        "Looking for Hard Disk"*) msg="Procurando o disco da maquina" ;;
+        "Reading Partition Tables"*) msg="Lendo as particoes do disco" ;;
+        "Checking Operating System"*) msg="Identificando o sistema operacional" ;;
+        "Getting Windows/Linux Partition Count"*) msg="Contando as particoes" ;;
+        "Enabling write cache"*) msg="Ativando o cache de gravacao do disco" ;;
+        "Erasing current MBR/GPT"*) msg="Apagando a tabela de particoes antiga" ;;
+        "Restoring Partition Tables"*|"Restoring Original Partition Layout"*) msg="Recriando as particoes" ;;
+        "Preparing Partition layout"*) msg="Preparando o layout das particoes" ;;
+        "Attempting to expand/fill partitions"*) msg="Ajustando as particoes ao tamanho do disco" ;;
+        "Checking for fixed partitions"*) msg="Conferindo particoes de tamanho fixo" ;;
+        "Saving Partition Tables"*|"Saving original partition table"*) msg="Guardando a tabela de particoes" ;;
+        "Running resize test"*) msg="Testando se o disco pode ser reduzido" ;;
+        "Shrinking"*) msg="Reduzindo o sistema de arquivos para copiar mais rapido" ;;
+        "Resizing filesystem"*|"Resizing partition"*|"Resizing"*|"Attempting to resize"*) msg="Ajustando o tamanho do sistema de arquivos" ;;
+        "Removing page file"*) msg="Removendo o arquivo de paginacao do Windows" ;;
+        "Removing hibernate file"*) msg="Removendo o arquivo de hibernacao do Windows" ;;
+        "Clearing ntfs flag"*) msg="Ajustando o NTFS" ;;
+        "Processing Partition:"*) msg=$(printf '%s' "$msg" | sed -E 's/^Processing Partition: ([^ ]+) \(([0-9]+)\).*/Parte \2 do disco (\1)/') ;;
+        "Imaging using"*) msg="Transferindo dados (${msg#Imaging using })" ;;
+        "Changing hostname"*) msg="Trocando o nome da maquina no Windows" ;;
+        "Updating Database"*) msg="Registrando a conclusao no servidor" ;;
+        "Reattempting to update database"*) msg="Tentando de novo registrar no servidor" ;;
+        "Stopping FOG Status Reporter"*) msg="Encerrando o envio de andamento" ;;
+        "Attempting to send inventory"*) msg="Enviando o inventario da maquina" ;;
+        "Running post init scripts"*) msg="Preparando o ambiente de clonagem" ;;
+        "Verifying network interface"*) msg="Conferindo a placa de rede" ;;
+        "Setting boot partition"*) msg="Marcando a particao de boot" ;;
+        "Backing up and replacing BCD"*) msg="Ajustando a inicializacao do Windows (BCD)" ;;
+        "Correcting Vista MBR"*) msg="Ajustando o MBR" ;;
+        "Mounting partition"*) msg="Abrindo uma particao" ;;
+        "Seems like you are trying to restore to an empty disk"*) msg="Disco vazio: sera preparado do zero" ;;
+        "Skipping partition"*) msg="Etapa de particoes nao necessaria" ;;
+        "ERRO:"*|"AVISO:"*) ;;
+    esac
+    case "$st" in
+        Done|OK|Yes) st="ok" ;;
+        Failed) st="FALHOU" ;;
+        Skipped|No) st="pulado" ;;
+    esac
+    [[ -n $st ]] && printf '%s ... %s' "$msg" "$st" || printf '%s' "$msg"
+}
+
+etapa_de() { # mensagem original -> numero da etapa (so avanca)
+    case "$1" in
+        *"Processing Partition"*|*"Imaging using"*) echo 4 ;;
+        *"Updating Database"*|*"Changing hostname"*|*"Task Complete"*) echo 5 ;;
+        *"Erasing"*|*"Restoring Partition"*|*"Restoring Original"*|*"Preparing Partition"*|*"Saving Partition"*|*"Saving original"*|*"Shrinking"*|*"Running resize test"*|*"expand/fill"*|*"Removing"*|*"Recreating"*) echo 3 ;;
+        *"Looking for Hard Disk"*|*"Reading Partition"*|*"Checking Operating System"*|*"Getting Windows"*|*"Enabling write cache"*) echo 2 ;;
+        *) echo 0 ;;
+    esac
+}
+
+# ------------------------------------------------------------------ leitura do registro
+
+processar() { # le o que o FOG escreveu desde a ultima vez (so linhas completas)
+    local tam pedaco linhas usado linha e
+    tam=$(stat -c %s "$BRUTO" 2>/dev/null || echo 0)
+    (( tam > OFF )) || return 0
+    pedaco=/tmp/labfree.pedaco
+    tail -c +$((OFF + 1)) "$BRUTO" 2>/dev/null | head -c $((tam - OFF)) > "$pedaco"
+    linhas=$(tr -cd '\n' < "$pedaco" | wc -c)
+    (( linhas > 0 )) || return 0
+    usado=$(head -n "$linhas" "$pedaco" | wc -c)
+    OFF=$((OFF + usado))
+    head -n "$linhas" "$pedaco" \
+        | sed -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' -e 's/\x1b[()][0-9A-Za-z]//g' -e 's/\x1b[=>78]//g' \
+        | tr '\r' '\n' | tr -d '\000-\010\013\014\016-\037\177' \
+        | grep -aE '^ ?\* |ERRO:|AVISO:' > /tmp/labfree.novas
+    while IFS= read -r linha; do
+        e=$(etapa_de "$linha")
+        (( e > ETAPA )) && ETAPA=$e
+        [[ $linha == *"Processing Partition"* ]] && PARTE=$((PARTE + 1))
+        linha=$(traduzir "$linha")
+        [[ $linha == "$(tail -n 1 "$LOG")" ]] || printf '%s\n' "$linha" >> "$LOG"   # sem repetir a mesma linha seguida
+    done < /tmp/labfree.novas
+}
+
+total_partes() { # restauracao: quantas partes a imagem tem (d1p1.img, d1p2.img...)
+    [[ $type == up ]] && return
+    ls /images/"$img"/ 2>/dev/null | sed -nE 's/^d1p([0-9]+)\.img.*/\1/p' | sort -u | wc -l
+}
+
+# ------------------------------------------------------------------ servidor (painel)
+
+enviar() { # envia a etapa atual ao painel (so quando muda, ou a cada 30 s)
+    local texto="$1" final="${2:-}" chave
+    [[ -z $web ]] && return 0
+    chave="$ETAPA|$PARTE|$texto"
+    if [[ -z $final && $chave == "$ULTIMO_ENVIO" && $((SECONDS - ULTIMO_ENVIO_T)) -lt 30 ]]; then
+        return 0
+    fi
+    ULTIMO_ENVIO="$chave"; ULTIMO_ENVIO_T=$SECONDS
+    if [[ -n $final ]]; then
+        tail -c 60000 "$LOG" > /tmp/labfree.envio
+        curl -Lks --max-time 15 --data-urlencode "mac=$MACS" --data-urlencode "sysuuid=$UUID" \
+            --data-urlencode "etapa=$ETAPA" --data-urlencode "etapas=${#ETAPAS[@]}" --data-urlencode "texto=$texto" \
+            --data-urlencode "parte=$PARTE" --data-urlencode "resultado=$final" \
+            --data-urlencode "mensagem=$(head -c 2000 "$RES" 2>/dev/null)" --data-urlencode "registro@/tmp/labfree.envio" \
+            "${web}service/LabFreeImageDeploy-etapa.php" >/dev/null 2>&1 || :
+    else
+        ( curl -Lks --max-time 5 --data-urlencode "mac=$MACS" --data-urlencode "sysuuid=$UUID" \
+            --data-urlencode "etapa=$ETAPA" --data-urlencode "etapas=${#ETAPAS[@]}" --data-urlencode "texto=$texto" \
+            --data-urlencode "parte=$PARTE" --data-urlencode "velocidade=${VELOCIDADE:+$VELOCIDADE/min}" \
+            "${web}service/LabFreeImageDeploy-etapa.php" >/dev/null 2>&1 & )
+    fi
+}
+
+# ------------------------------------------------------------------ desenho
+
+tamanho() { read -r LIN COL < <(stty -F /dev/tty1 size 2>/dev/null); LIN=${LIN:-25}; COL=${COL:-80}; (( COL > 140 )) && COL=140; }
+pos() { printf '%s[%d;1H%s[K' "$E" "$1" "$E"; }
+corte() { local s="$1"; local m=$((COL - ${2:-4})); (( m < 10 )) && m=10; printf '%s' "${s:0:$m}"; }
+tempo() { local s=$1; printf '%02d:%02d:%02d' $((s / 3600)) $((s % 3600 / 60)) $((s % 60)); }
+
+cabecalho() {
+    local esq=" LabFree ImageDeploy" dir="Maquina: $NOME_MAQ "
+    local meio=$((COL - ${#esq} - ${#dir})); (( meio < 1 )) && meio=1
+    pos 1; printf '%s%s%*s%s%s' "$CAB" "$esq" "$meio" "" "$dir" "$Z"
+}
+
+barra() { # barra PCT LARGURA
+    local p=$1 w=$2 cheio
+    cheio=$((p * w / 100))
+    printf '%s%*s%s%*s%s' "$BARRA_CHEIA" "$cheio" "" "$BARRA_VAZIA" "$((w - cheio))" "" "$Z"
+}
+
+desenhar() {
+    local i linha marca cor bpm dec rest cop tot pct agora texto total largura y max
+    tamanho
+    cabecalho
+    pos 2
+    pos 3; printf '  %s%s%s' "$N" "$(corte "$TITULO")" "$Z"
+    pos 4
+    for i in "${!ETAPAS[@]}"; do
+        linha=$((5 + i))
+        if (( i + 1 < ETAPA )); then marca="[ OK ]"; cor=$VERDE
+        elif (( i + 1 == ETAPA )); then marca="[ >> ]"; cor=$AMARELO
+        else marca="[    ]"; cor=$ESCURO; fi
+        texto="${ETAPAS[$i]}"
+        if (( i == 3 && ETAPA == 4 && PARTE > 0 )); then
+            total=$(total_partes); texto="$texto - parte $PARTE${total:+ de $total}"
+            [[ $total == 0 ]] && texto="${ETAPAS[$i]} - parte $PARTE"
+        fi
+        pos "$linha"; printf '   %s%s %s%s' "$cor" "$marca" "$texto" "$Z"
+    done
+    y=$((6 + ${#ETAPAS[@]}))
+    agora=$(tail -n 1 "$LOG" 2>/dev/null)
+    pos "$y"; printf '  %sAgora:%s %s' "$N" "$Z" "$(corte "${agora:-Iniciando...}" 12)"
+    pct=""; bpm=""; dec=""; rest=""; cop=""; tot=""
+    if (( ETAPA == 4 )) && [[ -s $STATUS ]]; then
+        IFS='@' read -r bpm dec rest cop tot pct _ < <(tail -n 1 "$STATUS" 2>/dev/null)
+        pct=$(printf '%s' "$pct" | tr -dc '0-9.'); pct=${pct%%.*}; [[ $pct =~ ^[0-9]+$ ]] || pct=0
+        (( pct > 100 )) && pct=100
+        VELOCIDADE=$(printf '%s' "$bpm" | tr -d ' ')
+        [[ $VELOCIDADE =~ ^0+([.,]0+)?[A-Za-z]*$ ]] && VELOCIDADE=""   # "0.00byte" no comeco: ainda sem medida
+    fi
+    largura=$((COL - 14)); (( largura > 70 )) && largura=70
+    pos $((y + 2))
+    if [[ -n $pct ]]; then
+        printf '  '; barra "$pct" "$largura"; printf '  %s%3d%%%s' "$N" "$pct" "$Z"
+        pos $((y + 3)); printf '  %s' "$(corte "$(printf '%s de %s  |  %s/min  |  faltam %s  |  total %s' \
+            "${cop:-?}" "${tot:-?}" "${VELOCIDADE:-?}" "${rest:-?}" "$(tempo $((SECONDS - INICIO)))")")"
+    else
+        printf '  %sTempo decorrido: %s%s' "$CINZA" "$(tempo $((SECONDS - INICIO)))" "$Z"
+        pos $((y + 3))
+    fi
+    pos $((y + 4))
+    pos $((y + 5)); printf '  %sRegistro%s %s(ultimas mensagens)%s' "$N" "$Z" "$CINZA" "$Z"
+    max=$((LIN - y - 8)); (( max < 3 )) && max=3
+    i=0
+    while IFS= read -r linha; do
+        pos $((y + 6 + i))
+        case "$linha" in
+            *FALHOU*|ERRO*) printf '  %s%s%s' "$VERMELHO" "$(corte "$linha")" "$Z" ;;
+            AVISO*) printf '  %s%s%s' "$AMARELO" "$(corte "$linha")" "$Z" ;;
+            *) printf '  %s%s%s' "$CINZA" "$(corte "$linha")" "$Z" ;;
+        esac
+        i=$((i + 1))
+    done < <(tail -n "$max" "$LOG")
+    while (( y + 6 + i < LIN - 1 )); do pos $((y + 6 + i)); i=$((i + 1)); done
+    pos "$LIN"; printf '%s  %s%s' "$CINZA" "$(corte 'Nao desligue a maquina  |  Alt+F2: detalhes tecnicos  |  Alt+F1: esta tela')" "$Z"
+    enviar "${agora:-Iniciando}"
+}
+
+# ------------------------------------------------------------------ execucao
+
+# a tela usa o terminal 1 so dela; o FOG roda no terminal 2 (stdin, stdout e stderr la), assim nada do FOG
+# mexe no modo do terminal desta tela (o "script" deixava a entrada em modo nao bloqueante e o teclado parava)
+exec 3<>/dev/tty1
+exec 1>&3 2>/dev/null
+stty -F /dev/tty1 sane 2>/dev/null
+printf '%s[?25l%s[?7l%s[2J' "$E" "$E" "$E"   # esconde o cursor, desliga a quebra automatica de linha e limpa
+chvt 1 2>/dev/null
+setsid /bin/bash -c "script -qfec /bin/fog $BRUTO </dev/tty2 >/dev/tty2 2>&1; echo \$? > $RC" </dev/null >/dev/null 2>&1 &
+while [[ ! -s $RC ]]; do
+    processar
+    desenhar
+    sleep 1
+done
+processar
+codigo=$(cat "$RC")
+DURACAO=$((SECONDS - INICIO))
+
+# ------------------------------------------------------------------ fim: resultado, sem reiniciar sozinho
+
+if [[ $codigo == 0 && ! -s $RES ]]; then
+    RESULTADO=sucesso; ETAPA=$(( ${#ETAPAS[@]} + 1 ))
+else
+    RESULTADO=erro
+    [[ -s $RES ]] || printf 'O processo terminou com erro (codigo %s). Veja o registro.\n' "$codigo" > "$RES"
+fi
+cp "$LOG" /tmp/labfree-registro.txt
+{
+    echo
+    echo "==== Resultado: $RESULTADO  |  duracao $(tempo $DURACAO)  |  $(date '+%d/%m/%Y %H:%M') ===="
+    [[ -s $RES ]] && { echo "Motivo:"; cat "$RES"; }
+} >> /tmp/labfree-registro.txt
+LOG=/tmp/labfree-registro.txt
+enviar "$([[ $RESULTADO == sucesso ]] && echo 'Concluido com sucesso' || head -n 1 "$RES")" "$RESULTADO"
+
+explicar() { # erro tecnico do FOG -> explicacao simples (sem acentos)
+    local t; t=$(tr '\n' ' ' < "$RES" 2>/dev/null)
+    case "$t" in
+        *"partition table"*|*sgdisk*|*sfdisk*) echo "Nao foi possivel recriar as particoes: o disco desta maquina provavelmente e menor que o da imagem." ;;
+        *"not large enough"*|*"too small"*|*"smaller than"*) echo "O disco desta maquina e menor que o necessario para esta imagem." ;;
+        *"Could not find"*[Dd]isk*|*"No hard disk"*|*"Unable to locate"*disk*) echo "Nenhum disco encontrado. Na BIOS, confira se o disco aparece e se o modo SATA esta em AHCI." ;;
+        *hibernat*|*unclean*|*dirty*) echo "O Windows nao foi desligado por completo. Desligue segurando Shift e tente de novo." ;;
+        *BitLocker*) echo "O disco esta protegido pelo BitLocker. Desative o BitLocker no Windows e tente de novo." ;;
+        *"image store"*|*"locate file"*) echo "Os arquivos da imagem nao foram encontrados no servidor." ;;
+        *space*) echo "Falta espaco (no servidor ou no disco desta maquina)." ;;
+        *mount*|*nfs*|*NFS*) echo "A maquina nao conseguiu acessar a pasta de imagens do servidor (rede)." ;;
+        *) echo "" ;;
+    esac
+}
+
+ver_arquivo() { # visualizador simples (o "less" nao funciona sem terminal controlador): setas, PgUp/PgDn, Q
+    local arq="$1" titulo="$2" total topo=0 alt i linha tecla resto
+    mapfile -t LINHAS < "$arq"
+    total=${#LINHAS[@]}
+    tamanho
+    alt=$((LIN - 3))
+    topo=$((total > alt ? total - alt : 0))   # comeca pelo fim (o mais recente)
+    while :; do
+        printf '%s[2J' "$E"
+        resto=$((COL - ${#titulo} - 2)); ((resto < 0)) && resto=0
+        pos 1; printf '%s %s%*s%s' "$CAB" "$(corte "$titulo" 2)" "$resto" "" "$Z"
+        for ((i = 0; i < alt; i++)); do
+            pos $((i + 2)); printf ' %s' "$(corte "${LINHAS[$((topo + i))]:-}" 2)"
+        done
+        pos "$LIN"; printf '%s Linhas %d-%d de %d  |  Setas/PgUp/PgDn: rolar  |  Q: voltar%s' "$CINZA" $((topo + 1)) $((topo + alt < total ? topo + alt : total)) "$total" "$Z"
+        read -rsn1 -u 3 tecla || { sleep 1; continue; }
+        if [[ $tecla == $'\e' ]]; then read -rsn3 -t 0.1 -u 3 resto; tecla+="$resto"; fi
+        case "$tecla" in
+            q|Q) return ;;
+            $'\e[A'*|k) ((topo > 0)) && topo=$((topo - 1)) ;;
+            $'\e[B'*|j|"") ((topo + alt < total)) && topo=$((topo + 1)) ;;
+            $'\e[5'*|b) topo=$((topo - alt)); ((topo < 0)) && topo=0 ;;
+            $'\e[6'*|" ") topo=$((topo + alt)); ((topo + alt > total)) && topo=$((total > alt ? total - alt : 0)) ;;
+        esac
+    done
+}
+
+tela_final() {
+    local y i linha
+    tamanho
+    printf '%s[2J' "$E"
+    cabecalho
+    if [[ $RESULTADO == sucesso ]]; then
+        pos 3; printf '  %s%-*s%s' "$FAIXA_OK" $((COL - 4)) "   CONCLUIDO COM SUCESSO" "$Z"
+        pos 5; printf '  %s' "$(corte "$TITULO_FIM")"
+        pos 6; printf '  Duracao: %s' "$(tempo $DURACAO)"
+        pos 7; [[ $type == up ]] && printf '  A imagem foi guardada no servidor.' || printf '  O sistema foi gravado no disco. Reinicie para usar a maquina.'
+        y=9
+    else
+        pos 3; printf '  %s%-*s%s' "$FAIXA_ERRO" $((COL - 4)) "   O PROCESSO TERMINOU COM ERRO" "$Z"
+        pos 5; printf '  %s' "$(corte "$TITULO")"
+        pos 6; printf '  %sMotivo:%s %s' "$N" "$Z" "$(corte "$(explicar)" 12)"
+        y=7; i=0
+        while IFS= read -r linha && (( i < 5 )); do pos $((y + i)); printf '    %s%s%s' "$VERMELHO" "$(corte "$linha" 6)" "$Z"; i=$((i + 1)); done < "$RES"
+        y=$((y + i + 1))
+    fi
+    pos "$y"; printf '  %sUltimas mensagens%s' "$N" "$Z"
+    i=0
+    while IFS= read -r linha; do
+        pos $((y + 1 + i)); printf '  %s%s%s' "$CINZA" "$(corte "$linha")" "$Z"; i=$((i + 1))
+    done < <(sed '/^====/,$d' "$LOG" | grep -v '^$' | tail -n $((LIN - y - 6)))
+    pos $((LIN - 2)); printf '  %s[R]%s Reiniciar   %s[D]%s Desligar   %s[L]%s Ver registro   %s[T]%s Detalhes tecnicos' \
+        "$N" "$Z" "$N" "$Z" "$N" "$Z" "$N" "$Z"
+}
+
+ESPERA=""
+[[ $shutdown -eq 1 ]] && ESPERA=60    # "desligar quando terminar" no painel: desliga sozinha em 60 s
+while :; do
+    tela_final
+    if [[ -n $ESPERA ]]; then
+        pos "$LIN"; printf '  %sDesligando em %s s (aperte qualquer tecla para cancelar)%s' "$AMARELO" "$ESPERA" "$Z"
+        if read -rsn1 -t 1 -u 3 tecla; then ESPERA=""; else ESPERA=$((ESPERA - 1)); (( ESPERA <= 0 )) && poweroff -f; continue; fi
+    else
+        pos "$LIN"; printf '  %sEscolha uma opcao.%s' "$CINZA" "$Z"
+        read -rsn1 -u 3 tecla || sleep 1
+    fi
+    case "${tecla,,}" in
+        r) printf '%s[2J%s[H Reiniciando...\n' "$E" "$E"; sync; reboot -f ;;
+        d) printf '%s[2J%s[H Desligando...\n' "$E" "$E"; sync; poweroff -f ;;
+        l) ver_arquivo "$LOG" "Registro completo" ;;
+        t) sed -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' -e 's/\x1b[()][0-9A-Za-z]//g' "$BRUTO" | tr '\r' '\n' \
+               | tr -d '\000-\010\013\014\016-\037\177' | grep -av '^[[:space:]]*$' > /tmp/labfree-tecnico.txt
+           ver_arquivo /tmp/labfree-tecnico.txt "Detalhes tecnicos (tudo o que o sistema de clonagem escreveu)" ;;
+    esac
+done

@@ -125,11 +125,25 @@ def gravar_atomico(caminho, conteudo, modo=0o644, dono=None):
                 if dono:
                     os.fchown(f.fileno(), *dono)
                 os.fchmod(f.fileno(), modo)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, caminho)
+        sincronizar_pasta(os.path.dirname(caminho) or '.')
     except BaseException:
         if os.path.exists(tmp):
             os.remove(tmp)
         raise
+
+
+def sincronizar_pasta(pasta):
+    try:
+        fd = os.open(pasta, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
 
 
 def copiar_seguro(origem, destino, modo=0o644, dono=None):
@@ -177,7 +191,12 @@ def leases_ler():
     """Concessões do Kea: o arquivo principal e os que a limpeza periódica (LFC) deixa (.1, .2, .completed).
     Fica com a última de cada MAC. Devolve {mac: (ip, expira, nome)}."""
     vistos = {}
-    for arq in sorted(glob.glob(KEA_LEASES + '*'), key=lambda a: os.path.getmtime(a)):
+    def idade(a):
+        try:
+            return os.path.getmtime(a)
+        except OSError:
+            return 0
+    for arq in sorted(glob.glob(KEA_LEASES + '*'), key=idade):
         try:
             linhas = open(arq, errors='replace').read().splitlines()[1:]
         except OSError:
@@ -249,6 +268,16 @@ class Instantaneo:
             self.arquivos[caminho] = (destino, st.st_uid, st.st_gid, st.st_mode & 0o7777)
         else:
             self.arquivos[caminho] = None
+        # a lista vai para o disco a cada arquivo: se a energia cair no meio, dá para desfazer no próximo boot
+        gravar_atomico(os.path.join(self.dir, 'manifesto.json'), json.dumps(self.arquivos), 0o600)
+
+    @classmethod
+    def do_manifesto(cls, pasta):
+        inst = cls.__new__(cls)
+        inst.dir = pasta
+        with open(os.path.join(pasta, 'manifesto.json')) as f:
+            inst.arquivos = {k: (tuple(v) if v else None) for k, v in json.load(f).items()}
+        return inst
 
     def restaurar(self):
         for caminho, copia in self.arquivos.items():
@@ -448,9 +477,14 @@ def kea_instalar(cfg, inst):
         return False  # nada mudou: não precisa reiniciar o DHCP
     fd, novo = tempfile.mkstemp(prefix='.LabFreeImageDeploy-', suffix='.conf', dir=os.path.dirname(KEA))
     try:
+        atual = os.stat(KEA) if os.path.exists(KEA) else None
         with os.fdopen(fd, 'w') as f:
             f.write(texto)
-        os.chmod(novo, 0o644)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(novo, (atual.st_mode & 0o7777) if atual else 0o644)
+        if atual:
+            os.chown(novo, atual.st_uid, atual.st_gid)
         kea_testar(novo)
         inst.guardar(KEA)
         os.replace(novo, KEA)
@@ -500,14 +534,14 @@ def dhcp_aplicar(e):
             aviso = kea_reiniciar(conf)
         else:
             aviso = ''
+        salvar_dhcp(v)
     except Exception as ex:
         inst.restaurar()
-        sh(['systemctl', 'enable' if estava_habilitado else 'disable', KEA_SERVICO], verificar=False)
+        sh(['systemctl', 'enable', KEA_SERVICO] if estava_habilitado else ['systemctl', 'disable', '--now', KEA_SERVICO], verificar=False)
         if estava_habilitado:
             kea_reiniciar_seguro(conf)
         log(f"dhcp-aplicar FALHOU, desfeito: {ex}")
         raise
-    salvar_dhcp(v)
     log(f"dhcp-aplicar ok: faixa {v['inicio']}-{v['fim']} gw={v['gateway'] or '-'} dns={','.join(v['dns']) or '-'} "
         f"concessao={v['segundos']}s reservas={len(v['reservas'])} ativo={v['ativo']}")
     msg = 'Configuração do DHCP salva e aplicada.' if v['ativo'] else 'DHCP do servidor desligado. Use outro servidor DHCP na rede (veja a Ajuda).'
@@ -608,7 +642,7 @@ def rede_planejar(e):
     base = f'/sys/class/net/{iface}'
     if not os.path.exists(f'{base}/device') or ler_sys(f'{base}/type') != '1':
         raise Erro(f'{iface} não é uma placa de rede física.')
-    if os.path.isdir(f'{base}/wireless'):
+    if os.path.isdir(f'{base}/wireless') or os.path.exists(f'{base}/phy80211'):
         raise Erro('A rede de clonagem precisa de uma placa com cabo (Ethernet); Wi-Fi não serve para boot pela rede.')
     if iface in rota_padrao_ifaces() and iface != conf.get('FOG_IFACE'):
         raise Erro(f'A placa {iface} é a que leva este servidor à internet. Usá-la para a clonagem derrubaria a internet e '
@@ -626,7 +660,7 @@ def rede_planejar(e):
     if ip in (rede.network_address, rede.broadcast_address):
         raise Erro(f'{ip} é o endereço de rede ou de broadcast de {rede}; escolha outro.')
     for outra in os.listdir('/sys/class/net'):
-        if outra in (iface, 'lo'):
+        if outra in (iface, 'lo', conf.get('FOG_IFACE')):
             continue
         for cidr in ips_da_iface(outra):
             if ipaddress.IPv4Network(cidr, strict=False).overlaps(rede):
@@ -819,16 +853,26 @@ def reemitir_certificado(ip, inst):
     for f in (cert, csr, sans, f'{SSL_DIR}/ca.cnf', f'{SSL_DIR}/req.cnf'):
         inst.guardar(f)
     os.makedirs(SSL_DIR, exist_ok=True)
-    gravar_atomico(f'{SSL_DIR}/ca.cnf', f"[v3_ca]\nsubjectAltName = @alt_names\n[alt_names]\n{alt}", 0o644)
-    gravar_atomico(f'{SSL_DIR}/req.cnf', "[req]\ndistinguished_name = req_distinguished_name\nreq_extensions = v3_req\nprompt = yes\n"
-                   f"[req_distinguished_name]\nCN = {ip}\nO = FOG Project\nOU = FOG Client Communication\n"
-                   f"[v3_req]\nsubjectAltName = @alt_names\n[alt_names]\n{alt}", 0o644)
-    cn = nomes[0]
-    sh(['openssl', 'req', '-new', '-sha512', '-key', chave, '-out', csr, '-config', f'{SSL_DIR}/req.cnf',
-        '-subj', f'/CN={cn}/O=FOG Project/OU=FOG Web UI'])
-    novo = cert + '.LabFreeImageDeploy-novo'
-    sh(['openssl', 'x509', '-req', '-in', csr, '-CA', ca_pem, '-CAkey', ca_key, '-CAcreateserial',
-        '-out', novo, '-days', '1825', '-extensions', 'v3_ca', '-extfile', f'{SSL_DIR}/ca.cnf'])
+    ca_cnf = f"[v3_ca]\nsubjectAltName = @alt_names\n[alt_names]\n{alt}"
+    req_cnf = ("[req]\ndistinguished_name = req_distinguished_name\nreq_extensions = v3_req\nprompt = yes\n"
+               f"[req_distinguished_name]\nCN = {ip}\nO = FOG Project\nOU = FOG Client Communication\n"
+               f"[v3_req]\nsubjectAltName = @alt_names\n[alt_names]\n{alt}")
+    # o openssl lê as configurações de uma pasta só do root (a pasta do FOG tem pai gravável por outros usuários)
+    privada = tempfile.mkdtemp(prefix='cert-')
+    try:
+        for nome_cnf, conteudo in (('ca.cnf', ca_cnf), ('req.cnf', req_cnf)):
+            with open(f'{privada}/{nome_cnf}', 'w') as f:
+                f.write(conteudo)
+        cn = nomes[0]
+        sh(['openssl', 'req', '-new', '-sha512', '-key', chave, '-out', csr, '-config', f'{privada}/req.cnf',
+            '-subj', f'/CN={cn}/O=FOG Project/OU=FOG Web UI'])
+        novo = cert + '.LabFreeImageDeploy-novo'
+        sh(['openssl', 'x509', '-req', '-in', csr, '-CA', ca_pem, '-CAkey', ca_key, '-CAcreateserial',
+            '-out', novo, '-days', '1825', '-extensions', 'v3_ca', '-extfile', f'{privada}/ca.cnf'])
+    finally:
+        shutil.rmtree(privada, ignore_errors=True)
+    gravar_atomico(f'{SSL_DIR}/ca.cnf', ca_cnf, 0o644)
+    gravar_atomico(f'{SSL_DIR}/req.cnf', req_cnf, 0o644)
     sh(['openssl', 'verify', '-CAfile', cadeia, novo])
     atual = os.stat(cert)
     os.chown(novo, atual.st_uid, atual.st_gid)
@@ -960,6 +1004,48 @@ def web_ok(ip):
     return True
 
 
+REDE_PENDENTE = '/var/lib/LabFreeImageDeploy/rede-pendente.json'
+
+
+def diario(dados):
+    """Anota o necessário para desfazer uma troca de rede interrompida (queda de energia, desligar no meio)."""
+    if dados is None:
+        if os.path.exists(REDE_PENDENTE):
+            os.remove(REDE_PENDENTE)
+            sincronizar_pasta(os.path.dirname(REDE_PENDENTE))
+        return
+    gravar_atomico(REDE_PENDENTE, json.dumps(dados, default=str), 0o600)
+
+
+def recuperar(_entrada=None):
+    """Se uma troca de rede ficou pela metade, devolve tudo ao estado anterior. Roda no boot e antes de cada alteração."""
+    if not os.path.exists(REDE_PENDENTE):
+        return {'ok': True, 'msg': 'Nada a recuperar.'}
+    try:
+        d = json.load(open(REDE_PENDENTE))
+    except (OSError, ValueError):
+        os.remove(REDE_PENDENTE)
+        return {'ok': True, 'msg': 'Diário ilegível descartado.'}
+    log(f"recuperar: troca de rede interrompida encontrada ({d.get('dir')}); desfazendo")
+    try:
+        Instantaneo.do_manifesto(d['dir']).restaurar()
+    except (OSError, ValueError, KeyError) as ex:
+        log(f"recuperar: não foi possível ler as cópias: {ex}")
+    if d.get('banco'):
+        try:
+            banco_restaurar(*d['banco'])
+        except Exception as ex:
+            log(f"recuperar: ERRO ao restaurar o banco: {ex}")
+    velho = d.get('velho_conf') or {}
+    nm_reverter(velho, d.get('nm') or {})
+    sh(['systemctl', 'daemon-reload'], verificar=False)
+    reiniciar_servicos_fog()
+    kea_reiniciar_seguro(velho)
+    diario(None)
+    log('recuperar: troca de rede interrompida desfeita')
+    return {'ok': True, 'msg': 'Uma troca de rede interrompida foi desfeita.'}
+
+
 def rede_aplicar(e):
     p = rede_planejar(e)
     velho_conf = ler_conf()
@@ -968,12 +1054,15 @@ def rede_aplicar(e):
     inst = Instantaneo('rede')
     banco_antes = None
     nm_desfazer = {}
+    anotar = lambda: diario({'dir': inst.dir, 'velho_conf': velho_conf, 'nm': nm_desfazer, 'banco': banco_antes})
+    anotar()
     fog_instalado = os.path.exists(FOG_CONFIG_PHP)
     log(f"rede-aplicar: {if_v} {ip_v}/{p['velho']['prefixo']} -> {if_n} {ip_n}/{p['prefixo']}")
     try:
         inst.guardar(CONF)
         escrever_nm_carrier(if_n, inst)
         uuid = nm_configurar(p, velho_conf, nm_desfazer)
+        anotar()
         nova_conf = {**velho_conf, 'FOG_IFACE': if_n, 'FOG_MAC': p['mac'], 'FOG_IP': ip_n,
                      'FOG_PREFIXO': str(p['prefixo']), 'FOG_NM_UUID': uuid}
         gravar_conf(nova_conf)
@@ -985,6 +1074,10 @@ def rede_aplicar(e):
         if os.path.exists(KEA):
             cfg = kea_ler()
             d = p['dhcp']
+            if not d:  # configuração do DHCP ilegível: recomeça com a faixa padrão da rede nova
+                ini, fim = faixa_padrao(p['rede'], p['ip'])
+                d = {'inicio': str(ini), 'fim': str(fim), 'gateway': '', 'dns': [], 'dominio': '', 'concessao_horas': 6,
+                     'reservas': [], 'ativo': True}
             v = dhcp_validar({'inicio': d['inicio'], 'fim': d['fim'], 'gateway': d['gateway'], 'dns': d['dns'],
                               'dominio': d['dominio'], 'concessao_horas': d['concessao_horas'], 'reservas': d['reservas'],
                               'ativo': d['ativo']}, p['rede'], p['ip'])
@@ -1002,6 +1095,7 @@ def rede_aplicar(e):
                                 'submask': str(p['rede'].netmask), **extra}, inst)
         if fog_instalado:
             banco_antes = banco_ler_rede()
+            anotar()
             banco_gravar_rede(ip_v, ip_n, if_v, if_n)
             if p['mudou_ip']:
                 reemitir_certificado(ip_n, inst)
@@ -1022,10 +1116,12 @@ def rede_aplicar(e):
         sh(['systemctl', 'daemon-reload'], verificar=False)
         reiniciar_servicos_fog()
         kea_reiniciar_seguro(velho_conf)
+        diario(None)
         if fog_instalado and not web_ok('127.0.0.1'):
             log('ATENÇÃO: depois de desfazer, o sistema ainda não responde. Rode LabFreeImageDeploy-verificar.')
             raise Erro(f"Não foi possível aplicar e, depois de desfazer, o sistema ainda não responde. Rode 'sudo LabFreeImageDeploy-verificar'. Motivo: {ex}")
         raise Erro(f"Não foi possível aplicar; tudo foi desfeito. Motivo: {ex}")
+    diario(None)
     log(f"rede-aplicar ok ({inst.dir})")
     avisos = list(p['avisos']) + ([aviso] if aviso else [])
     return {'ok': True, 'msg': 'Rede de clonagem configurada.', 'avisos': avisos, 'url': f'https://{ip_n}/',
@@ -1047,6 +1143,7 @@ def reaplicar(_entrada=None):
     escrever_chrony(ipaddress.IPv4Network(f"{ip}/{conf.get('FOG_PREFIXO', 24)}", strict=False), inst)
     sh(['systemctl', 'daemon-reload'], verificar=False)
     sh(['udevadm', 'control', '--reload'], verificar=False)
+    sh(['udevadm', 'trigger', '--action=add', f'/sys/class/net/{iface}'], verificar=False)
     feito.append('NetworkManager, drop-in do Kea, udev e NTP conferidos')
     if garantir_ipxe_ntp(ip, inst):
         feito.append('default.ipxe: linha ntp reinserida')
@@ -1068,8 +1165,10 @@ def imagem_apagar(e):
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', caminho) or caminho.lower() in ('dev', 'postdownloadscripts', 'postinitscripts'):
         raise Erro('Pasta de imagem inválida.')
     raiz = os.path.realpath('/images')
+    if os.path.islink(os.path.join(raiz, caminho)):
+        raise Erro('Recusado: a pasta da imagem é um link simbólico.')
     alvo = os.path.realpath(os.path.join(raiz, caminho))
-    if os.path.dirname(alvo) != raiz or not os.path.isdir(alvo):
+    if os.path.dirname(alvo) != raiz or os.path.basename(alvo) != caminho or not os.path.isdir(alvo):
         raise Erro('A pasta dessa imagem não existe.')
     if mysql(f"SELECT COUNT(*) FROM images WHERE imagePath='{caminho}'").strip() != '0':
         raise Erro('Esta pasta ainda pertence a uma imagem cadastrada.')
@@ -1083,6 +1182,13 @@ def imagem_apagar(e):
 
 MARCA_DIR = '/usr/local/share/LabFreeImageDeploy'
 IPXE_WEB = '/var/www/html/fog/service/ipxe'
+FOS_ORIGINAIS = '/var/lib/LabFreeImageDeploy/fos-original'
+# etapa ao vivo e registro de cada tarefa, enviados pela tela da máquina (LabFreeImageDeploy-etapa.php)
+TABELA_ETAPAS = """CREATE TABLE IF NOT EXISTS labfreeEtapas (
+    taskID INT NOT NULL PRIMARY KEY, hostID INT NOT NULL, etapa TINYINT NOT NULL DEFAULT 0, etapas TINYINT NOT NULL DEFAULT 5,
+    texto VARCHAR(255) NOT NULL DEFAULT '', parte SMALLINT NOT NULL DEFAULT 0, resultado VARCHAR(10) NOT NULL DEFAULT '',
+    mensagem TEXT NULL, registro MEDIUMTEXT NULL, atualizada DATETIME NOT NULL, KEY (hostID)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE labfreeEtapas ADD COLUMN IF NOT EXISTS velocidade VARCHAR(30) NOT NULL DEFAULT '';"""
 BOOTMENU_PHP = '/var/www/html/fog/lib/fog/bootmenu.class.php'
 APACHE_LABFREE = '/etc/apache2/conf-available/LabFreeImageDeploy.conf'
 COR_FOG, COR_LABFREE = '0x00567a', '0x4338ca'
@@ -1096,6 +1202,18 @@ MENU_BOOT = {
     'fog.advanced': 'Menu avancado', 'fog.advancedlogin': 'Menu avancado',
     'fog.approvehost': 'Aprovar esta maquina', 'fog.enrollsecureboot': 'Registrar chave do Secure Boot',
 }
+# correções no cadastro automático do FOG 1.5.10 (registration.class.php)
+REGISTRO_PHP = '/var/www/html/fog/lib/reg-task/registration.class.php'
+REGISTRO_TROCAS = [
+    # erro de digitação: depois da 1ª colisão de nome, a máquina ficava com o MAC como nome
+    ("$autuRegSysName", "$autoRegSysName"),
+    # createImagePackage devolve texto quando dá certo: a mensagem estava invertida
+    ("""                if ($imageTest) {
+                    throw new Exception(
+                        _('Done, Failed to create tasking')""", """                if (!$imageTest) {
+                    throw new Exception(
+                        _('Done, Failed to create tasking')"""),
+]
 BOOTMENU_TROCAS = [
     ("$reg_string = 'NOT registered!';", "$reg_string = 'NAO cadastrada!';"),
     ("'pending approval!' :", "'aguardando aprovacao!' :"),
@@ -1165,16 +1283,22 @@ def marca_fos(nome):
     versao_banner = h.hexdigest()[:16]
     atual = sha256(alvo)
     salvo = open(carimbo).read().split() if os.path.exists(carimbo) else []
-    original = alvo + '.fog-original'
-    if salvo[:1] == [atual] and salvo[1:2] == [versao_banner]:
+    # o original do FOG fica numa pasta só do root (a pasta do site é gravável por outros usuários)
+    os.makedirs(FOS_ORIGINAIS, mode=0o700, exist_ok=True)
+    original = f'{FOS_ORIGINAIS}/{nome}'
+    antigo = alvo + '.fog-original'  # versões até 0.5.0 guardavam ao lado do arquivo
+    if not os.path.exists(original) and os.path.isfile(antigo) and not os.path.islink(antigo):
+        if sh(['sh', '-c', 'xz -dc "$1" | grep -aqF "LabFree ImageDeploy (banner"', '-', antigo],
+              verificar=False, tempo=300).returncode != 0:
+            copiar_seguro(antigo, original, 0o600, (0, 0))
+    if salvo[:1] == [atual] and salvo[1:2] == [versao_banner] and os.path.exists(original):
         return False  # já é a versão LabFree com este banner
     if salvo[:1] != [atual] or not os.path.exists(original):
         # o arquivo atual vira a base, mas só se for do FOG (sem a nossa marca); senão mantém o original guardado
         com_marca = sh(['sh', '-c', 'xz -dc "$1" | grep -aqF "LabFree ImageDeploy (banner"', '-', alvo],
                        verificar=False, tempo=300).returncode == 0
         if not com_marca:
-            st = os.stat(alvo)
-            copiar_seguro(alvo, original, st.st_mode & 0o7777, (st.st_uid, st.st_gid))
+            copiar_seguro(alvo, original, 0o600, (0, 0))
         elif not os.path.exists(original):
             raise Erro(f'{alvo} já tem a marca e o original do FOG não foi encontrado.')
     base = original
@@ -1191,7 +1315,7 @@ def marca_fos(nome):
     try:
         with open(img, 'wb') as f:
             subprocess.run(['xz', '-dc', base], stdout=f, check=True, timeout=600)
-        sh(['mount', '-o', 'loop,nosuid,nodev', img, f'{tmp}/mnt'])
+        sh(['mount', '-t', 'ext4', '-o', 'loop,nosuid,nodev', img, f'{tmp}/mnt'])
         montado = True
         try:
             funcs = dentro(f'{tmp}/mnt/usr/share/fog/lib/funcs.sh')
@@ -1200,19 +1324,25 @@ def marca_fos(nome):
             texto = open(funcs).read()
             ini = texto.index('displayBanner() {')
             fim = texto.index('\n}\n', ini) + 3
-            open(funcs, 'w').write(texto[:ini] + BANNER_FOS + texto[fim:])
+            # no fim do funcs.sh: ajustes do LabFree (erros vão para a tela final em vez de reiniciar)
+            novo = texto[:ini] + BANNER_FOS + texto[fim:]
+            novo += '\n# LabFree ImageDeploy\n[[ -r /usr/share/fog/lib/labfree-tela.sh ]] && . /usr/share/fog/lib/labfree-tela.sh\n'
+            open(funcs, 'w').write(novo)
             open(dentro(f'{tmp}/mnt/etc/issue'), 'w').write('LabFree ImageDeploy - Clonagem de maquinas pela rede\n')
             # arquivos do LabFree dentro do sistema de clonagem (ex.: cadastro guiado em /bin/fog.man.reg)
             for raiz, _, arqs in os.walk(f'{MARCA_DIR}/fos'):
                 for a in arqs:
                     origem = os.path.join(raiz, a)
                     destino = os.path.join(f'{tmp}/mnt', os.path.relpath(origem, f'{MARCA_DIR}/fos'))
+                    os.makedirs(os.path.dirname(destino), exist_ok=True)
+                    dentro(os.path.dirname(destino))
                     if os.path.lexists(destino):
                         dentro(destino)
                     if os.path.exists(destino) and not os.path.exists(destino + '.fog-original'):
                         shutil.copy2(destino, destino + '.fog-original')
                     shutil.copy2(origem, destino)
-                    os.chmod(destino, 0o755 if '/bin/' in destino else 0o644)
+                    executavel = '/bin/' in destino or '/init.d/' in destino
+                    os.chmod(destino, 0o755 if executavel else 0o644)
         finally:
             if sh(['umount', f'{tmp}/mnt'], verificar=False).returncode == 0:
                 montado = False
@@ -1250,14 +1380,18 @@ def marca_aplicar(_entrada=None):
         mysql(f"UPDATE pxeMenu SET pxeDesc='{texto}' WHERE pxeName='{chave}';")
     # menos itens na tela: troca de chave de produto e exclusão pelo boot ficam escondidos (o painel faz isso)
     mysql("UPDATE pxeMenu SET pxeRegOnly=99 WHERE pxeName IN ('fog.keyreg','fog.quickdel');")
+    # Secure Boot não funciona com o iPXE recompilado (sem assinatura): o item só confundiria
+    if not os.path.exists('/var/www/html/fog/service/secureboot/shimx64.efi'):
+        mysql("UPDATE pxeMenu SET pxeRegOnly=99 WHERE pxeName='fog.enrollsecureboot';")
     # o cadastro automático usa o padrão de nomes do painel (ex.: LAB-001)
     mysql("UPDATE globalSettings SET settingValue='1' WHERE settingKey='FOG_QUICKREG_AUTOPOP';")
     if mysql("SELECT settingValue FROM globalSettings WHERE settingKey='FOG_QUICKREG_SYS_NAME'").strip() in ('', 'PC-*', 'MAC'):
         mysql("UPDATE globalSettings SET settingValue='LAB-***' WHERE settingKey='FOG_QUICKREG_SYS_NAME';")
-    servidor = f'{MARCA_DIR}/servidor/LabFreeImageDeploy-cadastro.php'
-    if os.path.exists(servidor):
-        st = os.stat('/var/www/html/fog/service')
-        copiar_seguro(servidor, '/var/www/html/fog/service/LabFreeImageDeploy-cadastro.php', 0o644, (st.st_uid, st.st_gid))
+    # endereços do LabFree usados pelo sistema de clonagem (cadastro guiado, etapa ao vivo)
+    st = os.stat('/var/www/html/fog/service')
+    for arq in sorted(glob.glob(f'{MARCA_DIR}/servidor/LabFreeImageDeploy-*.php')):
+        copiar_seguro(arq, f'/var/www/html/fog/service/{os.path.basename(arq)}', 0o644, (st.st_uid, st.st_gid))
+    mysql(TABELA_ETAPAS)
     feito.append('menu de boot: fundo, cores e itens em português')
     if os.path.exists(BOOTMENU_PHP):
         texto = open(BOOTMENU_PHP).read()
@@ -1268,6 +1402,15 @@ def marca_aplicar(_entrada=None):
             inst.guardar(BOOTMENU_PHP)
             gravar_atomico(BOOTMENU_PHP, novo)
             feito.append('textos de cadastro do menu de boot')
+    if os.path.exists(REGISTRO_PHP):
+        texto = open(REGISTRO_PHP).read()
+        novo = texto
+        for a, b in REGISTRO_TROCAS:
+            novo = novo.replace(a, b)
+        if novo != texto:
+            inst.guardar(REGISTRO_PHP)
+            gravar_atomico(REGISTRO_PHP, novo)
+            feito.append('correções no cadastro automático')
     # 2) sistema de clonagem (FOS)
     for nome in ('init.xz', 'init_32.xz'):
         r = marca_fos(nome)
@@ -1307,12 +1450,12 @@ def status(_entrada=None):
 ACOES = {'status': status, 'dhcp-ler': dhcp_ler, 'dhcp-aplicar': dhcp_aplicar,
          'rede-listar': rede_listar, 'rede-simular': rede_simular, 'rede-aplicar': rede_aplicar, 'reaplicar': reaplicar,
          'imagem-apagar': imagem_apagar, 'marca-aplicar': marca_aplicar,
-         'servicos-aplicar': lambda e=None: {'ok': True, 'criados': servicos_aplicar()}}
+         'servicos-aplicar': lambda e=None: {'ok': True, 'criados': servicos_aplicar()}, 'recuperar': recuperar}
 
 
 # o painel (www-data via sudo) só pode pedir estas ações; o resto é para o administrador e o instalador
 ACOES_PAINEL = {'status', 'dhcp-ler', 'dhcp-aplicar', 'rede-listar', 'rede-simular', 'rede-aplicar', 'imagem-apagar'}
-ACOES_LEITURA = {'status', 'dhcp-ler', 'rede-listar', 'rede-simular'}
+ACOES_LEITURA = {'status', 'dhcp-ler', 'rede-listar', 'rede-simular'}  # (recuperar trava como as alterações)
 TRAVA = '/run/LabFreeImageDeploy.lock'
 
 
@@ -1359,6 +1502,8 @@ def main():
         if acao not in ACOES_LEITURA:
             # quem chama pelo painel não espera muito; o instalador e os comandos esperam a vez
             travar(20 if os.environ.get('SUDO_USER') == 'www-data' else 1800)
+            if acao != 'recuperar' and os.path.exists(REDE_PENDENTE):
+                recuperar()  # uma troca anterior morreu no meio: primeiro desfaz
         entrada = json.loads(bruto) if bruto.strip() else {}
         if entrada == []:  # lista vazia vinda do PHP equivale a "sem dados"
             entrada = {}

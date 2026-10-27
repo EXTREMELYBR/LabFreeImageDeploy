@@ -132,6 +132,11 @@ while :; do
     res="$serverBody"
     # respostas do servidor (registration.class.php): "Done, with imaging!", "Done, without imaging!...", "Done, Failed to create tasking"
     [[ $res == Done* ]] && break
+    if [[ $res == *"Failed to create Host"* ]]; then
+        # outra maquina ficou com o mesmo nome ao mesmo tempo: recomeca com uma sugestao nova
+        tela --msgbox "O nome \"$host\" acabou de ser usado por outra maquina.\n\nVamos escolher outro nome." 10 60
+        exec "$0"
+    fi
     tela --yes-button "Tentar de novo" --no-button "Reiniciar" --yesno "O cadastro NAO foi feito.\n\nResposta do servidor:\n${res:0:200}" 13 64 || { reboot -f; exit 1; }
 done
 . /bin/fog.inventory >/dev/null 2>&1 || true
