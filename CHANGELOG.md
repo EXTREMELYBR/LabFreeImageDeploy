@@ -5,6 +5,12 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.8.1] - 2026-10-27
+
+### Documentação
+- AGENTS.md e PROMPT-CONTINUAR: 0.8.0 instalada na produção e o que foi conferido; pendências (teste real em grupo,
+  adaptador USB em porta USB 3).
+
 ## [0.8.0] - 2026-10-27
 
 Precisa do instalador para chegar ao servidor (`sudo ./instalar.sh`, sem clonagem em andamento).

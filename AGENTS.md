@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 27/10/2026 (versão 0.8.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 27/10/2026 (versão 0.8.1). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -232,8 +232,11 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
 - 27/10 18:47: o usuário rodou o instalador com a **0.7.1** (antes de a 0.8.0 entrar no repositório): chegaram à
   produção a regra de sudo restrita, a tela nova na máquina (FOS), a unidade de recuperação e o resto da varredura de
   26/10 (o item "Falta" acima está feito). `/etc/LabFreeImageDeploy/versao` = 0.7.1.
-- 0.8.0 publicada no repositório; **para chegar à produção falta rodar o instalador de novo** (porteiro,
-  `config.class.php`, tmpfiles, menu de boot sem tempo e o painel novo).
+- 27/10 ~18:49: o usuário rodou o instalador com a **0.8.0**. Conferido: `versao` 0.8.0, porteiro em
+  `/usr/local/lib/LabFreeImageDeploy/udp-sender`, `/run/LabFreeImageDeploy/grupo` (1770 root:www-data),
+  `LabFreeImageDeploy-multicast` reiniciado com ele, `boot.php` com `choose ... --timeout 0`, painel `?v=0.8.0`, FOS com
+  a `labfree-tela` atual. **Falta**: teste real de sessão em grupo com 2–3 máquinas (seção 9, item 1) e mudar o
+  adaptador USB para uma porta USB 3 (continua em 480 Mbit/s).
 
 ## 9. Próximos passos sugeridos
 1. Depois que o usuário rodar o instalador em produção: conferir `LabFreeImageDeploy verificar`, testar o painel, um
