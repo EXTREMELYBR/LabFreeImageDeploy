@@ -5,6 +5,35 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.9.0] - 2026-10-27
+
+Precisa do instalador para chegar ao servidor (`sudo ./instalar.sh`, sem clonagem em andamento).
+
+### Novo
+- **Imagens menores e conferidas, sozinhas**: com o servidor parado, cada imagem é recomprimida (zstd nível 19 com
+  janela longa: na imagem do laboratório, 14% menor que a compressão padrão do FOG) e **conferida bit a bit** antes
+  de substituir o original. Menos dados para enviar = restaurações (individuais e em grupo) mais rápidas. Para na
+  hora se alguém começar uma captura, restauração ou sessão em grupo, e continua depois.
+- **Integridade garantida**: toda imagem é conferida depois da captura e de novo a cada 30 dias (soma de verificação
+  de cada bloco). Arquivo corrompido aparece em Imagens ("Problema nos arquivos desta imagem") e no
+  `LabFreeImageDeploy verificar`, e nunca é "otimizado" por cima.
+- **Compressão escolhida por imagem** (Imagens → Nova imagem / Editar): Rápida (padrão, nível 3: 3,5× menos trabalho
+  para o processador da máquina, a captura termina antes; o servidor deixa menor depois), Normal (6) ou Menor (12).
+  Imagens novas sempre no formato zstd. Cada imagem mostra "Otimizada: X% menor" e "Conferida há …".
+- `sudo LabFreeImageDeploy otimizar`: roda a otimização/conferência agora (se o servidor estiver parado).
+
+### Correções
+- **Máquinas → Detectadas na rede** virava uma lista infinita: agora mostra só quem deu boot pela rede nos últimos
+  30 minutos (o número no menu também); depois disso a máquina sai da lista sozinha.
+
+### Para quem mantém
+- `lib/LabFreeImageDeploy-otimizar` + `LabFreeImageDeploy-otimizar.timer` (a cada 20 min, `Nice=19`, E/S ociosa);
+  tabela `labfreeImagens` (datas em UTC); estado por arquivo em `/var/lib/LabFreeImageDeploy/otimizar.json`; registro
+  em `/var/log/LabFreeImageDeploy/otimizar.log`. Teste sem root: `python3 -I testes/teste_otimizar.py`.
+- API: `imagens` traz `compressao`, `zstd` e `otimizacao`; `criar_imagem`/`editar_imagem` aceitam `compressao` e
+  `otimizar`; `Painel::recentes()` (detecção de 30 min).
+- `publicar.sh` confere também a sintaxe do porteiro e do otimizador.
+
 ## [0.8.1] - 2026-10-27
 
 ### Documentação

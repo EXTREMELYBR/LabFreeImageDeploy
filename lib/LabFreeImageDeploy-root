@@ -1189,6 +1189,11 @@ TABELA_ETAPAS = """CREATE TABLE IF NOT EXISTS labfreeEtapas (
     texto VARCHAR(255) NOT NULL DEFAULT '', parte SMALLINT NOT NULL DEFAULT 0, resultado VARCHAR(10) NOT NULL DEFAULT '',
     mensagem TEXT NULL, registro MEDIUMTEXT NULL, atualizada DATETIME NOT NULL, KEY (hostID)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ALTER TABLE labfreeEtapas ADD COLUMN IF NOT EXISTS velocidade VARCHAR(30) NOT NULL DEFAULT '';"""
+# otimização e conferência das imagens (lib/LabFreeImageDeploy-otimizar grava; o painel lê e liga/desliga)
+TABELA_IMAGENS = """CREATE TABLE IF NOT EXISTS labfreeImagens (
+  imageID INT NOT NULL PRIMARY KEY, otimizar TINYINT NOT NULL DEFAULT 1, estado VARCHAR(20) NOT NULL DEFAULT '',
+  detalhe VARCHAR(255) NOT NULL DEFAULT '', pct TINYINT NOT NULL DEFAULT 0, antes BIGINT NOT NULL DEFAULT 0,
+  depois BIGINT NOT NULL DEFAULT 0, verificada DATETIME NULL, atualizado DATETIME NULL) ENGINE=InnoDB"""
 BOOTMENU_PHP = '/var/www/html/fog/lib/fog/bootmenu.class.php'
 APACHE_LABFREE = '/etc/apache2/conf-available/LabFreeImageDeploy.conf'
 COR_FOG, COR_LABFREE = '0x00567a', '0x4338ca'
@@ -1430,6 +1435,7 @@ def marca_aplicar(_entrada=None):
     for arq in sorted(glob.glob(f'{MARCA_DIR}/servidor/LabFreeImageDeploy-*.php')):
         copiar_seguro(arq, f'/var/www/html/fog/service/{os.path.basename(arq)}', 0o644, (st.st_uid, st.st_gid))
     mysql(TABELA_ETAPAS)
+    mysql(TABELA_IMAGENS)
     feito.append('menu de boot: fundo, cores e itens em português')
     # a máquina não escolhe nada sozinha no menu de boot (0 = esperar alguém escolher). Só na primeira vez:
     # depois vale o que o administrador escolher no painel (Configurações → Cadastro pelo boot)

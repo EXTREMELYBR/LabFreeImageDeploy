@@ -32,11 +32,17 @@ def imagens(c):
         return []
     return [
         {'id': 1, 'nome': 'Laboratorio Fontes', 'descricao': 'Windows 10 + Office + Scratch, sala de informática', 'caminho': 'LaboratorioFontes', 'tipo': 2,
-         'os_id': 9, 'os': 'Windows 10', 'protegida': 1, 'maquinas': 18, 'redimensionavel': False, 'disco': disco(41.2e9, 60 * 24 * 12, 'sda', 128.04e9)},
+         'os_id': 9, 'os': 'Windows 10', 'protegida': 1, 'maquinas': 18, 'redimensionavel': False, 'disco': disco(41.2e9, 60 * 24 * 12, 'sda', 128.04e9),
+         'compressao': 'normal', 'zstd': True,
+         'otimizacao': {'ligada': True, 'estado': 'problema' if c == 'problema' else 'ok', 'detalhe': 'd1p3.img está corrompido: capture a imagem de novo' if c == 'problema' else '',
+                        'pct': 100, 'antes': 47.9e9, 'depois': 41.2e9, 'verificada': iso(60 * 3)}},
         {'id': 2, 'nome': 'Windows 11 Administrativo', 'descricao': '', 'caminho': 'Win11Adm', 'tipo': 1,
-         'os_id': 9, 'os': 'Windows 11', 'protegida': 0, 'maquinas': 4, 'redimensionavel': True, 'disco': disco(23.7e9, 60 * 5, 'nvme0n1', 64.4e9)},
+         'os_id': 9, 'os': 'Windows 11', 'protegida': 0, 'maquinas': 4, 'redimensionavel': True, 'disco': disco(23.7e9, 60 * 5, 'nvme0n1', 64.4e9),
+         'compressao': 'rapida', 'zstd': True,
+         'otimizacao': {'ligada': True, 'estado': 'otimizando', 'detalhe': 'Otimizando d1p2.img', 'pct': 37, 'antes': 0, 'depois': 0, 'verificada': None}},
         {'id': 3, 'nome': 'Ubuntu 24.04 Robótica com um nome bem comprido para testar quebra', 'descricao': 'ROS 2, Arduino IDE', 'caminho': 'UbuntuRobotica', 'tipo': 1,
-         'os_id': 50, 'os': 'Linux', 'protegida': 0, 'maquinas': 0, 'redimensionavel': True, 'disco': disco(0)},
+         'os_id': 50, 'os': 'Linux', 'protegida': 0, 'maquinas': 0, 'redimensionavel': True, 'disco': disco(0),
+         'compressao': 'rapida', 'zstd': True, 'otimizacao': {'ligada': True, 'estado': '', 'detalhe': '', 'pct': 0, 'antes': 0, 'depois': 0, 'verificada': None}},
     ]
 
 

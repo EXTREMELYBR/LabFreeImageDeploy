@@ -18,7 +18,8 @@ da sequência. A sequência (ex.: `LAB-001`), a imagem padrão e se o cadastro a
 em Painel → Configurações → Cadastro pelo boot.
 
 **Pelo painel**: Máquinas → Cadastrar máquina (precisa do MAC), ou clique em *Cadastrar* nas máquinas
-"Detectadas na rede" (as que deram boot pela rede e ainda não estão cadastradas).
+"Detectadas na rede" (as que deram boot pela rede nos últimos 30 minutos e ainda não estão cadastradas; depois
+disso saem da lista sozinhas).
 
 ## Capturar uma imagem
 Prepare a máquina modelo. No Windows: desligue a hibernação (`powercfg -h off` no Prompt como administrador),
@@ -29,6 +30,17 @@ Depois ligue a máquina com boot pela rede. Acompanhe em Tarefas.
 
 **Tipo de imagem**: prefira *Redimensionável* — restaura em discos de tamanhos diferentes, inclusive menores.
 Imagens de *tamanho fixo* só restauram em discos iguais ou maiores que o original (o painel mostra o mínimo).
+
+## Compressão e otimização das imagens
+- Ao criar ou editar uma imagem: **Compressão na captura** — *Rápida* (padrão: a captura termina antes),
+  *Normal* ou *Menor arquivo*. Vale para a próxima captura.
+- **Otimizar no servidor** (ligado por padrão): quando o servidor está parado (nenhuma clonagem), ele recomprime a
+  imagem (em geral 10% a 20% menor: restaurações mais rápidas) e confere bit a bit antes de trocar. Se alguém
+  começar uma clonagem, ele para na hora e continua depois.
+- Toda imagem é **conferida** depois da captura e a cada 30 dias. O cartão mostra "Conferida há …"; se um arquivo
+  estiver corrompido (disco do servidor com defeito, captura interrompida), aparece *Problema nos arquivos desta
+  imagem*: capture de novo.
+- Para rodar agora no servidor: `sudo LabFreeImageDeploy otimizar`.
 
 ## Restaurar
 - **Poucas máquinas**: Painel → Restaurar imagem → imagem → máquinas → Apagar e restaurar. Ligue as máquinas pela rede.

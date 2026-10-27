@@ -100,6 +100,16 @@ else
     falha "Envio em grupo sem o controle do painel (rode: sudo LabFreeImageDeploy reaplicar)"
 fi
 
+# 6d) otimização e conferência das imagens
+if systemctl is-enabled --quiet LabFreeImageDeploy-otimizar.timer 2>/dev/null; then
+    ok "Imagens otimizadas e conferidas automaticamente (com o servidor parado)"
+    if mysql -N fog -e "select count(*) from labfreeImagens where estado='problema'" 2>/dev/null | grep -qv '^0$'; then
+        falha "Há imagem com arquivos corrompidos (veja Imagens no painel; capture de novo)"
+    fi
+else
+    falha "Otimização/conferência das imagens desligada (rode: sudo systemctl enable --now LabFreeImageDeploy-otimizar.timer)"
+fi
+
 # 7) Site responde
 codigo=$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1/LabFreeImageDeploy/api.php?a=sessao 2>/dev/null)
 [ "$codigo" = "200" ] && ok "Painel responde (HTTP 200)" || falha "Painel não respondeu (HTTP $codigo)"

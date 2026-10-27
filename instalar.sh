@@ -227,6 +227,7 @@ instalar_arquivos() {
     install -d -m 700 /var/lib/LabFreeImageDeploy /var/lib/LabFreeImageDeploy/historico /var/backups/LabFreeImageDeploy
     install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-root" "$AJUDANTE"
     install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-udp-sender" /usr/local/lib/LabFreeImageDeploy/udp-sender  # porteiro do envio em grupo
+    install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-otimizar" /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-otimizar
     rsync -a --delete "$ORIGEM/marca/" /usr/local/share/LabFreeImageDeploy/
     echo "$VERSAO" > /etc/LabFreeImageDeploy/versao
     for f in "$ORIGEM"/sbin/LabFreeImageDeploy*; do install -m 750 "$f" /usr/local/sbin/; done
@@ -400,7 +401,9 @@ aplicar_camada() {
     rodar systemctl daemon-reload
     rodar systemctl enable --now LabFreeImageDeploy-backup.timer
     install -m 644 "$ORIGEM/sistema/systemd/LabFreeImageDeploy-recuperar.service" /etc/systemd/system/
+    install -m 644 "$ORIGEM/sistema/systemd/LabFreeImageDeploy-otimizar.service" "$ORIGEM/sistema/systemd/LabFreeImageDeploy-otimizar.timer" /etc/systemd/system/
     rodar systemctl daemon-reload
+    rodar systemctl enable --now LabFreeImageDeploy-otimizar.timer   # imagens menores e conferidas, com o servidor parado
     rodar systemctl enable LabFreeImageDeploy-recuperar.service   # desfaz no boot uma troca de rede interrompida
     ok "backup semanal, proteção contra o apt e atualizações automáticas desligadas"
     # PHP travado na versão em uso (o PPA ondrej trocaria de versão sozinho)

@@ -1,0 +1,10 @@
+[Unit]
+Description=LabFree ImageDeploy - procura imagens para otimizar e conferir a cada 20 minutos
+
+[Timer]
+OnBootSec=10min
+OnUnitInactiveSec=20min
+Persistent=false
+
+[Install]
+WantedBy=timers.target

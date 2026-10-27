@@ -1,0 +1,12 @@
+[Unit]
+Description=LabFree ImageDeploy - otimiza e confere as imagens com o servidor parado
+After=mariadb.service mysql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-otimizar
+# prioridade mínima: nunca atrapalhar o painel nem uma clonagem que comece (e ele para sozinho nesse caso)
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=10
+TimeoutStartSec=infinity

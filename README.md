@@ -14,6 +14,8 @@ FOG 1.5.10 embutida e travada nessa versão (não recebe atualizações do FOG) 
   dia com filtros, motivo das falhas e o registro completo de cada tarefa.
 - **Restaurar em grupo sob controle**: o painel mostra cada máquina que entrou (cadastrada ou não), avisa quando a
   sala está completa e só começa quando alguém clica em Iniciar. Nada começa sozinho na máquina.
+- **Imagens menores e conferidas**: com o servidor parado, as imagens são recomprimidas e conferidas bit a bit
+  (restaurações mais rápidas, arquivo corrompido detectado antes de estragar uma sala).
 - **Cadastro de máquinas em 2 passos** direto na tela da máquina, pelo boot da rede: nome sugerido e imagem.
 - **Rede e DHCP configuráveis pelo painel**, com teste e desfazer automático se algo der errado.
 - **Funciona com adaptador USB-Ethernet** e não mexe na internet do servidor.

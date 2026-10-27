@@ -1,0 +1,455 @@
+#!/usr/bin/python3 -I
+"""LabFreeImageDeploy-otimizar — deixa as imagens menores e confere a integridade delas, com o servidor parado.
+
+Roda pelo timer LabFreeImageDeploy-otimizar.timer (como root, prioridade mínima de CPU e disco). Para cada imagem:
+  * otimizar ligado (padrão): recomprime cada partição com zstd nível 19 e janela longa (≈14% menor que o nível 6
+    do FOG e muito menor que o nível 3 da captura rápida; o zstd do sistema de clonagem lê sem opção extra). O
+    resultado só substitui o original depois de conferido BIT A BIT (SHA-256 do conteúdo descomprimido igual ao
+    do original) e só com o servidor parado (nenhuma captura/restauração/sessão em grupo aberta).
+  * otimizar desligado: só confere a integridade (zstd -t: soma de verificação de cada bloco).
+  * a cada 30 dias confere de novo cada imagem (disco com defeito estraga arquivos sem avisar).
+Se alguém agendar uma tarefa no meio, para na hora, apaga o temporário e continua numa próxima vez.
+O andamento fica na tabela labfreeImagens (o painel mostra).
+
+Uso:  LabFreeImageDeploy-otimizar            uma passada (o timer chama assim)
+      LabFreeImageDeploy-otimizar --estado   mostra o que está registrado
+"""
+import fcntl
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+
+ESTADO = '/var/lib/LabFreeImageDeploy/otimizar.json'
+TRAVA = '/run/LabFreeImageDeploy-otimizar.lock'
+LOG = '/var/log/LabFreeImageDeploy/otimizar.log'
+NIVEL = ['-19', '--long=27']           # janela de 128 MB: o limite padrão do descompressor (sem opção extra)
+PEDACO = 200 * 1024 * 1024             # imagens "em pedaços" do FOG: split -b 200m
+IDADE_MIN = 15 * 60                    # arquivo mexido há menos tempo pode ser uma captura terminando
+REVERIFICAR = 30 * 86400
+CHECAR_A_CADA = 20                     # segundos entre conferências de "servidor parado" durante o trabalho
+GANHO_MIN = 0.99                       # só troca se ficar ao menos 1% menor
+RE_PARTE = re.compile(r'^(d\d+p\d+\.img|sys\.img|rec\.img)(\.\d{3})?$')
+ZSTD_MAGICO = b'\x28\xb5\x2f\xfd'
+TABELA = """CREATE TABLE IF NOT EXISTS labfreeImagens (
+  imageID INT NOT NULL PRIMARY KEY,
+  otimizar TINYINT NOT NULL DEFAULT 1,
+  estado VARCHAR(20) NOT NULL DEFAULT '',
+  detalhe VARCHAR(255) NOT NULL DEFAULT '',
+  pct TINYINT NOT NULL DEFAULT 0,
+  antes BIGINT NOT NULL DEFAULT 0,
+  depois BIGINT NOT NULL DEFAULT 0,
+  verificada DATETIME NULL,   -- UTC
+  atualizado DATETIME NULL    -- UTC
+) ENGINE=InnoDB"""
+
+
+class Ocupado(Exception):
+    """O servidor começou a trabalhar (tarefa ou sessão em grupo): parar e tentar depois."""
+
+
+def log(msg):
+    linha = time.strftime('%Y-%m-%d %H:%M:%S ') + msg
+    print(linha, flush=True)
+    try:
+        with open(LOG, 'a') as f:
+            f.write(linha + '\n')
+    except OSError:
+        pass
+
+
+def mysql(sql):
+    r = subprocess.run(['mysql', '-N', '-B', 'fog', '-e', sql], capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        raise RuntimeError(r.stderr.strip()[-300:])
+    return r.stdout
+
+
+def sqlq(v):
+    return str(v).replace('\\', '\\\\').replace("'", "\\'")
+
+
+def registrar(img_id, **campos):
+    """Grava o andamento de uma imagem na tabela que o painel lê."""
+    pares = ', '.join(f"{k}=" + ('UTC_TIMESTAMP()' if v == 'AGORA' else 'NULL' if v is None else f"'{sqlq(v)}'") for k, v in campos.items())
+    mysql(f"INSERT INTO labfreeImagens (imageID) VALUES ({int(img_id)}) ON DUPLICATE KEY UPDATE imageID=imageID; "
+          f"UPDATE labfreeImagens SET {pares}, atualizado=UTC_TIMESTAMP() WHERE imageID={int(img_id)};")
+
+
+def parado():
+    """Nenhuma captura/restauração (fila ou em andamento) e nenhuma sessão em grupo aberta."""
+    n = mysql("SELECT (SELECT COUNT(*) FROM tasks WHERE taskStateID IN (1,2,3)) + "
+              "(SELECT COUNT(*) FROM multicastSessions WHERE msState IN (0,1,2,3))").strip()
+    return n == '0'
+
+
+def raiz_imagens():
+    r = mysql("SELECT ngmRootPath FROM nfsGroupMembers WHERE ngmIsMasterNode='1' ORDER BY ngmID LIMIT 1").strip()
+    return r or '/images'
+
+
+def ler_estado():
+    try:
+        with open(ESTADO) as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def gravar_estado(d):
+    fd, tmp = tempfile.mkstemp(prefix='.otimizar-', dir=os.path.dirname(ESTADO))
+    with os.fdopen(fd, 'w') as f:
+        json.dump(d, f, indent=1)
+        os.fchmod(f.fileno(), 0o600)
+    os.replace(tmp, ESTADO)
+
+
+def grupos(pasta):
+    """{nome_base: [pedaços em ordem]} das partições de uma imagem (o resto — MBR, tabela — fica como está)."""
+    g = {}
+    try:
+        nomes = sorted(os.listdir(pasta))
+    except OSError:
+        return {}
+    for n in nomes:
+        m = RE_PARTE.match(n)
+        c = os.path.join(pasta, n)
+        if m and os.path.isfile(c) and not os.path.islink(c):
+            g.setdefault(m.group(1), []).append(c)
+    return g
+
+
+def assinatura(pecas):
+    return [[os.path.basename(p), os.path.getsize(p), int(os.path.getmtime(p))] for p in pecas]
+
+
+def e_zstd(pecas):
+    with open(pecas[0], 'rb') as f:
+        return f.read(4) == ZSTD_MAGICO
+
+
+class Leitor:
+    """Lê os pedaços em sequência (como `cat`), contando o que já foi lido para o andamento."""
+
+    def __init__(self, pecas):
+        self.pecas, self.i, self.f, self.lido = list(pecas), 0, None, 0
+
+    def read(self, n):
+        while self.i < len(self.pecas):
+            if self.f is None:
+                self.f = open(self.pecas[self.i], 'rb')
+            b = self.f.read(n)
+            if b:
+                self.lido += len(b)
+                return b
+            self.f.close()
+            self.f = None
+            self.i += 1
+        return b''
+
+
+def bombear(origem, destino, vigiar):
+    """Copia de `origem` (objeto com read) para `destino` (arquivo), chamando vigiar() de tempos em tempos."""
+    ultimo = time.time()
+    while True:
+        b = origem.read(1 << 20)
+        if not b:
+            break
+        destino.write(b)
+        if time.time() - ultimo >= CHECAR_A_CADA:
+            vigiar()
+            ultimo = time.time()
+
+
+def sha_descomprimido(pecas, vigiar=None):
+    """SHA-256 do conteúdo descomprimido (a "partição" de verdade), lendo os pedaços em sequência."""
+    leitor = Leitor(pecas)
+    z = subprocess.Popen(['zstd', '-dcq', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    h = hashlib.sha256()
+    erro = []
+
+    def alimentar():
+        try:
+            bombear(leitor, z.stdin, vigiar or (lambda: None))
+        except (Ocupado, BrokenPipeError) as ex:
+            erro.append(ex)
+        finally:
+            try:
+                z.stdin.close()
+            except OSError:
+                pass
+
+    t = threading.Thread(target=alimentar, daemon=True)
+    t.start()
+    while True:
+        b = z.stdout.read(1 << 20)
+        if not b:
+            break
+        h.update(b)
+    t.join()
+    rc = z.wait()
+    if erro and isinstance(erro[0], Ocupado):
+        raise erro[0]
+    if rc != 0:
+        return None
+    return h.hexdigest()
+
+
+def otimizar_grupo(img_id, nome_img, base, pecas, total_img, feito_antes):
+    """Recomprime um grupo de pedaços. Devolve (tamanho_antes, tamanho_depois, sha) ou levanta Ocupado."""
+    pasta = os.path.dirname(pecas[0])
+    antes = sum(os.path.getsize(p) for p in pecas)
+    em_pedacos = len(pecas) > 1 or pecas[0].endswith('.000')
+    tmp = os.path.join(pasta, f'.labfree-otimizando-{base}')
+    leitor = Leitor(pecas)
+    ultimo_reg = [0.0]
+
+    def vigiar():
+        if not parado():
+            raise Ocupado()
+        if time.time() - ultimo_reg[0] > 30:
+            pct = int((feito_antes + leitor.lido) * 100 / max(1, total_img))
+            registrar(img_id, estado='otimizando', pct=min(99, pct), detalhe=f'Otimizando {base}')
+            ultimo_reg[0] = time.time()
+
+    dec = subprocess.Popen(['zstd', '-dcq', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    saida = open(tmp, 'wb')
+    comp = subprocess.Popen(['zstd', '-q', '-T0', '-c', *NIVEL, '-'], stdin=subprocess.PIPE, stdout=saida)
+    h = hashlib.sha256()
+    erro = []
+
+    def alimentar():
+        try:
+            bombear(leitor, dec.stdin, vigiar)
+        except Exception as ex:  # Ocupado ou falha de leitura
+            erro.append(ex)
+        finally:
+            try:
+                dec.stdin.close()
+            except OSError:
+                pass
+
+    t = threading.Thread(target=alimentar, daemon=True)
+    t.start()
+    try:
+        while True:
+            b = dec.stdout.read(1 << 20)
+            if not b:
+                break
+            h.update(b)
+            comp.stdin.write(b)
+        comp.stdin.close()
+        t.join()
+        rc_d, rc_c = dec.wait(), comp.wait()
+        saida.close()
+        if erro:
+            raise erro[0]
+        if rc_d != 0:
+            raise RuntimeError(f'{base} está corrompido (não descomprime): capture a imagem de novo')
+        if rc_c != 0:
+            raise RuntimeError(f'falha ao comprimir {base}')
+        sha = h.hexdigest()
+        # conferência bit a bit: o novo descomprime exatamente no mesmo conteúdo
+        registrar(img_id, estado='otimizando', detalhe=f'Conferindo {base}')
+        if sha_descomprimido([tmp], vigiar) != sha:
+            raise RuntimeError(f'a conferência de {base} não bateu; original mantido')
+        depois = os.path.getsize(tmp)
+        if depois >= antes * GANHO_MIN:
+            os.remove(tmp)
+            return antes, antes, sha
+        if not parado():
+            raise Ocupado()
+        st = os.stat(pecas[0])
+        novos = []
+        if em_pedacos:  # refaz os pedaços de 200 MB (.000, .001, …) como o FOG grava
+            with open(tmp, 'rb') as f:
+                while True:
+                    b = f.read(PEDACO)
+                    if not b:
+                        break
+                    nome = os.path.join(pasta, f'.labfree-otimizando-{base}.{len(novos):03d}')
+                    with open(nome, 'wb') as o:
+                        o.write(b)
+                    novos.append(nome)
+            os.remove(tmp)
+        else:
+            novos = [tmp]
+        for n in novos:
+            os.chown(n, st.st_uid, st.st_gid)
+            os.chmod(n, st.st_mode & 0o7777)
+            with open(n, 'rb') as f:
+                os.fsync(f.fileno())
+        # troca: novos pedaços no lugar dos antigos; sobra de pedaços antigos sai
+        finais = [os.path.join(pasta, f'{base}.{i:03d}') for i in range(len(novos))] if em_pedacos else [pecas[0]]
+        for n, f in zip(novos, finais):
+            os.replace(n, f)
+        for velho in pecas:
+            if velho not in finais and os.path.exists(velho):
+                os.remove(velho)
+        log(f'{nome_img}/{base}: {antes / 1e9:.2f} GB -> {depois / 1e9:.2f} GB ({(1 - depois / antes) * 100:.0f}% menor), conferido')
+        return antes, depois, sha
+    except BaseException:
+        for p in (dec, comp):
+            if p.poll() is None:
+                p.kill()
+        saida.close()
+        for n in [tmp] + [os.path.join(pasta, x) for x in os.listdir(pasta) if x.startswith(f'.labfree-otimizando-{base}')]:
+            if os.path.exists(n):
+                os.remove(n)
+        raise
+
+
+def verificar_grupo(pecas, vigiar):
+    """zstd -t: confere a soma de verificação de cada bloco. True = íntegro."""
+    leitor = Leitor(pecas)
+    z = subprocess.Popen(['zstd', '-tq', '-'], stdin=subprocess.PIPE)
+    try:
+        bombear(leitor, z.stdin, vigiar)
+    except BrokenPipeError:
+        pass
+    except BaseException:
+        z.kill()
+        raise
+    finally:
+        try:
+            z.stdin.close()
+        except OSError:
+            pass
+    return z.wait() == 0
+
+
+def passada():
+    mysql(TABELA)
+    estado = ler_estado()
+    raiz = raiz_imagens()
+    imagens = [l.split('\t') for l in mysql("SELECT i.imageID, i.imagePath, i.imageName, COALESCE(l.otimizar, 1) "
+                                            "FROM images i LEFT JOIN labfreeImagens l ON l.imageID = i.imageID "
+                                            "ORDER BY i.imageID").splitlines() if l.strip()]
+    agora = time.time()
+    for img_id, caminho, nome_img, otimizar in imagens:
+        if not caminho or '/' in caminho.strip('/') or caminho in ('.', '..') or caminho == 'dev':
+            continue
+        pasta = os.path.join(raiz, caminho)
+        g = grupos(pasta)
+        if not g:
+            continue
+        if any(agora - os.path.getmtime(p) < IDADE_MIN for ps in g.values() for p in ps):
+            continue  # captura terminando agora
+        if not parado():
+            log('servidor ocupado: fica para a próxima')
+            return
+        total = sum(os.path.getsize(p) for ps in g.values() for p in ps)
+        feito = 0
+        antes_img = depois_img = 0
+        problema = None
+        mexeu = False
+        for base, pecas in sorted(g.items()):
+            chave = os.path.join(pasta, base)
+            reg = estado.get(chave, {})
+            ass = assinatura(pecas)
+            tamanho = sum(x[1] for x in ass)
+            if not e_zstd(pecas):
+                feito += tamanho
+                antes_img += tamanho
+                depois_img += tamanho
+                continue  # formato antigo (gzip): fica como está
+            igual = reg.get('assinatura') == ass
+            if igual and reg.get('corrompido'):  # já se sabe: não gasta o servidor de novo (até uma nova captura)
+                problema = f'{base} está corrompido: capture a imagem de novo'
+                feito += tamanho
+                continue
+            precisa_otimizar = otimizar == '1' and not (igual and reg.get('otimizado'))
+            precisa_verificar = not igual or agora - reg.get('verificado', 0) > REVERIFICAR
+            if not precisa_otimizar and not precisa_verificar:
+                feito += tamanho
+                antes_img += reg.get('antes', tamanho)
+                depois_img += tamanho
+                continue
+            mexeu = True
+
+            def vigiar():
+                if not parado():
+                    raise Ocupado()
+            try:
+                if precisa_otimizar:
+                    registrar(img_id, estado='otimizando', detalhe=f'Otimizando {base}', pct=int(feito * 100 / max(1, total)))
+                    antes, depois, _sha = otimizar_grupo(img_id, nome_img, base, pecas, total, feito)
+                    novas = sorted(p for p in grupos(pasta).get(base, []))
+                    estado[chave] = {'assinatura': assinatura(novas), 'otimizado': True, 'verificado': time.time(),
+                                     'antes': reg.get('antes', antes) if igual else antes}
+                    antes_img += estado[chave]['antes']
+                    depois_img += depois
+                else:
+                    registrar(img_id, estado='verificando', detalhe=f'Conferindo {base}', pct=int(feito * 100 / max(1, total)))
+                    if verificar_grupo(pecas, vigiar):
+                        estado[chave] = dict(reg, assinatura=ass, verificado=time.time())
+                        estado[chave].setdefault('antes', tamanho)
+                    else:
+                        problema = f'{base} está corrompido: capture a imagem de novo'
+                        estado[chave] = dict(reg, assinatura=ass, verificado=0, corrompido=True)
+                        log(f'{nome_img}/{base}: CORROMPIDO (zstd -t falhou)')
+                    antes_img += estado[chave].get('antes', tamanho)
+                    depois_img += tamanho
+                gravar_estado(estado)
+            except Ocupado:
+                registrar(img_id, estado='pausada', detalhe='Pausada: o servidor começou a trabalhar', pct=0)
+                log(f'{nome_img}: pausada (tarefa começou)')
+                return
+            except RuntimeError as ex:
+                problema = str(ex)
+                log(f'{nome_img}/{base}: ERRO {ex}')
+                estado[chave] = dict(reg, assinatura=ass, verificado=0, corrompido='corrompido' in str(ex))
+                gravar_estado(estado)
+            feito += tamanho
+        if problema:
+            registrar(img_id, estado='problema', detalhe=problema[:250], pct=0)
+        elif mexeu:
+            registrar(img_id, estado='ok', detalhe='', pct=100, antes=antes_img, depois=depois_img,
+                      verificada=_verificada(estado, pasta, grupos(pasta)))
+    # registros de imagens que não existem mais
+    validos = {os.path.join(raiz, c[1], b) for c in imagens for b in grupos(os.path.join(raiz, c[1]))} if imagens else set()
+    for k in [k for k in estado if k not in validos]:
+        del estado[k]
+    gravar_estado(estado)
+
+
+def _verificada(estado, pasta, g):
+    """Data da conferência mais antiga das partições (a imagem só está "verificada" se todas estão)."""
+    ts = [estado.get(os.path.join(pasta, b), {}).get('verificado', 0) for b in g]
+    menor = min(ts) if ts else 0
+    return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(menor)) if menor else None  # UTC (o painel converte)
+
+
+def main():
+    if os.geteuid() != 0:
+        print('Precisa ser executado como root.')
+        return 1
+    if '--estado' in sys.argv:
+        print(json.dumps(ler_estado(), indent=1))
+        return 0
+    if not shutil.which('zstd'):
+        log('zstd não encontrado')
+        return 1
+    os.makedirs(os.path.dirname(ESTADO), exist_ok=True)
+    fd = os.open(TRAVA, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return 0  # outra passada em andamento
+    try:
+        passada()
+    except Exception as ex:
+        log(f'ERRO inesperado: {type(ex).__name__}: {ex}')
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

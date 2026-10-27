@@ -89,6 +89,14 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
   concessões do Kea (IP → MAC) e o cadastro (MAC → nome). Resumo por partição em `/var/log/LabFreeImageDeploy/grupo.log`.
 - `FOG_UDPCAST_MAXWAIT` = 1440: janela para entrar e espera das máquinas (`--start-timeout` do udp-receiver no FOS).
 
+## Otimização e conferência das imagens
+- `LabFreeImageDeploy-otimizar.timer` (20 min) roda `lib/LabFreeImageDeploy-otimizar` com prioridade mínima. Só age
+  com o servidor parado. Recomprime cada partição zstd com nível 19 + `--long=27` (o zstd do FOS lê sem opção
+  extra), confere o SHA-256 do conteúdo descomprimido (novo = original) e só então troca o arquivo. Sem otimização:
+  `zstd -t`. Reconfere a cada 30 dias. Andamento na tabela `labfreeImagens` (painel).
+- Na restauração o FOS usa `partclone.restore --ignore_crc`; a soma de verificação do zstd é o que detecta dado
+  errado (a máquina mostra erro em vez de gravar lixo).
+
 ## Rede de clonagem
 - Configuração central: `/etc/LabFreeImageDeploy/LabFreeImageDeploy.conf` (`FOG_IFACE`, `FOG_MAC`, `FOG_IP`,
   `FOG_PREFIXO`, `FOG_NM_UUID`). Todos os scripts leem daqui.

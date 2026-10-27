@@ -82,6 +82,21 @@ final class Painel
         return html_entity_decode((string)$v, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
+    /** Data gravada pelo LabFree em UTC (tabela labfreeImagens) no fuso do servidor. */
+    public static function dataLocal($v)
+    {
+        if (!$v || strpos((string)$v, '0000-00-00') === 0) {
+            return null;
+        }
+        try {
+            $d = new DateTime((string)$v, new DateTimeZone('UTC'));
+        } catch (Exception $e) {
+            return null;
+        }
+        $local = trim((string)@file_get_contents('/etc/timezone')) ?: 'America/Sao_Paulo';
+        return $d->setTimezone(new DateTimeZone($local))->format(DATE_ATOM);
+    }
+
     /** Datas do FOG ficam no fuso FOG_TZ_INFO; o painel mostra no fuso do servidor. */
     public static function data($v)
     {
@@ -367,11 +382,32 @@ final class Painel
     {
         $rows = self::q("SELECT i.imageID id, i.imageName nome, i.imageDesc descricao, i.imagePath caminho, i.imageTypeID tipo,
                 it.imageTypeName tipo_nome, i.imageOSID os_id, o.osName os, i.imageDateTime criada, i.imageLastDeploy ultimo_deploy,
-                i.imageEnabled ativa, i.imageProtect protegida,
+                i.imageEnabled ativa, i.imageProtect protegida, i.imageCompress compressao, i.imageFormat formato,
                 (SELECT COUNT(*) FROM hosts h WHERE h.hostImage = i.imageID) maquinas
             FROM images i LEFT JOIN imageTypes it ON it.imageTypeID = i.imageTypeID LEFT JOIN os o ON o.osID = i.imageOSID
             ORDER BY i.imageName");
+        $otim = [];
+        try {
+            foreach (self::q('SELECT imageID id, otimizar, estado, detalhe, pct, antes, depois, verificada FROM labfreeImagens') as $o) {
+                $otim[$o['id']] = $o;
+            }
+        } catch (PDOException $e) {
+            $otim = null; // servidor sem o otimizador (versão antiga)
+        }
         foreach ($rows as &$r) {
+            $o = $otim === null ? null : ($otim[$r['id']] ?? ['otimizar' => 1, 'estado' => '', 'detalhe' => '', 'pct' => 0, 'antes' => 0, 'depois' => 0, 'verificada' => null]);
+            $r['compressao'] = self::nomeCompressao($r['compressao']);
+            $r['zstd'] = in_array((int)$r['formato'], [5, 6], true);
+            unset($r['formato']);
+            $r['otimizacao'] = $o === null ? null : [
+                'ligada' => (bool)(int)$o['otimizar'],
+                'estado' => (string)$o['estado'],   // '', otimizando, verificando, pausada, ok, problema
+                'detalhe' => (string)$o['detalhe'],
+                'pct' => (int)$o['pct'],
+                'antes' => (int)$o['antes'],
+                'depois' => (int)$o['depois'],
+                'verificada' => self::dataLocal($o['verificada']),
+            ];
             $r['nome'] = self::txt($r['nome']);
             $r['descricao'] = self::txt($r['descricao']);
             $r['os'] = self::txt($r['os']);
@@ -420,7 +456,7 @@ final class Painel
         foreach ($outrasMacs as $m) {
             $cadastrados[$m['mac']] = true;
         }
-        $novas = array_values(array_filter($leases, function ($l) use ($cadastrados) {
+        $novas = array_values(array_filter(self::recentes($leases), function ($l) use ($cadastrados) {
             return !isset($cadastrados[$l['mac']]);
         }));
         usort($novas, function ($a, $b) {
@@ -813,11 +849,21 @@ final class Painel
         return ['ok' => true, 'msg' => 'Transmissão iniciada para ' . ($n === 1 ? '1 máquina.' : "$n máquinas.")];
     }
 
-    /** Quantas máquinas deram boot na rede de clonagem e ainda não estão cadastradas. */
+    /** "Detectadas na rede" é detecção, não histórico: só máquinas que pediram IP há pouco (o Kea guarda as
+     *  concessões por horas e o arquivo acumula máquinas que nunca mais voltaram). */
+    const DETECTADAS_MIN = 30;
+
+    public static function recentes($leases)
+    {
+        $limite = time() - self::DETECTADAS_MIN * 60;
+        return array_filter($leases, fn($l) => $l['visto_ts'] >= $limite);
+    }
+
+    /** Quantas máquinas deram boot na rede de clonagem há pouco e ainda não estão cadastradas. */
     public static function contarNovas()
     {
         $cad = array_flip(array_column(self::q("SELECT LOWER(hmMAC) mac FROM hostMAC"), 'mac'));
-        return count(array_diff_key(self::leases(), $cad));
+        return count(array_diff_key(self::recentes(self::leases()), $cad));
     }
 
     public static function resumo()
@@ -969,16 +1015,44 @@ final class Painel
             ->set('path', $caminho)
             ->set('imageTypeID', $tipo)
             ->set('imagePartitionTypeID', 1)
-            ->set('compress', (int)FOGCore::getSetting('FOG_PIGZ_COMP') ?: 6)
+            ->set('compress', self::nivelCompressao($d['compressao'] ?? 'rapida'))
             ->set('isEnabled', 1)
-            ->set('format', (int)FOGCore::getSetting('FOG_IMAGE_COMPRESSION_FORMAT_DEFAULT'))
+            // sempre zstd (5; 6 = em pedaços): mais rápido de restaurar que o gzip e o que o otimizador do servidor entende
+            ->set('format', (int)FOGCore::getSetting('FOG_IMAGE_COMPRESSION_FORMAT_DEFAULT') === 6 ? 6 : 5)
             ->set('toReplicate', 1)
             ->addGroup($grupo);
         if (!$Image->save()) {
             self::erro('Não foi possível criar a imagem.');
         }
         $Image->setPrimaryGroup($grupo);
+        self::gravarOtimizar((int)$Image->get('id'), !isset($d['otimizar']) || $d['otimizar']);
         return ['ok' => true, 'id' => (int)$Image->get('id'), 'msg' => "Imagem \"$nome\" criada. Agora capture uma máquina para ela."];
+    }
+
+    /** Compressão usada pela máquina na captura (zstd). A rápida pesa pouco no processador da máquina; o servidor
+     *  deixa a imagem menor depois (lib/LabFreeImageDeploy-otimizar), se a otimização estiver ligada. */
+    const COMPRESSAO = ['rapida' => 3, 'normal' => 6, 'menor' => 12];
+
+    public static function nivelCompressao($nome)
+    {
+        return self::COMPRESSAO[$nome] ?? 3;
+    }
+
+    public static function nomeCompressao($nivel)
+    {
+        $nivel = (int)$nivel;
+        return $nivel <= 4 ? 'rapida' : ($nivel <= 8 ? 'normal' : 'menor');
+    }
+
+    /** Liga/desliga a otimização no servidor (tabela labfreeImagens, criada pelo otimizador / instalador). */
+    public static function gravarOtimizar($id, $ligar)
+    {
+        try {
+            self::db()->prepare('INSERT INTO labfreeImagens (imageID, otimizar) VALUES (?, ?) ON DUPLICATE KEY UPDATE otimizar = VALUES(otimizar)')
+                ->execute([(int)$id, $ligar ? 1 : 0]);
+        } catch (PDOException $e) {
+            // servidor ainda sem a tabela (versão antiga): a imagem funciona igual, só não é otimizada
+        }
     }
 
     public static function editarImagem($d)
@@ -1013,8 +1087,17 @@ final class Painel
         if (isset($d['protegida'])) {
             $Image->set('protected', $d['protegida'] ? 1 : 0);
         }
+        if (isset($d['compressao'])) {
+            if (!isset(self::COMPRESSAO[$d['compressao']])) {
+                self::erro('Compressão inválida.');
+            }
+            $Image->set('compress', self::nivelCompressao($d['compressao']));
+        }
         if (!$Image->save()) {
             self::erro('Não foi possível salvar.');
+        }
+        if (isset($d['otimizar'])) {
+            self::gravarOtimizar((int)$Image->get('id'), (bool)$d['otimizar']);
         }
         return ['ok' => true, 'msg' => 'Imagem atualizada.'];
     }

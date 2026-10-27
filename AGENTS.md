@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 27/10/2026 (versão 0.8.1). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 27/10/2026 (versão 0.9.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -36,6 +36,9 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     **a máquina não inicia nada sozinha** (o menu de boot ia para o disco em 3 s); opções para gastar menos banda e
     tempo — escolhidas: compressão no painel + recomprimir no servidor (pendente, seção 9) e guia de limpeza +
     medição (feitos). Tarefa agendada continua começando sozinha no boot (decisão do usuário). Feito na 0.8.0.
+15. (27/10, noite) Fazer a opção D (compressão + recomprimir no servidor); captura e restauração (única e em grupo)
+    mais rápidas e com menos banda; **garantir a fidelidade dos dados**; sugerir funções novas; "Detectadas na rede"
+    não pode ser lista infinita. Feito na 0.9.0 (sugestões na resposta ao usuário e na seção 9).
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -54,6 +57,7 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 | `instalar.sh` | instalador (nova instalação e atualização/migração); `--ajuda` lista opções |
 | `web/` | painel (index.html, app.css, app.js, api.php, fontes/Inter) |
 | `lib/LabFreeImageDeploy-root` | ajudante root em Python (ações na seção 4) |
+| `lib/LabFreeImageDeploy-otimizar` | recomprime (zstd 19 + janela longa) e confere as imagens com o servidor parado (seção 7f) |
 | `lib/LabFreeImageDeploy-udp-sender` | "porteiro" do envio em grupo, no lugar do udp-sender da base (seção 7e) |
 | `sbin/` | `LabFreeImageDeploy` (comando único) + `LabFreeImageDeploy-{verificar,backup,restaurar-backup,reaplicar,senha}` |
 | `sistema/` | sudoers, dispatcher NM, timer de backup, regras apt, energia, `raiz-index.php` |
@@ -114,6 +118,11 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
     seguinte. O porteiro encerra o `sh` da sessão quando o udp-sender morre por sinal.
 29. Teste de udpcast em namespace: o udp-receiver manda o pedido de conexão para o **broadcast** da placa; sem
     `brd +` no `ip addr add` ele manda para 0.0.0.0 e nunca conecta. Duas máquinas no mesmo namespace disputam a porta.
+30. A captura do FOS faz `zstdmt --ultra -$PIGZ_COMP` (nível = `imageCompress` da imagem) e a restauração
+    `zstdmt -dc | partclone.restore --ignore_crc`: quem garante a integridade na restauração é a soma de verificação
+    do zstd (erro = falha visível). O zstd do FOS é 1.5.7 e lê janela de até 128 MB (`--long=27`) sem opção extra.
+31. Medido (1 GB da imagem real, i7-1255U 12 threads): nível 3 = 438 MB em 1,2 s; 6 = 425 MB/4,3 s; 12 = 413 MB/18 s;
+    19 = 384 MB/66 s; 19 + `--long=27` = 366 MB/73 s. Descomprimir: < 1 s/GB em qualquer nível.
 22. Nunca escreva um heredoc de bash contendo outro `EOF` dentro (o bash fecha no primeiro e executa o resto): scripts de
     edição vão em arquivo (Write) e rodam com `python3 -I arquivo`.
 
@@ -124,6 +133,8 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
   gera `plano.json` (todas as telas, janelas e assistentes) e `python3 -I testes/fotos_painel.py SAIDA plano.json`
   fotografa em celular/tablet/computador, claro/escuro, e lista erros de JS, rolagem horizontal, elementos que vazam,
   textos cortados e alvos de toque pequenos. Ao mudar o formato de uma resposta da API, atualize o simulado.
+- **Otimizador de imagens sem root**: `python3 -I testes/teste_otimizar.py` (imagens falsas + banco simulado: menor,
+  bit a bit igual, pedaços, só conferir, corrompida, pausa no meio) — deve terminar "Tudo certo."
 - **Envio em grupo real sem root**: `testes/teste_grupo.sh` (ponte + 2 receptores em namespaces; confere que não começa
   sozinho, começa com o pedido, partições seguintes, arquivos iguais e cancelamento limpo) — deve terminar "Tudo certo."
 - **Painel** (Chrome headless): `testes/cdp_teste.py SID "rota1;;rota2|js@@js"`. Sessão de teste: crie como www-data em
@@ -210,6 +221,17 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   (início automático com espera de até 60 min). **O adaptador USB da rede de clonagem estava numa porta USB 2.0
   (480 Mbit/s, ~35 MB/s)**: mudar para uma porta USB 3 é o maior ganho de velocidade (pedido ao usuário).
 
+## 7f. Versão 0.9.0 (27/10) — imagens menores e conferidas
+- `lib/LabFreeImageDeploy-otimizar` (timer a cada 20 min): para cada partição zstd de cada imagem (`d*p*.img[.NNN]`,
+  `sys.img`, `rec.img`), se mudou desde a última vez: `cat pedaços | zstd -dc` → SHA-256 + `zstd -19 --long=27 -T0`
+  → temporário `.labfree-otimizando-*` na mesma pasta → descomprime o novo e compara o SHA-256 → troca (mantém dono e
+  permissões; refaz pedaços de 200 MB se era "em pedaços"). Só troca se ficar ≥ 1% menor. Confere "servidor parado"
+  (nenhuma tarefa 1–3, nenhuma sessão 0–3) a cada 20 s e antes de trocar; ocupado → apaga o temporário, estado
+  "pausada". Otimização desligada → só `zstd -t`. Reconfere a cada 30 dias. gzip antigo: só fica como está.
+- Painel: `controlesCompressao()` (criar/editar), `linhaOtimizacao()` (cartão da imagem). Imagem nova: `compress` 3
+  (Rápida) e formato zstd.
+- Detectadas na rede: `Painel::recentes()` filtra concessões com `visto_ts` dos últimos 30 min.
+
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,
   sudoers `LabFreeImageDeploy`, serviços `LabFreeImageDeploy-*` ativos, painel em `/var/www/html/LabFreeImageDeploy`,
@@ -237,14 +259,18 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   `LabFreeImageDeploy-multicast` reiniciado com ele, `boot.php` com `choose ... --timeout 0`, painel `?v=0.8.0`, FOS com
   a `labfree-tela` atual. **Falta**: teste real de sessão em grupo com 2–3 máquinas (seção 9, item 1) e mudar o
   adaptador USB para uma porta USB 3 (continua em 480 Mbit/s).
+- 0.9.0 publicada; **falta rodar o instalador** para levar o otimizador, a compressão por imagem e a correção das
+  Detectadas. A imagem "Laboratorio Fontes" (31 GB, nível 6) deve ficar ~14% menor na primeira noite parada (~1,5 h).
 
 ## 9. Próximos passos sugeridos
 1. Depois que o usuário rodar o instalador em produção: conferir `LabFreeImageDeploy verificar`, testar o painel, um
    cadastro real e **uma sessão em grupo pequena (2–3 máquinas)**: lista de conectadas, aviso de sala completa,
    Iniciar, progresso, e o resumo em `/var/log/LabFreeImageDeploy/grupo.log`.
-1b. **Desempenho (pedido do usuário, opção D)**: escolher o nível de compressão no painel (capturar rápido) e o servidor
-   recomprimir a imagem mais forte depois, quando ocioso (zstd; trocar os arquivos só com a imagem livre). Medir antes
-   e depois com o `grupo.log`.
+1b. Feito na 0.9.0 (opção D). Próximas ideias de desempenho e funções (sugeridas ao usuário em 27/10): porta USB 3 /
+   placa 2,5 GbE; kernel e FOS por HTTP na rede isolada; limitar taxa do multicast se o `grupo.log` mostrar muitas
+   retransmissões; restauração unicast em paralelo com limite configurável; converter imagens gzip antigas para zstd;
+   pós-restauração (renomear Windows/ingressar no domínio); agendamento por horário; relatório por sala; backup das
+   imagens para HD externo; "sala" (grupo de máquinas) no painel; Wake-on-LAN da sala inteira para multicast.
 2. Traduzir as telas restantes do FOS (menus de inventário/sysinfo, mensagens do Partclone) — hoje em inglês.
 3. Confirmação com tempo na troca de IP (desfaz se o usuário não confirmar em 2 min).
 4. CI no GitHub Actions com `bash -n`, `shellcheck`, `php -l`, `py_compile` (o `publicar.sh` já faz essas conferências localmente).

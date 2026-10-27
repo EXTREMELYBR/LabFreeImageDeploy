@@ -822,7 +822,7 @@ async function telaInicio(alvo) {
         'Se alguém der boot pela rede nessa máquina, o disco será apagado. Cancele o que não vai mais usar.'),
         el('a', { class: 'btn p', href: '#/tarefas' }, 'Ver tarefas')) : null,
       r.contagem.novas ? el('div', { class: 'faixa info', style: 'margin-bottom:20px;align-items:center' }, icone('info'), el('div', { style: 'flex:1' },
-        el('strong', {}, `${plural(r.contagem.novas, 'máquina nova detectada', 'máquinas novas detectadas')} na rede`), 'Deram boot pela rede de clonagem mas ainda não estão cadastradas.'),
+        el('strong', {}, `${plural(r.contagem.novas, 'máquina nova detectada', 'máquinas novas detectadas')} na rede`), 'Deram boot pela rede de clonagem nos últimos 30 minutos e ainda não estão cadastradas.'),
         el('a', { class: 'btn p', href: '#/maquinas' }, 'Ver e cadastrar')) : null,
       el('div', { class: 'grade g4', style: 'margin-bottom:20px' },
         acao('capturar', 'Copiar o disco de uma máquina modelo para o servidor.'),
@@ -882,10 +882,50 @@ const TIPOS_IMAGEM = [
   [4, 'Cópia setor a setor', 'Lenta: copia até o espaço vazio. Use só se os outros tipos falharem.'],
 ];
 
+const COMPRESSOES = [['rapida', 'Rápida (recomendada)', 'Pesa pouco no processador da máquina: a captura termina antes. O servidor deixa a imagem menor depois.'],
+  ['normal', 'Normal', 'O padrão antigo do FOG.'],
+  ['menor', 'Menor arquivo', 'Captura mais lenta em máquinas fracas. Use só se o servidor não for otimizar.']];
+/** Compressão da captura + otimização no servidor (criar e editar imagem). */
+function controlesCompressao(i) {
+  const comp = el('select', {}, COMPRESSOES.map(([v, t]) => el('option', { value: v, selected: v === ((i && i.compressao) || 'rapida') }, t)));
+  const ajuda = el('span', { class: 'ajuda' });
+  const mostrarAjuda = () => { ajuda.textContent = COMPRESSOES.find(([v]) => v === comp.value)[2]; };
+  comp.addEventListener('change', mostrarAjuda);
+  mostrarAjuda();
+  const otim = el('input', { type: 'checkbox', checked: !i || !i.otimizacao || i.otimizacao.ligada });
+  const disponivel = !i || i.otimizacao !== null;
+  return {
+    no: el('div', {}, el('label', { class: 'campo' }, el('span', { class: 'rot' }, 'Compressão na captura (vale para a próxima)'), comp, ajuda),
+      disponivel ? el('label', { class: 'alternar' }, otim, el('div', {}, el('strong', {}, 'Otimizar no servidor (recomendado)'),
+        el('small', {}, 'Com o servidor parado, a imagem é recomprimida (em geral 10% a 20% menor: restaurações mais rápidas) e conferida bit a bit. Para sozinha se alguém começar uma clonagem.'))) : null),
+    valores: () => (disponivel ? { compressao: comp.value, otimizar: otim.checked } : { compressao: comp.value }),
+  };
+}
+
+/** Estado da otimização/conferência da imagem no servidor (lib/LabFreeImageDeploy-otimizar). */
+function linhaOtimizacao(i) {
+  const o = i.otimizacao;
+  if (!o || !i.disco.bytes) return null;
+  if (!i.zstd) return el('div', { class: 'small muted' }, 'Formato antigo (gzip): não é otimizada. Uma captura nova já usa o formato atual.');
+  if (o.estado === 'problema') return el('div', { class: 'faixa ruim' }, icone('alerta'), el('div', {}, el('strong', {}, 'Problema nos arquivos desta imagem'), o.detalhe || 'Capture de novo.'));
+  if (o.estado === 'otimizando' || o.estado === 'verificando') {
+    return el('div', { class: 'fase' }, el('span', { class: 'ponto-vivo' }), el('span', {},
+      `${o.estado === 'otimizando' ? 'Otimizando no servidor' : 'Conferindo os arquivos'} · ${o.pct}% (para sozinho se alguém começar uma clonagem)`));
+  }
+  const partes = [];
+  if (o.estado === 'ok' && o.antes > o.depois) partes.push(pilula(`Otimizada: ${Math.round((1 - o.depois / o.antes) * 100)}% menor`, 'ok'));
+  if (o.verificada) partes.push(el('span', { class: 'pilula ok sem-ponto', title: `Conferida em ${dataHora(o.verificada)}` }, icone('check', 'i'), `Conferida ${haQuanto(o.verificada)}`));
+  if (o.estado === 'pausada') partes.push(el('span', { class: 'small muted' }, 'Otimização pausada: continua quando o servidor estiver livre.'));
+  else if (!o.verificada && o.ligada) partes.push(el('span', { class: 'small muted' }, 'Será otimizada e conferida quando o servidor estiver livre.'));
+  else if (!o.verificada) partes.push(el('span', { class: 'small muted' }, 'Será conferida quando o servidor estiver livre.'));
+  return partes.length ? el('div', { class: 'botoes' }, partes) : null;
+}
+
 async function formImagem(sistemas) {
   const nome = el('input', { type: 'text', maxlength: '40', placeholder: 'ex.: Laboratório Windows 11', autocomplete: 'off' });
   const so = el('select', {}, sistemas.map((s) => el('option', { value: s.id, selected: s.id == 9 }, s.nome)));
   const desc = el('textarea', { placeholder: 'Opcional: o que tem nesta imagem, versão, data' });
+  const cc = controlesCompressao(null);
   const tipos = el('div', { class: 'escolhas uma-coluna', role: 'radiogroup' }, TIPOS_IMAGEM.map(([v, t, d]) => el('label', { class: 'escolha', 'data-cor': 'imagens' },
     el('input', { type: 'radio', name: 'tipo-img', value: v, checked: v === 1 }),
     el('div', { class: 'corpo' }, el('strong', { style: 'white-space:normal' }, t, v === 1 ? ' ' : null, v === 1 ? pilula('recomendado', 'ok sem-ponto') : null), el('div', { class: 'meta' }, d)),
@@ -893,9 +933,9 @@ async function formImagem(sistemas) {
   return modal({
     titulo: 'Nova imagem', icone: 'imagens', cor: 'imagens', texto: 'A imagem começa vazia. Depois é só capturar uma máquina modelo para ela.',
     conteudo: el('div', {}, campo('Nome da imagem', nome), campo('Sistema operacional', so, 'Windows e Linux na mesma máquina? Escolha o Windows.'),
-      el('div', { class: 'campo' }, el('span', { class: 'rot' }, 'Tipo de imagem'), tipos), campo('Descrição', desc)),
+      el('div', { class: 'campo' }, el('span', { class: 'rot' }, 'Tipo de imagem'), tipos), campo('Descrição', desc), cc.no),
     botoes: [{ texto: 'Cancelar', classe: 'fantasma' }, { texto: 'Criar imagem', classe: 'primario', acao: async () => {
-      const r = await api('criar_imagem', { nome: nome.value.trim(), os_id: Number(so.value), tipo: Number(tipos.querySelector('input:checked').value), descricao: desc.value });
+      const r = await api('criar_imagem', { nome: nome.value.trim(), os_id: Number(so.value), tipo: Number(tipos.querySelector('input:checked').value), descricao: desc.value, ...cc.valores() });
       aviso(r.msg);
       return r;
     } }],
@@ -969,7 +1009,7 @@ async function telaMaquinas(alvo, p) {
     cabPagina('maquinas', 'Computadores cadastrados no sistema.',
       el('button', { class: 'btn primario', type: 'button', onclick: async () => recarregar(await formMaquina(null, imagens)) }, icone('mais'), 'Cadastrar máquina')),
     novas.length ? el('div', { class: 'cartao', 'data-cor': 'maquinas', style: 'border-color:color-mix(in srgb, var(--c) 35%, var(--border));margin-bottom:16px' },
-      el('div', { class: 'cartao-cab' }, el('div', { class: 'titulo' }, ladrilho('rede', 'maquinas', 'p'), el('div', {}, el('h2', {}, 'Detectadas na rede'), el('div', { class: 'small muted' }, 'Deram boot pela rede de clonagem e ainda não estão cadastradas.'))),
+      el('div', { class: 'cartao-cab' }, el('div', { class: 'titulo' }, ladrilho('rede', 'maquinas', 'p'), el('div', {}, el('h2', {}, 'Detectadas na rede'), el('div', { class: 'small muted' }, 'Deram boot pela rede de clonagem nos últimos 30 minutos e ainda não estão cadastradas. Depois disso saem da lista sozinhas.'))),
         pilula(plural(novas.length, 'nova', 'novas'), 'info')),
       el('div', { class: 'lista' }, novas.map((n) => el('div', { class: 'linha quebra' }, ladrilho('rede', 'ajuda', 'p'),
         el('div', { class: 'corpo' }, el('strong', { class: 'mono' }, n.mac), el('div', { class: 'meta' }, n.nome_rede ? el('span', {}, `Nome: ${n.nome_rede}`) : null, el('span', {}, `IP ${n.ip}`), el('span', {}, `visto ${haQuanto(n.visto)}`))),
@@ -1006,7 +1046,7 @@ async function telaImagens(alvo) {
           el('div', { class: 'titulo', style: 'min-width:0' }, ladrilho('imagens', 'imagens'), el('div', { style: 'min-width:0' }, el('h2', {}, i.nome), el('div', { class: 'small muted' }, i.descricao || i.os || ''))),
           menuSuspenso(mais, [
             { texto: 'Capturar para esta imagem', icone: 'capturar', href: `#/capturar?imagem=${i.id}` },
-            { texto: 'Editar nome, descrição e tipo', icone: 'editar', acao: () => editarImagem(i, sistemas) },
+            { texto: 'Editar nome, tipo e compressão', icone: 'editar', acao: () => editarImagem(i, sistemas) },
             '-',
             { texto: 'Excluir imagem', icone: 'lixo', perigo: true, acao: () => excluirImagem(i) },
           ])),
@@ -1017,6 +1057,7 @@ async function telaImagens(alvo) {
           fato('Disco de origem', rotuloDisco(i.disco.disco_origem)),
           fato('Máquinas usando', String(i.maquinas))),
         el('div', { class: `faixa ${c.tipo}` }, icone(c.tipo === 'ok' ? 'ok' : 'alerta'), el('div', {}, c.texto)),
+        linhaOtimizacao(i),
         el('div', { class: 'botoes' }, i.disco.bytes ? [
           el('a', { class: 'btn cor', 'data-cor': 'restaurar', href: `#/restaurar?imagem=${i.id}` }, icone('restaurar'), 'Restaurar'),
           el('a', { class: 'btn', href: `#/grupo?imagem=${i.id}` }, icone('grupo'), 'Em grupo'),
@@ -1032,13 +1073,15 @@ async function editarImagem(i, sistemas) {
   const vazia = !i.disco.bytes;
   const tipo = el('select', { disabled: !vazia }, TIPOS_IMAGEM.map(([v, t]) => el('option', { value: v, selected: String(v) === String(i.tipo) }, t)));
   const prot = el('input', { type: 'checkbox', checked: i.protegida == 1 });
+  const cc = controlesCompressao(i);
   const ok = await modal({ titulo: `Editar ${i.nome}`, icone: 'imagens', cor: 'imagens',
     conteudo: el('div', {}, campo('Nome', nome, `A pasta no servidor continua /images/${i.caminho}.`), campo('Descrição', desc),
       el('div', { class: 'grade', style: 'grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 16px' },
         campo('Sistema operacional', so), campo('Tipo de imagem', tipo, vazia ? null : 'Só dá para mudar com a imagem vazia.')),
-      el('label', { class: 'alternar' }, prot, el('div', {}, el('strong', {}, 'Proteger contra sobrescrita e exclusão'), el('small', {}, 'Impede capturar por cima ou excluir esta imagem sem querer.')))),
+      el('label', { class: 'alternar' }, prot, el('div', {}, el('strong', {}, 'Proteger contra sobrescrita e exclusão'), el('small', {}, 'Impede capturar por cima ou excluir esta imagem sem querer.'))),
+      cc.no),
     botoes: [{ texto: 'Cancelar', classe: 'fantasma' }, { texto: 'Salvar', classe: 'primario', acao: async () => {
-      const dados = { id: i.id, nome: nome.value.trim(), descricao: desc.value, protegida: prot.checked };
+      const dados = { id: i.id, nome: nome.value.trim(), descricao: desc.value, protegida: prot.checked, ...cc.valores() };
       if (sistemas && sistemas.length) dados.os_id = Number(so.value);
       if (vazia) dados.tipo = Number(tipo.value);
       aviso((await api('editar_imagem', dados)).msg);
