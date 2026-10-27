@@ -1,0 +1,9 @@
+// Customização local do FOG — proteção contra atualizações do apt.
+// 1) Nunca substituir configurações alteradas (kea-dhcp4.conf, vsftpd.conf...):
+//    o apt mantém sempre a versão local, sem perguntar.
+Dpkg::Options { "--force-confdef"; "--force-confold"; };
+// 2) Backup do painel, configurações e banco do FOG antes de instalar/atualizar
+//    (no máximo um a cada 6 horas). Nunca bloqueia o apt.
+DPkg::Pre-Invoke { "if [ -x /usr/local/sbin/LabFreeImageDeploy-backup ]; then /usr/local/sbin/LabFreeImageDeploy-backup --se-antigo >/dev/null 2>&1 || true; fi"; };
+// 3) Depois de instalar/atualizar: confere tudo e restaura o painel se algo sumiu.
+DPkg::Post-Invoke { "if [ -x /usr/local/sbin/LabFreeImageDeploy-verificar ]; then /usr/local/sbin/LabFreeImageDeploy-verificar --apt || true; fi"; };

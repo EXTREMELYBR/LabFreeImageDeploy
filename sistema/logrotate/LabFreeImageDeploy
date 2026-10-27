@@ -1,0 +1,10 @@
+# LabFree ImageDeploy: registros não crescem para sempre
+/var/log/LabFreeImageDeploy/*.log {
+    monthly
+    rotate 6
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

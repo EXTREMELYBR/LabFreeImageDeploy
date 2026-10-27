@@ -1,0 +1,80 @@
+#!/bin/bash
+# LabFree ImageDeploy: restaura um backup feito por LabFreeImageDeploy-backup.
+# Uso:
+#   LabFreeImageDeploy-restaurar-backup                       -> lista os backups
+#   LabFreeImageDeploy-restaurar-backup ARQUIVO painel        -> restaura só o painel simplificado
+#   LabFreeImageDeploy-restaurar-backup ARQUIVO configuracoes -> restaura as configurações (rede, DHCP, site, certificado)
+#   LabFreeImageDeploy-restaurar-backup ARQUIVO banco         -> restaura o banco do FOG (máquinas, imagens, tarefas)
+# ARQUIVO pode ser "ultimo". Antes de restaurar, faz um backup do estado atual.
+# Os programas (/usr/local) não são restaurados: um backup antigo não volta o sistema para uma versão antiga.
+set -euo pipefail
+DESTINO=/var/backups/LabFreeImageDeploy
+[ "$(id -u)" -eq 0 ] || { echo "rode como root (sudo)"; exit 1; }
+
+if [ $# -lt 2 ]; then
+    echo "Backups disponíveis (mais recente primeiro):"
+    ls -1t "$DESTINO"/LabFreeImageDeploy-*.tar.gz 2>/dev/null | while read -r b; do echo "  $(basename "$b")  $(du -h "$b" | cut -f1)"; done
+    echo
+    sed -n '3,9p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0
+fi
+
+arq="$1"; oque="$2"
+[ "$arq" = "ultimo" ] && arq=$(ls -1t "$DESTINO"/LabFreeImageDeploy-*.tar.gz 2>/dev/null | head -1)
+[ -f "$arq" ] || arq="$DESTINO/$arq"
+[ -f "$arq" ] || { echo "Backup não encontrado: $1"; exit 1; }
+case "$oque" in painel|configuracoes|banco) ;; *) echo "Use: painel, configuracoes ou banco"; exit 1 ;; esac
+
+ocupado() { # há captura, restauração ou sessão em grupo em andamento?
+    local n
+    n=$(mysql -N fog -e "SELECT (SELECT COUNT(*) FROM tasks WHERE taskStateID IN (1,2,3)) + (SELECT COUNT(*) FROM multicastSessions WHERE msState IN (0,1,2,3))" 2>/dev/null || echo 0)
+    [ "${n:-0}" -gt 0 ]
+}
+if [ "$oque" != painel ] && ocupado; then
+    echo "Há capturas ou restaurações em andamento. Espere terminar (ou cancele em Tarefas) e rode de novo."
+    exit 1
+fi
+
+# extrai ANTES do backup de segurança: a retenção do backup novo poderia apagar justamente o arquivo escolhido
+tmp=$(mktemp -d); trap 'rm -rf -- "$tmp"' EXIT
+tar xzf "$arq" -C "$tmp" || { echo "Backup corrompido ou ilegível: $arq"; exit 1; }
+
+echo "Salvando o estado atual antes de restaurar..."
+LABFREE_PROTEGER="$arq" /usr/local/sbin/LabFreeImageDeploy-backup >/dev/null
+
+case "$oque" in
+    painel)
+        [ -s "$tmp/var/www/html/LabFreeImageDeploy/api.php" ] || { echo "Este backup não tem o painel."; exit 1; }
+        cp -a "$tmp/var/www/html/LabFreeImageDeploy/." /var/www/html/LabFreeImageDeploy/
+        [ -f "$tmp/var/www/html/index.php" ] && cp -a "$tmp/var/www/html/index.php" /var/www/html/index.php
+        echo "Painel restaurado de $(basename "$arq")."
+        ;;
+    configuracoes)
+        # só configurações: /etc, respostas do FOG, site do FOG, certificado e menu de boot
+        (cd "$tmp" && find etc opt/fog var/www/html/fog tftpboot -type f 2>/dev/null) | while read -r f; do
+            case "$f" in etc/sudoers.d/*) continue ;; esac   # tratado abaixo, com conferência
+            mkdir -p "$(dirname "/$f")"
+            cp -a "$tmp/$f" "/$f"
+        done
+        if [ -f "$tmp/etc/sudoers.d/LabFreeImageDeploy" ] && visudo -cf "$tmp/etc/sudoers.d/LabFreeImageDeploy" >/dev/null; then
+            install -m 440 -o root -g root "$tmp/etc/sudoers.d/LabFreeImageDeploy" /etc/sudoers.d/LabFreeImageDeploy
+        fi
+        systemctl daemon-reload
+        nmcli general reload conf 2>/dev/null || true
+        # devolve tudo que depende da configuração (Kea, NTP, marca, serviços) a partir do que foi restaurado
+        /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root reaplicar </dev/null >/dev/null || echo "Aviso: o reaplicar reclamou; veja /var/log/LabFreeImageDeploy/sistema.log"
+        systemctl reload apache2 2>/dev/null || systemctl restart apache2 || true
+        echo "Configurações restauradas de $(basename "$arq")."
+        echo "Se o IP ou a placa da rede de clonagem eram outros nesse backup, aplique-os pelo painel (Configurações → Placa de rede)."
+        ;;
+    banco)
+        [ -s "$tmp/fog-banco.sql" ] || { echo "Este backup não tem o banco."; exit 1; }
+        read -r -p "Isso substitui máquinas, imagens e tarefas cadastradas pelo conteúdo do backup. Digite SIM para continuar: " r </dev/tty || r=""
+        [ "$r" = "SIM" ] || { echo "Cancelado."; exit 1; }
+        servicos=$(systemctl list-units --type=service --state=active --no-legend 'LabFreeImageDeploy-*' 2>/dev/null | awk '{print $1}' | grep -v backup || true)
+        [ -n "$servicos" ] && systemctl stop $servicos
+        if mysql fog < "$tmp/fog-banco.sql"; then echo "Banco do FOG restaurado de $(basename "$arq")."; else echo "ERRO ao restaurar o banco (o estado anterior está no backup que acabou de ser criado)."; fi
+        [ -n "$servicos" ] && systemctl start $servicos
+        ;;
+esac
+/usr/local/sbin/LabFreeImageDeploy-verificar

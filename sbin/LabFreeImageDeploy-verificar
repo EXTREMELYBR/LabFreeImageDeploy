@@ -1,0 +1,115 @@
+#!/bin/bash
+# LabFree ImageDeploy: confere se o FOG, o painel simplificado e as
+# customizações continuam no lugar. Roda sozinho depois de cada uso do apt
+# (DPkg::Post-Invoke) e pode ser rodado à mão a qualquer momento.
+# Se arquivos do painel sumirem, restaura do backup mais recente.
+# Uso: LabFreeImageDeploy-verificar [--apt]   (--apt = modo silencioso: só fala se houver problema)
+set -uo pipefail
+SILENCIOSO=0
+[ "${1:-}" = "--apt" ] && SILENCIOSO=1
+LOG=/var/log/LabFreeImageDeploy/verificar.log
+# placa e IP da rede FOG (mantidos pelo LabFreeImageDeploy-root)
+FOG_IFACE=""; FOG_IP=""
+[ -r /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf ] && . /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf
+PHP_FOG=$(grep -oP "^php_ver='\K[0-9.]+" /opt/fog/.fogsettings 2>/dev/null)
+# PHP-FPM habilitado neste sistema (8.1 no Ubuntu 22.04, 8.2 no Debian 12, 8.3 no 24.04, 8.4 com PPA...)
+PHP_FPM=$(basename -s .service /etc/systemd/system/multi-user.target.wants/php*-fpm.service 2>/dev/null | head -1)
+[ -n "$PHP_FPM" ] && [ "$PHP_FPM" != 'php*-fpm' ] || PHP_FPM="php${PHP_FOG:-}-fpm"
+problemas=()
+corrigidos=()
+
+ok() { [ $SILENCIOSO -eq 1 ] || echo "  OK  $*"; }
+falha() { problemas+=("$*"); }
+
+# 1) Painel simplificado
+PAINEL=/var/www/html/LabFreeImageDeploy
+faltando=()
+for f in index.html app.js app.css api.php fontes/inter-latin.woff2; do
+    [ -s "$PAINEL/$f" ] || faltando+=("$f")
+done
+if [ ${#faltando[@]} -gt 0 ]; then
+    ultimo=$(ls -1t /var/backups/LabFreeImageDeploy/LabFreeImageDeploy-*.tar.gz 2>/dev/null | head -1)
+    if [ -n "$ultimo" ] && tmp=$(mktemp -d) && tar xzf "$ultimo" -C "$tmp" var/www/html/LabFreeImageDeploy 2>/dev/null && [ -s "$tmp/var/www/html/LabFreeImageDeploy/api.php" ]; then
+        mkdir -p "$PAINEL" && cp -a "$tmp/var/www/html/LabFreeImageDeploy/." "$PAINEL/"
+        corrigidos+=("Painel restaurado do backup $(basename "$ultimo") (faltavam: ${faltando[*]})")
+    else
+        falha "Painel incompleto (faltam: ${faltando[*]}) e não há backup para restaurar"
+    fi
+    [ -n "${tmp:-}" ] && rm -rf -- "$tmp"
+else
+    ok "Painel simplificado presente"
+fi
+
+# 2) Raiz do site abre o painel
+if grep -q "/LabFreeImageDeploy/" /var/www/html/index.php 2>/dev/null; then
+    ok "https://IP/ abre o painel"
+else
+    printf '%s\n' "<?php" "// Customização local: a raiz abre o painel simplificado (/painel)." "header('Location: /LabFreeImageDeploy/');" "die();" > /var/www/html/index.php
+    chown www-data:www-data /var/www/html/index.php
+    corrigidos+=("Raiz do site voltou a apontar para /LabFreeImageDeploy/")
+fi
+
+# 3) PHP: versão padrão e PHP-FPM do FOG
+php_cli=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null)
+php_fog=$(grep -oP "^php_ver='\K[0-9.]+" /opt/fog/.fogsettings 2>/dev/null)
+if [ -n "$php_fog" ] && [ "$php_cli" != "$php_fog" ]; then
+    falha "PHP padrão do sistema é $php_cli, mas o FOG foi instalado para $php_fog (rode: sudo update-alternatives --set php /usr/bin/php$php_fog)"
+else
+    ok "PHP $php_cli (o mesmo do FOG)"
+fi
+if ss -ltn 2>/dev/null | grep -q '127.0.0.1:9000 '; then ok "PHP-FPM atendendo o FOG (porta 9000)"; else falha "PHP-FPM não está escutando em 127.0.0.1:9000 (o site do FOG não funciona)"; fi
+
+# 4) Configuração do Kea: interface certa + retry
+if grep -q "\"$FOG_IFACE\"" /etc/kea/kea-dhcp4.conf 2>/dev/null && grep -q 'service-sockets-max-retries' /etc/kea/kea-dhcp4.conf; then
+    ok "Kea configurado só na placa da rede FOG, com retry"
+else
+    falha "Configuração do Kea foi alterada (rode: sudo LabFreeImageDeploy-reaplicar)"
+fi
+
+# 4b) NetworkManager mantém o IP da rede FOG quando o cabo pisca (essencial para o multicast)
+if grep -qs "interface-name:$FOG_IFACE" /etc/NetworkManager/conf.d/90-LabFreeImageDeploy-ignorar-carrier.conf && grep -qs "ignore-carrier=yes" /etc/NetworkManager/conf.d/90-LabFreeImageDeploy-ignorar-carrier.conf; then
+    ok "Rede FOG mantém o IP quando o link cai (multicast seguro)"
+else
+    falha "Falta /etc/NetworkManager/conf.d/90-LabFreeImageDeploy-ignorar-carrier.conf: o multicast pode travar quando um cliente reinicia"
+fi
+
+# 5) default.ipxe com NTP antes do HTTPS
+if grep -q "^ntp $FOG_IP" /tftpboot/default.ipxe 2>/dev/null; then ok "Boot PXE acerta o relógio via NTP"; else falha "default.ipxe sem a linha ntp (rode: sudo LabFreeImageDeploy-reaplicar)"; fi
+
+# 6) Serviços
+for s in apache2 "$PHP_FPM" mariadb vsftpd nfs-server tftpd-hpa LabFreeImageDeploy-multicast LabFreeImageDeploy-agendador LabFreeImageDeploy-replicacao-imagens LabFreeImageDeploy-replicacao-snapins LabFreeImageDeploy-ping chrony; do
+    if systemctl is-active --quiet "$s"; then ok "serviço $s ativo"; else falha "serviço $s parado (sudo systemctl restart $s)"; fi
+done
+# o Kea só precisa rodar se a placa da rede FOG existir e o DHCP do FOG estiver ligado
+if [ -e "/sys/class/net/$FOG_IFACE" ] && systemctl is-enabled --quiet kea-dhcp4-server; then
+    systemctl is-active --quiet kea-dhcp4-server && ok "serviço kea-dhcp4-server ativo" || falha "serviço kea-dhcp4-server parado (sudo systemctl restart kea-dhcp4-server)"
+fi
+
+# 6b) o painel pode chamar o ajudante (tela Configurações)
+if sudo -n -u www-data sudo -n -l /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root status >/dev/null 2>&1; then
+    ok "Painel autorizado a configurar rede e DHCP"
+else
+    falha "Tela Configurações sem permissão (falta /etc/sudoers.d/LabFreeImageDeploy). Rode: sudo /opt/LabFreeImageDeploy/instalar.sh"
+fi
+
+# 7) Site responde
+codigo=$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1/LabFreeImageDeploy/api.php?a=sessao 2>/dev/null)
+[ "$codigo" = "200" ] && ok "Painel responde (HTTP 200)" || falha "Painel não respondeu (HTTP $codigo)"
+
+# relatório
+{
+    for c in "${corrigidos[@]}"; do echo "$(date '+%F %T') CORRIGIDO: $c"; done
+    for p in "${problemas[@]}"; do echo "$(date '+%F %T') PROBLEMA: $p"; done
+} >> "$LOG" 2>/dev/null
+
+if [ ${#corrigidos[@]} -gt 0 ] || [ ${#problemas[@]} -gt 0 ]; then
+    echo ""
+    echo "========== Verificação do LabFree ImageDeploy =========="
+    for c in "${corrigidos[@]}"; do echo "  CORRIGIDO: $c"; done
+    for p in "${problemas[@]}"; do echo "  ATENÇÃO:   $p"; done
+    echo "  (detalhes em $LOG)"
+    echo "========================================================"
+elif [ $SILENCIOSO -eq 0 ]; then
+    echo "Tudo certo."
+fi
+exit 0

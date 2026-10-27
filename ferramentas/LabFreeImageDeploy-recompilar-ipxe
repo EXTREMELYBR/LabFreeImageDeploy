@@ -1,0 +1,100 @@
+#!/bin/bash
+# LabFree ImageDeploy — recompila o iPXE (firmware de boot pela rede) com o nome do produto.
+# Usa uma CÓPIA da árvore de compilação do FOG (/opt/fog/ipxe fica intocado), embute a CA deste
+# servidor (necessária para o boot por HTTPS) e só instala depois de conferir os binários.
+#
+# Uso:
+#   sudo LabFreeImageDeploy-recompilar-ipxe compilar   -> compila em /var/lib/LabFreeImageDeploy/ipxe-saida (não mexe no boot)
+#   sudo LabFreeImageDeploy-recompilar-ipxe instalar   -> copia para /tftpboot (backup antes) — faça sem clonagens em andamento
+#   sudo LabFreeImageDeploy-recompilar-ipxe desfazer   -> volta o /tftpboot do último backup
+set -euo pipefail
+NOME="LabFree ImageDeploy"
+ORIGEM=/opt/fog/ipxe
+TRABALHO=/var/lib/LabFreeImageDeploy/ipxe-build
+SAIDA=/var/lib/LabFreeImageDeploy/ipxe-saida
+BACKUPS=/var/lib/LabFreeImageDeploy/tftpboot-backups
+CA=/opt/fog/snapins/ssl/CA/.fogCA.pem
+TFTP=/tftpboot
+[ "$(id -u)" -eq 0 ] || { echo "rode como root (sudo)"; exit 1; }
+
+compilar() {
+    [ -x "$ORIGEM/buildipxe.sh" ] || { echo "Não encontrei $ORIGEM/buildipxe.sh (o FOG está instalado?)"; exit 1; }
+    [ -r "$CA" ] || { echo "Não encontrei a CA do servidor em $CA"; exit 1; }
+    echo "Preparando cópia da árvore de compilação…"
+    mkdir -p "$TRABALHO"
+    rsync -a --delete "$ORIGEM/" "$TRABALHO/"
+    for d in src src-efi; do
+        mkdir -p "$TRABALHO/$d/config/local"
+        printf '/* LabFree ImageDeploy: nome mostrado no início do boot pela rede (mecanismo oficial do iPXE). */\n#undef PRODUCT_NAME\n#define PRODUCT_NAME "%s"\n' "$NOME" > "$TRABALHO/$d/config/local/branding.h"
+    done
+    # o script do FOG copia só usb.h para config/local; acrescenta o branding.h logo depois
+    sed -i 's#^\(cp ${FOGDIR}/\(src\|src-efi\)/config/local/usb.h config/local/\)$#\1\ncp ${FOGDIR}/\2/config/local/branding.h config/local/#' "$TRABALHO/buildipxe.sh"
+    [ "$(grep -c 'branding.h config/local/' "$TRABALHO/buildipxe.sh")" -ge 2 ] || { echo "Não consegui incluir a marca no script de compilação."; exit 1; }
+    rm -rf "$SAIDA"; mkdir -p "$SAIDA"
+    echo "Compilando (pode levar 10–20 minutos)…"
+    if ! bash "$TRABALHO/buildipxe.sh" "$CA" "$SAIDA" > "$SAIDA.log" 2>&1; then
+        echo "A compilação falhou. Últimas linhas de $SAIDA.log:"; tail -20 "$SAIDA.log"; exit 1
+    fi
+    conferir
+    echo "Compilado em $SAIDA. Para colocar em uso: sudo $0 instalar"
+}
+
+conferir() {
+    python3 -I - "$SAIDA" "$CA" "$NOME" <<'PY'
+import os, subprocess, sys
+saida, ca, nome = sys.argv[1:4]
+der = subprocess.run(['openssl', 'x509', '-in', ca, '-outform', 'DER'], capture_output=True, check=True).stdout
+essenciais = ['undionly.kkpxe', 'snponly.efi', 'ipxe.efi', 'i386-efi/snponly.efi']
+falhas = []
+for rel in essenciais:
+    p = os.path.join(saida, rel)
+    if not os.path.isfile(p) or os.path.getsize(p) < 50000:
+        falhas.append(f'{rel}: ausente ou pequeno demais'); continue
+    d = open(p, 'rb').read()
+    efi = rel.endswith('.efi')
+    # binários BIOS (.kkpxe) são comprimidos: a marca e a CA só aparecem em claro nos .efi
+    if efi and nome.encode() not in d:
+        falhas.append(f'{rel}: sem o nome do produto')
+    if efi and der not in d:
+        falhas.append(f'{rel}: sem a CA deste servidor (o boot por HTTPS falharia)')
+if falhas:
+    print('Conferência FALHOU:'); [print('  -', f) for f in falhas]; sys.exit(1)
+print('Conferência OK: binários essenciais presentes, com o nome do produto e a CA do servidor.')
+PY
+}
+
+instalar() {
+    [ -f "$SAIDA/undionly.kkpxe" ] || { echo "Nada compilado. Rode: sudo $0 compilar"; exit 1; }
+    conferir
+    mkdir -p "$BACKUPS"
+    bk="$BACKUPS/tftpboot-$(date +%Y%m%d-%H%M%S).tar"
+    tar cf "$bk" -C / "${TFTP#/}"
+    echo "Backup do boot atual: $bk"
+    ls -1t "$BACKUPS"/tftpboot-*.tar 2>/dev/null | tail -n +6 | while read -r velho; do rm -f -- "$velho"; done  # guarda os 5 últimos
+    # copia só os binários do iPXE (o default.ipxe e o resto do /tftpboot não mudam)
+    (cd "$SAIDA" && find . -type f \( -name '*.efi' -o -name '*.pxe' -o -name '*.kpxe' -o -name '*.kkpxe' -o -name '*.krn' -o -name '*.lkrn' -o -name '*.iso' -o -name '*.usb' \) -print) | while read -r f; do
+        alvo="$TFTP/${f#./}"
+        mkdir -p "$(dirname "$alvo")"
+        dono=$(stat -c '%u:%g' "$alvo" 2>/dev/null || echo "fogproject:root")
+        install -m 0644 "$SAIDA/${f#./}" "$alvo.LabFreeImageDeploy-novo"
+        chown "$dono" "$alvo.LabFreeImageDeploy-novo"
+        mv -f "$alvo.LabFreeImageDeploy-novo" "$alvo"
+    done
+    echo "iPXE com o nome \"$NOME\" instalado. Para voltar: sudo $0 desfazer"
+}
+
+desfazer() {
+    ultimo=$(ls -1t "$BACKUPS"/tftpboot-*.tar 2>/dev/null | head -1 || true)
+    [ -n "$ultimo" ] || { echo "Nenhum backup em $BACKUPS"; exit 1; }
+    # só os binários do iPXE voltam; o default.ipxe atual (IP do servidor, NTP) é mantido
+    tar xf "$ultimo" -C / --exclude='*/default.ipxe'
+    echo "Boot restaurado de $ultimo"
+}
+
+case "${1:-}" in
+    compilar) compilar ;;
+    instalar) instalar ;;
+    desfazer) desfazer ;;
+    conferir) conferir ;;
+    *) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

@@ -1,0 +1,20 @@
+#!/bin/bash
+# LabFree ImageDeploy: rode DEPOIS de qualquer ./installfog.sh (atualização do FOG).
+# O instalador do FOG regrava /etc/kea/kea-dhcp4.conf e /tftpboot/default.ipxe;
+# isto devolve todas as customizações (DHCP completo, NTP no boot, regras da placa)
+# e confere o painel. Pode rodar quantas vezes quiser.
+set -uo pipefail
+[ "$(id -u)" -eq 0 ] || { echo "rode como root (sudo)"; exit 1; }
+saida=$(/usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root reaplicar </dev/null)
+codigo=$?
+echo "$saida" | python3 -I -c 'import json,sys
+d=json.load(sys.stdin)
+print(d.get("erro") or d.get("msg"))
+for f in d.get("feito", []): print("  -", f)'
+grep -q "/LabFreeImageDeploy/" /var/www/html/index.php 2>/dev/null || {
+    printf '%s\n' "<?php" "// LabFree ImageDeploy: a raiz do site abre o painel simplificado." "header('Location: /LabFreeImageDeploy/');" "die();" > /var/www/html/index.php
+    chown www-data:www-data /var/www/html/index.php
+    echo "  - raiz do site voltou a apontar para /LabFreeImageDeploy/"
+}
+/usr/local/sbin/LabFreeImageDeploy-verificar
+exit $codigo

@@ -1,0 +1,1382 @@
+#!/usr/bin/python3 -I
+"""LabFreeImageDeploy-root — ações privilegiadas do LabFree ImageDeploy.
+
+Chamado pelo painel (api.php, usuário www-data) via sudo, e pelo instalador.
+Uso:   sudo /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root ACAO < entrada.json
+Saída: JSON em stdout. Código 0 = sucesso; 1 = erro (JSON {"erro": "..."}).
+
+Ações:
+  status          resumo da configuração atual
+  dhcp-ler        configuração do DHCP (Kea) em formato simples
+  dhcp-aplicar    grava a configuração do DHCP (valida, testa, reinicia, desfaz se falhar)
+  rede-listar     placas de rede da máquina
+  rede-simular    mostra o que mudaria ao trocar placa/IP (não altera nada)
+  rede-aplicar    troca a placa e/ou o IP do FOG em todos os lugares (desfaz se falhar)
+  reaplicar       reaplica todas as customizações (usar depois de rodar o installfog.sh do FOG)
+  imagem-apagar   apaga a pasta de uma imagem em /images (só se nenhuma imagem cadastrada a usa)
+  marca-aplicar   aplica a marca LabFree ImageDeploy (menu de boot, sistema de clonagem), bloqueia a
+                  interface antiga /fog e desliga tudo que buscava atualizações do FOG (idempotente)
+
+Regras: só aceita dados validados (IPs, MACs, nomes de interface); nunca executa
+comandos montados a partir de texto livre; faz cópia de tudo antes de alterar
+(em /var/lib/LabFreeImageDeploy/historico) e registra em /var/log/LabFreeImageDeploy/sistema.log.
+"""
+import datetime
+import fcntl
+import glob
+import ipaddress
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+CONF = '/etc/LabFreeImageDeploy/LabFreeImageDeploy.conf'
+DHCP_SALVO = '/etc/LabFreeImageDeploy/dhcp.json'
+KEA = '/etc/kea/kea-dhcp4.conf'
+KEA_SERVICO = 'kea-dhcp4-server'
+KEA_LEASES = '/var/lib/kea/kea-leases4.csv'
+FOGSETTINGS = '/opt/fog/.fogsettings'
+DEFAULT_IPXE = '/tftpboot/default.ipxe'
+APACHE_FOG = '/etc/apache2/sites-available/001-fog.conf'
+FOG_CONFIG_PHP = '/var/www/html/fog/lib/fog/config.class.php'
+CHRONY_FOG = '/etc/chrony/conf.d/LabFreeImageDeploy.conf'
+KEA_DROPIN = '/etc/systemd/system/kea-dhcp4-server.service.d/10-LabFreeImageDeploy.conf'
+UDEV_REGRA = '/etc/udev/rules.d/90-LabFreeImageDeploy-usb-nic.rules'
+NM_CARRIER = '/etc/NetworkManager/conf.d/90-LabFreeImageDeploy-ignorar-carrier.conf'
+SSL_DIR = '/opt/fog/snapins/ssl'
+PKI_WEB = '/opt/fog/pki/web'
+HISTORICO = '/var/lib/LabFreeImageDeploy/historico'
+LOG = '/var/log/LabFreeImageDeploy/sistema.log'
+
+RE_IFACE = re.compile(r'^[A-Za-z0-9._-]{1,15}$')
+RE_MAC = re.compile(r'^([0-9a-f]{2}:){5}[0-9a-f]{2}$')
+RE_HOST = re.compile(r'^[A-Za-z0-9]([A-Za-z0-9-]{0,62})$')
+RE_DOMINIO = re.compile(r'^[A-Za-z0-9]([A-Za-z0-9-]{0,62})(\.[A-Za-z0-9]([A-Za-z0-9-]{0,62}))*$')
+
+
+class Erro(Exception):
+    """Erro com mensagem pronta para o usuário."""
+
+
+# ------------------------------------------------------------------ utilidades
+
+def log(msg):
+    try:
+        with open(LOG, 'a') as f:
+            f.write(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S} {msg}\n")
+    except OSError:
+        pass
+
+
+def sh(cmd, verificar=True, entrada=None, tempo=60):
+    r = subprocess.run(cmd, input=entrada, capture_output=True, text=True, timeout=tempo)
+    if verificar and r.returncode != 0:
+        raise Erro(f"Falha ao executar {cmd[0]}: {(r.stderr or r.stdout).strip()[:400]}")
+    return r
+
+
+def ler_conf():
+    d = {}
+    if os.path.exists(CONF):
+        for linha in open(CONF):
+            linha = linha.strip()
+            if linha and not linha.startswith('#') and '=' in linha:
+                k, v = linha.split('=', 1)
+                d[k.strip()] = v.strip().strip('"\'')
+    return d
+
+
+def gravar_conf(d):
+    os.makedirs(os.path.dirname(CONF), exist_ok=True)
+    corpo = ("# LabFree ImageDeploy — configuração central (gerada e mantida pelo LabFreeImageDeploy-root).\n"
+             "# Todos os scripts do LabFree ImageDeploy leem este arquivo. Não edite à mão:\n"
+             "# use o painel (Configurações) ou: sudo /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root\n")
+    for k in ('FOG_IFACE', 'FOG_MAC', 'FOG_IP', 'FOG_PREFIXO', 'FOG_NM_UUID'):
+        corpo += f"{k}={d.get(k, '')}\n"
+    gravar_atomico(CONF, corpo, 0o644)
+
+
+def recusar_link(caminho):
+    """Nunca gravar através de um link simbólico: algumas pastas do FOG pertencem ao www-data, e um link
+    plantado ali (ex.: para /etc/passwd) faria o root sobrescrever outro arquivo."""
+    if os.path.islink(caminho):
+        raise Erro(f"Recusado: {caminho} é um link simbólico.")
+
+
+def gravar_atomico(caminho, conteudo, modo=0o644, dono=None):
+    """Grava num temporário exclusivo e troca de uma vez. Se o arquivo já existe, mantém o MESMO
+    dono, grupo e permissões (ex.: config.class.php do FOG é www-data:www-data 0640;
+    perder isso derruba o site com "Class Config not found"). `modo`/`dono` valem para arquivo novo.
+    Não segue links simbólicos (nem no destino nem no temporário)."""
+    recusar_link(caminho)
+    atual = os.lstat(caminho) if os.path.exists(caminho) else None
+    fd, tmp = tempfile.mkstemp(prefix='.LabFreeImageDeploy-', dir=os.path.dirname(caminho) or '.')
+    try:
+        with os.fdopen(fd, 'wb') as f:
+            f.write(conteudo.encode() if isinstance(conteudo, str) else conteudo)
+            if atual:
+                os.fchown(f.fileno(), atual.st_uid, atual.st_gid)
+                os.fchmod(f.fileno(), atual.st_mode & 0o7777)
+            else:
+                if dono:
+                    os.fchown(f.fileno(), *dono)
+                os.fchmod(f.fileno(), modo)
+        os.replace(tmp, caminho)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
+
+def copiar_seguro(origem, destino, modo=0o644, dono=None):
+    """Cópia de arquivo para pasta que pode ter dono não-root, sem seguir links."""
+    with open(origem, 'rb') as f:
+        dados = f.read()
+    if os.path.islink(destino):  # link plantado no lugar do nosso arquivo: some o link (nunca o alvo dele)
+        log(f'AVISO: {destino} era um link simbólico para {os.readlink(destino)}; substituído pelo arquivo real')
+    if os.path.lexists(destino):  # cópia nova recebe o dono/modo pedidos, não os do arquivo antigo
+        os.remove(destino)
+    gravar_atomico(destino, dados, modo, dono)
+
+
+def ip_valido(texto, campo):
+    try:
+        ip = ipaddress.IPv4Address(str(texto).strip())
+    except ValueError:
+        raise Erro(f"{campo}: “{texto}” não é um endereço IPv4 válido.")
+    return ip
+
+
+def mac_normalizado(texto):
+    m = str(texto).strip().lower().replace('-', ':')
+    if re.fullmatch(r'[0-9a-f]{12}', m):
+        m = ':'.join(m[i:i + 2] for i in range(0, 12, 2))
+    if not RE_MAC.match(m):
+        raise Erro(f"MAC inválido: “{texto}”. Use o formato 00:11:22:33:44:55.")
+    return m
+
+
+def kea_ler():
+    if not os.path.exists(KEA):
+        raise Erro('O servidor DHCP (Kea) não está instalado ou não tem configuração em /etc/kea.')
+    try:
+        with open(KEA) as f:
+            cfg = json.load(f)
+        cfg['Dhcp4']['subnet4'][0]
+    except (ValueError, KeyError, IndexError, TypeError):
+        raise Erro(f'A configuração do DHCP ({KEA}) foi alterada à mão e não pode ser lida pelo painel. '
+                   "Rode 'sudo LabFreeImageDeploy reaplicar' para regravá-la.")
+    return cfg
+
+
+def leases_ler():
+    """Concessões do Kea: o arquivo principal e os que a limpeza periódica (LFC) deixa (.1, .2, .completed).
+    Fica com a última de cada MAC. Devolve {mac: (ip, expira, nome)}."""
+    vistos = {}
+    for arq in sorted(glob.glob(KEA_LEASES + '*'), key=lambda a: os.path.getmtime(a)):
+        try:
+            linhas = open(arq, errors='replace').read().splitlines()[1:]
+        except OSError:
+            continue
+        for l in linhas:
+            p = l.split(',')
+            if len(p) > 9 and p[4].isdigit() and p[9] in ('0', ''):
+                if p[1] not in vistos or int(p[4]) >= vistos[p[1]][1]:
+                    vistos[p[1]] = (p[0], int(p[4]), p[8])
+    return vistos
+
+
+def kea_testar(caminho):
+    """kea-dhcp4 -t como _kea (o AppArmor do Debian/Ubuntu só deixa ler em /etc/kea)."""
+    r = sh(['runuser', '-u', '_kea', '--', 'kea-dhcp4', '-t', caminho], verificar=False)
+    if r.returncode != 0:
+        msg = [l for l in (r.stdout + r.stderr).splitlines() if 'ERROR' in l or 'rror' in l]
+        raise Erro("O Kea recusou a configuração: " + (msg[-1].split('] ')[-1] if msg else (r.stdout + r.stderr).strip()[-300:]))
+
+
+def socket_dhcp_aberto(ip):
+    alvo = ''.join(f'{int(o):02X}' for o in reversed(str(ip).split('.'))) + ':0043'
+    try:
+        return any(f' {alvo} ' in l for l in open('/proc/net/udp'))
+    except OSError:
+        return False
+
+
+def iface_existe(iface):
+    return bool(iface) and os.path.isdir(f'/sys/class/net/{iface}')
+
+
+def servico_ativo(nome):
+    return sh(['systemctl', 'is-active', '--quiet', nome], verificar=False).returncode == 0
+
+
+def servico_habilitado(nome):
+    return sh(['systemctl', 'is-enabled', '--quiet', nome], verificar=False).returncode == 0
+
+
+def esperar_dhcp(ip, segundos=12):
+    fim = time.time() + segundos
+    while time.time() < fim:
+        if socket_dhcp_aberto(ip):
+            return True
+        time.sleep(0.5)
+    return False
+
+
+class Instantaneo:
+    """Cópia de arquivos antes de alterar, para desfazer em caso de falha."""
+
+    def __init__(self, motivo):
+        os.makedirs(HISTORICO, exist_ok=True)
+        antigas = sorted(os.listdir(HISTORICO))
+        for velha in antigas[:max(0, len(antigas) - 60)]:  # guarda as 60 alterações mais recentes
+            shutil.rmtree(os.path.join(HISTORICO, velha), ignore_errors=True)
+        self.dir = tempfile.mkdtemp(prefix=f"{datetime.datetime.now():%Y%m%d-%H%M%S}-{motivo}-", dir=HISTORICO)
+        self.arquivos = {}
+
+    def guardar(self, caminho):
+        if caminho in self.arquivos:
+            return
+        destino = os.path.join(self.dir, caminho.lstrip('/'))
+        if os.path.exists(caminho):
+            os.makedirs(os.path.dirname(destino), exist_ok=True)
+            shutil.copy2(caminho, destino)
+            st = os.stat(caminho)
+            self.arquivos[caminho] = (destino, st.st_uid, st.st_gid, st.st_mode & 0o7777)
+        else:
+            self.arquivos[caminho] = None
+
+    def restaurar(self):
+        for caminho, copia in self.arquivos.items():
+            try:
+                if copia:
+                    destino, uid, gid, modo = copia
+                    os.makedirs(os.path.dirname(caminho), exist_ok=True)
+                    if os.path.islink(caminho):
+                        os.remove(caminho)
+                    with open(destino, 'rb') as f:
+                        gravar_atomico(caminho, f.read(), modo, (uid, gid))
+                    os.chown(caminho, uid, gid, follow_symlinks=False)
+                    os.chmod(caminho, modo)
+                elif os.path.lexists(caminho):
+                    os.remove(caminho)
+            except (OSError, Erro) as e:
+                log(f"ERRO ao restaurar {caminho}: {e}")
+
+
+def substituir_em_arquivo(caminho, pares, inst):
+    """Troca textos exatos (com limites de palavra) num arquivo, guardando cópia antes."""
+    if not os.path.exists(caminho):
+        return False
+    texto = open(caminho).read()
+    novo = texto
+    for velho, atual in pares:
+        if velho and velho != atual:
+            novo = re.sub(r'(?<![\w.])' + re.escape(velho) + r'(?![\w])', atual, novo)
+    if novo != texto:
+        inst.guardar(caminho)
+        modo = os.stat(caminho).st_mode & 0o777
+        gravar_atomico(caminho, novo, modo)
+        return True
+    return False
+
+
+def fogsettings_ler():
+    d = {}
+    if os.path.exists(FOGSETTINGS):
+        for linha in open(FOGSETTINGS):
+            m = re.match(r"^([A-Za-z_]+)='(.*)'\s*$", linha.rstrip('\n'))
+            if m:
+                d[m.group(1)] = m.group(2)
+    return d
+
+
+def fogsettings_gravar(valores, inst):
+    if not os.path.exists(FOGSETTINGS):
+        return
+    inst.guardar(FOGSETTINGS)
+    linhas = open(FOGSETTINGS).read().split('\n')
+    for k, v in valores.items():
+        v = str(v).replace("'", '')
+        achou = False
+        for i, l in enumerate(linhas):
+            if l.startswith(f"{k}='") or l.startswith(f"{k}="):
+                linhas[i] = f"{k}='{v}'"
+                achou = True
+        if not achou:
+            fim = next((i for i, l in enumerate(linhas) if l.startswith('## End')), len(linhas))
+            linhas.insert(fim, f"{k}='{v}'")
+    gravar_atomico(FOGSETTINGS, '\n'.join(linhas))
+
+
+def mysql(sql):
+    return sh(['mysql', '-N', '-B', 'fog', '-e', sql], verificar=True).stdout
+
+
+# ------------------------------------------------------------------ DHCP
+
+def dhcp_ler(_entrada=None):
+    k = kea_ler()['Dhcp4']
+    sub = k['subnet4'][0]
+    rede = ipaddress.IPv4Network(sub['subnet'])
+    pool = sub.get('pools', [{}])[0].get('pool', '')
+    inicio, fim = [p.strip() for p in pool.split('-')] if '-' in pool else ('', '')
+    opc = {o.get('name'): o.get('data', '') for o in sub.get('option-data', []) if o.get('name')}
+    opc_g = {o.get('name'): o.get('data', '') for o in k.get('option-data', []) if o.get('name')}
+    reservas = [{'mac': r.get('hw-address', ''), 'ip': r.get('ip-address', ''), 'nome': r.get('hostname', '')}
+                for r in sub.get('reservations', [])]
+    boot = [{'classe': c.get('name', ''), 'arquivo': c.get('boot-file-name', '')} for c in k.get('client-classes', []) if c.get('boot-file-name')]
+    conf = ler_conf()
+    ativos = 0
+    agora = time.time()
+    ativos = sum(1 for _, exp, _ in leases_ler().values() if exp > agora)
+    return {
+        'ativo': servico_habilitado(KEA_SERVICO),
+        'rodando': servico_ativo(KEA_SERVICO),
+        'escutando': socket_dhcp_aberto(conf.get('FOG_IP', k.get('next-server', ''))),
+        'interface': (k.get('interfaces-config', {}).get('interfaces') or [''])[0],
+        'servidor_ip': k.get('next-server', conf.get('FOG_IP', '')),
+        'rede': str(rede),
+        'mascara': str(rede.netmask),
+        'inicio': inicio,
+        'fim': fim,
+        'gateway': opc.get('routers', ''),
+        'dns': [d.strip() for d in opc.get('domain-name-servers', '').split(',') if d.strip()],
+        'dominio': opc.get('domain-name', ''),
+        'concessao_horas': round(k.get('valid-lifetime', 21600) / 3600, 2),
+        'reservas': reservas,
+        'arquivos_boot': boot,
+        'tftp': opc_g.get('tftp-server-name', k.get('next-server', '')),
+        'leases_ativos': ativos,
+    }
+
+
+def dhcp_validar(e, rede, servidor):
+    ini = ip_valido(e.get('inicio', ''), 'Início da faixa')
+    fim = ip_valido(e.get('fim', ''), 'Fim da faixa')
+    for ip, nome in ((ini, 'Início da faixa'), (fim, 'Fim da faixa')):
+        if ip not in rede or ip in (rede.network_address, rede.broadcast_address):
+            raise Erro(f"{nome} ({ip}) precisa estar dentro da rede {rede} (sem o primeiro e o último endereço).")
+    if int(ini) > int(fim):
+        raise Erro("O início da faixa precisa ser menor ou igual ao fim.")
+    if int(ini) <= int(servidor) <= int(fim):
+        raise Erro(f"A faixa não pode incluir o IP do próprio servidor ({servidor}). Ex.: comece em {servidor + 1 if servidor + 1 in rede else ini}.")
+    gw = str(e.get('gateway', '') or '').strip()
+    if gw:
+        gwi = ip_valido(gw, 'Gateway')
+        if gwi not in rede:
+            raise Erro(f"O gateway ({gw}) precisa estar na rede {rede}.")
+    dns = []
+    for d in (e.get('dns') or []):
+        d = str(d).strip()
+        if d:
+            dns.append(str(ip_valido(d, 'DNS')))
+    if len(dns) > 4:
+        raise Erro("Informe no máximo 4 servidores DNS.")
+    dominio = str(e.get('dominio', '') or '').strip()
+    if dominio and not RE_DOMINIO.match(dominio):
+        raise Erro(f"Domínio inválido: “{dominio}”.")
+    try:
+        horas = float(e.get('concessao_horas', 6))
+    except (TypeError, ValueError):
+        raise Erro("Tempo de concessão inválido.")
+    if not 0.25 <= horas <= 168:
+        raise Erro("Tempo de concessão: entre 0,25 hora (15 min) e 168 horas (7 dias).")
+    reservas, macs, ips = [], set(), set()
+    for r in (e.get('reservas') or []):
+        mac = mac_normalizado(r.get('mac', ''))
+        ip = ip_valido(r.get('ip', ''), f'IP da reserva {mac}')
+        if ip not in rede or ip in (rede.network_address, rede.broadcast_address):
+            raise Erro(f"A reserva {mac} usa {ip}, que está fora da rede {rede}.")
+        if ip == servidor:
+            raise Erro(f"A reserva {mac} não pode usar o IP do servidor ({servidor}).")
+        if mac in macs:
+            raise Erro(f"MAC repetido nas reservas: {mac}.")
+        if str(ip) in ips:
+            raise Erro(f"IP repetido nas reservas: {ip}.")
+        nome = str(r.get('nome', '') or '').strip()
+        if nome and not RE_HOST.match(nome):
+            raise Erro(f"Nome inválido na reserva {mac}: use letras, números e hífen.")
+        macs.add(mac)
+        ips.add(str(ip))
+        reservas.append({'hw-address': mac, 'ip-address': str(ip), **({'hostname': nome} if nome else {})})
+    return {'inicio': str(ini), 'fim': str(fim), 'gateway': gw, 'dns': dns, 'dominio': dominio,
+            'segundos': int(horas * 3600), 'reservas': reservas, 'ativo': bool(e.get('ativo', True))}
+
+
+def kea_montar(cfg, v, rede, servidor, iface):
+    k = cfg['Dhcp4']
+    ic = k.setdefault('interfaces-config', {})
+    ic['interfaces'] = [iface]
+    ic.setdefault('dhcp-socket-type', 'raw')
+    ic['service-sockets-require-all'] = False
+    ic['service-sockets-max-retries'] = 1000000
+    ic['service-sockets-retry-wait-time'] = 5000
+    k['valid-lifetime'] = v['segundos']
+    k['max-valid-lifetime'] = v['segundos'] * 2
+    k['next-server'] = str(servidor)
+    globais = [o for o in k.get('option-data', []) if o.get('name') != 'tftp-server-name']
+    globais.insert(0, {'name': 'tftp-server-name', 'data': str(servidor)})
+    k['option-data'] = globais
+    sub = k['subnet4'][0]
+    sub['subnet'] = str(rede)
+    sub['pools'] = [{'pool': f"{v['inicio']} - {v['fim']}"}]
+    manter = [o for o in sub.get('option-data', []) if o.get('name') not in ('subnet-mask', 'routers', 'domain-name-servers', 'domain-name')]
+    opcoes = [{'name': 'subnet-mask', 'data': str(rede.netmask)}]
+    if v['gateway']:
+        opcoes.append({'name': 'routers', 'data': v['gateway']})
+    if v['dns']:
+        opcoes.append({'name': 'domain-name-servers', 'data': ', '.join(v['dns'])})
+    if v['dominio']:
+        opcoes.append({'name': 'domain-name', 'data': v['dominio']})
+    sub['option-data'] = opcoes + manter
+    if v['reservas']:
+        sub['reservations'] = v['reservas']
+    else:
+        sub.pop('reservations', None)
+    return cfg
+
+
+def kea_instalar(cfg, inst):
+    """Testa a configuração nova e só então substitui a atual."""
+    texto = json.dumps(cfg, indent=4, ensure_ascii=False) + '\n'
+    if os.path.exists(KEA) and open(KEA).read() == texto:
+        return False  # nada mudou: não precisa reiniciar o DHCP
+    fd, novo = tempfile.mkstemp(prefix='.LabFreeImageDeploy-', suffix='.conf', dir=os.path.dirname(KEA))
+    try:
+        with os.fdopen(fd, 'w') as f:
+            f.write(texto)
+        os.chmod(novo, 0o644)
+        kea_testar(novo)
+        inst.guardar(KEA)
+        os.replace(novo, KEA)
+    finally:
+        if os.path.exists(novo):
+            os.remove(novo)
+    return True
+
+
+def kea_reiniciar(conf):
+    """Reinicia o Kea se ele estiver habilitado e a placa existir. Devolve aviso (ou '')."""
+    if not servico_habilitado(KEA_SERVICO):
+        sh(['systemctl', 'stop', KEA_SERVICO], verificar=False)
+        return ''
+    if not iface_existe(conf.get('FOG_IFACE')):
+        return 'A placa da rede de clonagem não está conectada; o DHCP vai começar quando ela for plugada.'
+    sh(['systemctl', 'restart', KEA_SERVICO], verificar=False)
+    if not esperar_dhcp(conf.get('FOG_IP')):
+        if not servico_ativo(KEA_SERVICO):
+            raise Erro('O serviço de DHCP (Kea) não iniciou com a nova configuração.')
+        return 'O DHCP está ativo, mas ainda aguardando a placa da rede de clonagem ficar pronta (cabo desconectado?).'
+    return ''
+
+
+def dhcp_aplicar(e):
+    conf = ler_conf()
+    cfg = kea_ler()
+    sub = cfg['Dhcp4']['subnet4'][0]
+    rede = ipaddress.IPv4Network(sub['subnet'])
+    servidor = ipaddress.IPv4Address(conf.get('FOG_IP') or cfg['Dhcp4'].get('next-server'))
+    iface = conf.get('FOG_IFACE') or cfg['Dhcp4']['interfaces-config']['interfaces'][0]
+    v = dhcp_validar(e, rede, servidor)
+    inst = Instantaneo('dhcp')
+    estava_habilitado = servico_habilitado(KEA_SERVICO)
+    try:
+        mudou = kea_instalar(kea_montar(cfg, v, rede, servidor, iface), inst)
+        fogsettings_gravar({'startrange': v['inicio'], 'endrange': v['fim'],
+                            'routeraddress': v['gateway'], 'plainrouter': v['gateway'],
+                            'dnsaddress': v['dns'][0] if v['dns'] else '',
+                            'dodhcp': 'y' if v['ativo'] else 'n', 'bldhcp': '1' if v['ativo'] else '0'}, inst)
+        if v['ativo']:
+            sh(['systemctl', 'enable', KEA_SERVICO], verificar=False)
+        else:
+            sh(['systemctl', 'disable', '--now', KEA_SERVICO], verificar=False)
+        # só reinicia (DHCP fora do ar por alguns segundos) se algo mudou ou se ele não está de pé
+        if mudou or v['ativo'] != (estava_habilitado and servico_ativo(KEA_SERVICO)):
+            aviso = kea_reiniciar(conf)
+        else:
+            aviso = ''
+    except Exception as ex:
+        inst.restaurar()
+        sh(['systemctl', 'enable' if estava_habilitado else 'disable', KEA_SERVICO], verificar=False)
+        if estava_habilitado:
+            kea_reiniciar_seguro(conf)
+        log(f"dhcp-aplicar FALHOU, desfeito: {ex}")
+        raise
+    salvar_dhcp(v)
+    log(f"dhcp-aplicar ok: faixa {v['inicio']}-{v['fim']} gw={v['gateway'] or '-'} dns={','.join(v['dns']) or '-'} "
+        f"concessao={v['segundos']}s reservas={len(v['reservas'])} ativo={v['ativo']}")
+    msg = 'Configuração do DHCP salva e aplicada.' if v['ativo'] else 'DHCP do servidor desligado. Use outro servidor DHCP na rede (veja a Ajuda).'
+    return {'ok': True, 'msg': msg, 'aviso': aviso, 'dhcp': dhcp_ler()}
+
+
+def salvar_dhcp(v):
+    """Guarda a configuração completa do DHCP: o installfog.sh do FOG regrava o Kea só com
+    faixa/gateway/1 DNS; o 'reaplicar' usa este arquivo para devolver o resto (reservas etc.)."""
+    d = {'ativo': v['ativo'], 'inicio': v['inicio'], 'fim': v['fim'], 'gateway': v['gateway'], 'dns': v['dns'],
+         'dominio': v['dominio'], 'concessao_horas': v['segundos'] / 3600,
+         'reservas': [{'mac': r['hw-address'], 'ip': r['ip-address'], 'nome': r.get('hostname', '')} for r in v['reservas']]}
+    gravar_atomico(DHCP_SALVO, json.dumps(d, indent=2, ensure_ascii=False) + '\n', 0o644)
+
+
+def kea_reiniciar_seguro(conf):
+    try:
+        kea_reiniciar(conf)
+    except Exception as ex:  # já estamos desfazendo; só registra
+        log(f"Aviso ao reiniciar o Kea depois de desfazer: {ex}")
+
+
+# ------------------------------------------------------------------ rede
+
+def rota_padrao_ifaces():
+    r = sh(['ip', '-4', 'route', 'show', 'default'], verificar=False)
+    return {m.group(1) for m in re.finditer(r'\bdev (\S+)', r.stdout)}
+
+
+def ips_da_iface(iface):
+    r = sh(['ip', '-4', '-o', 'addr', 'show', 'dev', iface], verificar=False)
+    return re.findall(r'inet (\d+\.\d+\.\d+\.\d+/\d+)', r.stdout)
+
+
+def ler_sys(caminho, padrao=''):
+    try:
+        return open(caminho).read().strip()
+    except OSError:
+        return padrao
+
+
+def info_usb(iface):
+    """Se a placa for USB, devolve (vendor, product, nome do produto)."""
+    dev = os.path.realpath(f'/sys/class/net/{iface}/device')
+    pai = os.path.dirname(dev)
+    v, p = ler_sys(f'{pai}/idVendor'), ler_sys(f'{pai}/idProduct')
+    if v and p:
+        return v, p, ler_sys(f'{pai}/product')
+    return None
+
+
+def rede_listar(_entrada=None):
+    conf = ler_conf()
+    internet = rota_padrao_ifaces()
+    placas = []
+    for nome in sorted(os.listdir('/sys/class/net')):
+        base = f'/sys/class/net/{nome}'
+        if nome == 'lo' or not os.path.exists(f'{base}/device') or ler_sys(f'{base}/type') != '1':
+            continue  # só placas físicas
+        wifi = os.path.isdir(f'{base}/wireless') or os.path.isdir(f'{base}/phy80211')
+        usb = info_usb(nome)
+        placas.append({
+            'nome': nome,
+            'mac': ler_sys(f'{base}/address'),
+            'tipo': 'wifi' if wifi else 'ethernet',
+            'usb': bool(usb),
+            'modelo': usb[2] if usb else ler_sys(f'{base}/device/label') or os.path.basename(os.path.realpath(f'{base}/device/driver')),
+            'cabo': ler_sys(f'{base}/carrier') == '1',
+            'velocidade': ler_sys(f'{base}/speed') if ler_sys(f'{base}/carrier') == '1' else '',
+            'ips': ips_da_iface(nome),
+            'internet': nome in internet,
+            'fog': nome == conf.get('FOG_IFACE'),
+            'pode_usar': (not wifi) and nome not in internet,
+        })
+    return {'placas': placas, 'atual': {'interface': conf.get('FOG_IFACE', ''), 'ip': conf.get('FOG_IP', ''),
+                                        'prefixo': int(conf.get('FOG_PREFIXO', 24) or 24), 'mac': conf.get('FOG_MAC', '')}}
+
+
+def faixa_padrao(rede, servidor):
+    """Faixa do DHCP numa rede nova: a partir do 10º endereço até o último, sem incluir o servidor
+    (fica com o maior pedaço contínuo de um dos lados dele)."""
+    hosts = list(rede.hosts())
+    ini, fim = hosts[9 if len(hosts) >= 64 else 0], hosts[-1]  # redes pequenas usam todos os endereços
+    if not int(ini) <= int(servidor) <= int(fim):
+        return ini, fim
+    lados = [(ini, servidor - 1), (servidor + 1, fim)]
+    lados = [(a, b) for a, b in lados if int(a) <= int(b)]
+    if not lados:  # rede pequena: usa o que sobra fora do servidor
+        lados = [(a, b) for a, b in ((hosts[0], servidor - 1), (servidor + 1, hosts[-1])) if int(a) <= int(b)]
+    return max(lados, key=lambda r: int(r[1]) - int(r[0]))
+
+
+def rede_planejar(e):
+    conf = ler_conf()
+    iface = str(e.get('interface', '')).strip()
+    if not RE_IFACE.match(iface) or not iface_existe(iface):
+        raise Erro('Escolha uma placa de rede existente.')
+    base = f'/sys/class/net/{iface}'
+    if not os.path.exists(f'{base}/device') or ler_sys(f'{base}/type') != '1':
+        raise Erro(f'{iface} não é uma placa de rede física.')
+    if os.path.isdir(f'{base}/wireless'):
+        raise Erro('A rede de clonagem precisa de uma placa com cabo (Ethernet); Wi-Fi não serve para boot pela rede.')
+    if iface in rota_padrao_ifaces() and iface != conf.get('FOG_IFACE'):
+        raise Erro(f'A placa {iface} é a que leva este servidor à internet. Usá-la para a clonagem derrubaria a internet e '
+                   'poderia distribuir IP na rede errada. Use outra placa (por exemplo, um adaptador USB).')
+    ip = ip_valido(e.get('ip', ''), 'IP do servidor')
+    try:
+        prefixo = int(e.get('prefixo', 24))
+    except (TypeError, ValueError):
+        raise Erro('Máscara inválida.')
+    if not 16 <= prefixo <= 29:
+        raise Erro('Use uma máscara entre /16 (255.255.0.0) e /29.')
+    rede = ipaddress.IPv4Network(f'{ip}/{prefixo}', strict=False)
+    if not ip.is_private:
+        raise Erro('Use um IP de rede privada (por exemplo 192.168.x.x, 10.x.x.x ou 172.16–31.x.x).')
+    if ip in (rede.network_address, rede.broadcast_address):
+        raise Erro(f'{ip} é o endereço de rede ou de broadcast de {rede}; escolha outro.')
+    for outra in os.listdir('/sys/class/net'):
+        if outra in (iface, 'lo'):
+            continue
+        for cidr in ips_da_iface(outra):
+            if ipaddress.IPv4Network(cidr, strict=False).overlaps(rede):
+                raise Erro(f'A rede {rede} conflita com a placa {outra} ({cidr}). Escolha outra faixa, por exemplo 192.168.31.1/24 ou 10.10.10.1/24.')
+    mac = ler_sys(f'{base}/address')
+    velho = {'iface': conf.get('FOG_IFACE', ''), 'ip': conf.get('FOG_IP', ''), 'prefixo': int(conf.get('FOG_PREFIXO', 24) or 24)}
+    mudancas, avisos = [], []
+    mudou_ip = str(ip) != velho['ip']
+    mudou_rede = str(rede) != str(ipaddress.IPv4Network(f"{velho['ip']}/{velho['prefixo']}", strict=False)) if velho['ip'] else True
+    if iface != velho['iface']:
+        mudancas.append(f"Placa da rede de clonagem: {velho['iface'] or '—'} → {iface}")
+    if mudou_ip or mudou_rede:
+        mudancas.append(f"IP do servidor: {velho['ip'] or '—'}/{velho['prefixo']} → {ip}/{prefixo}")
+    # DHCP na rede nova
+    try:
+        atual = dhcp_ler()
+    except Exception:
+        atual = None
+    dhcp = None
+    if atual:
+        ini, fim = ipaddress.IPv4Address(atual['inicio']), ipaddress.IPv4Address(atual['fim'])
+        if mudou_rede or not (ini in rede and fim in rede) or int(ini) <= int(ip) <= int(fim):
+            ini, fim = faixa_padrao(rede, ip)
+            mudancas.append(f"Faixa do DHCP: {atual['inicio']}–{atual['fim']} → {ini}–{fim}")
+        gateway = atual['gateway']
+        if gateway == velho['ip'] or (gateway and ipaddress.IPv4Address(gateway) not in rede):
+            gateway = str(ip) if gateway == velho['ip'] else ''
+        reservas = [r for r in atual['reservas'] if ipaddress.IPv4Address(r['ip']) in rede and r['ip'] != str(ip)]
+        if len(reservas) < len(atual['reservas']):
+            avisos.append(f"{len(atual['reservas']) - len(reservas)} reserva(s) de IP ficam fora da rede nova e serão removidas.")
+        dhcp = {**atual, 'inicio': str(ini), 'fim': str(fim), 'gateway': gateway, 'reservas': reservas}
+    if mudou_ip:
+        mudancas += ['Certificado HTTPS do servidor reemitido para o novo IP',
+                     'Menu de boot (default.ipxe), Apache, banco e configurações atualizados',
+                     f"Endereço do painel passa a ser https://{ip}/"]
+    if not mudancas:
+        mudancas.append('Nada muda: a placa e o IP já são esses. (A configuração será reaplicada.)')
+    if not ler_sys(f'{base}/carrier') == '1':
+        avisos.append(f'A placa {iface} está sem cabo conectado; a rede de clonagem só fica ativa quando o cabo for ligado.')
+    remoto = str(e.get('cliente_ip', '') or '')
+    if remoto and mudou_ip:
+        try:
+            if ipaddress.IPv4Address(remoto) in ipaddress.IPv4Network(f"{velho['ip']}/{velho['prefixo']}", strict=False):
+                avisos.append(f'Você está acessando o painel pela própria rede de clonagem. Depois de aplicar, a página vai parar de responder: '
+                              f'reconecte em https://{ip}/ (seu computador também precisa de um IP na rede nova).')
+        except ValueError:
+            pass
+    return {'iface': iface, 'mac': mac, 'ip': ip, 'prefixo': prefixo, 'rede': rede, 'velho': velho,
+            'mudou_ip': mudou_ip, 'dhcp': dhcp, 'mudancas': mudancas, 'avisos': avisos}
+
+
+def rede_simular(e):
+    p = rede_planejar(e)
+    if p['dhcp']:  # o mesmo teste que o aplicar fará: o simular nunca diz "ok" para algo que vai ser recusado
+        dhcp_validar(p['dhcp'], p['rede'], p['ip'])
+    return {'mudancas': p['mudancas'], 'avisos': p['avisos'],
+            'dhcp': {k: p['dhcp'][k] for k in ('inicio', 'fim', 'gateway')} if p['dhcp'] else None,
+            'url': f"https://{p['ip']}/"}
+
+
+NM_CAMPOS = ('connection.interface-name', '802-3-ethernet.mac-address', 'connection.autoconnect',
+             'connection.autoconnect-retries', 'connection.autoconnect-priority', 'ipv4.method', 'ipv4.addresses',
+             'ipv4.gateway', 'ipv4.dns', 'ipv4.ignore-auto-dns', 'ipv4.never-default', 'ipv6.method')
+
+
+def nm_configurar(p, conf, desfazer):
+    """Cria ou ajusta a conexão do NetworkManager presa à placa (nome e MAC) com IP fixo.
+    Anota em `desfazer` o necessário para voltar exatamente ao estado anterior."""
+    uuid = conf.get('FOG_NM_UUID', '')
+    existe = uuid and sh(['nmcli', '-g', 'connection.uuid', 'con', 'show', uuid], verificar=False).returncode == 0
+    if existe:
+        desfazer['uuid'] = uuid
+        desfazer['antes'] = {c: sh(['nmcli', '-g', c, 'con', 'show', uuid], verificar=False).stdout.strip().replace('\\:', ':')
+                             for c in NM_CAMPOS}
+    ajustes = ['connection.interface-name', p['iface'], '802-3-ethernet.mac-address', p['mac'],
+               'connection.autoconnect', 'yes', 'connection.autoconnect-retries', '0', 'connection.autoconnect-priority', '10',
+               'ipv4.method', 'manual', 'ipv4.addresses', f"{p['ip']}/{p['prefixo']}", 'ipv4.gateway', '', 'ipv4.dns', '',
+               'ipv4.ignore-auto-dns', 'yes', 'ipv4.never-default', 'yes', 'ipv6.method', 'disabled']
+    if existe:
+        sh(['nmcli', 'con', 'mod', uuid] + ajustes)
+    else:
+        r = sh(['nmcli', 'con', 'add', 'type', 'ethernet', 'con-name', 'LabFreeImageDeploy - rede de clonagem', 'ifname', p['iface']] + ajustes)
+        m = re.search(r'\(([0-9a-f-]{36})\)', r.stdout)
+        if not m:
+            raise Erro('O NetworkManager não informou a conexão criada.')
+        uuid = m.group(1)
+        desfazer['criada'] = uuid
+    # outras conexões automáticas presas a esta placa poderiam disputar a ativação
+    for linha in sh(['nmcli', '-t', '-f', 'UUID,DEVICE', 'con', 'show', '--active'], verificar=False).stdout.splitlines():
+        u, _, dev = linha.partition(':')
+        if dev == p['iface'] and u != uuid:
+            sh(['nmcli', 'con', 'down', u], verificar=False)
+            desfazer.setdefault('derrubadas', []).append(u)
+    if ler_sys(f"/sys/class/net/{p['iface']}/carrier") == '1':
+        sh(['nmcli', '--wait', '20', 'con', 'up', uuid], verificar=False)
+    return uuid
+
+
+def nm_reverter(velho_conf, desfazer):
+    sh(['nmcli', 'general', 'reload', 'conf'], verificar=False)  # o arquivo de ignore-carrier já foi restaurado
+    if desfazer.get('criada'):
+        sh(['nmcli', 'con', 'delete', desfazer['criada']], verificar=False)
+    uuid = desfazer.get('uuid')
+    if uuid and desfazer.get('antes'):
+        args = []
+        antes = desfazer['antes']
+        # a ordem importa para o NM: método manual só com endereço, e vice-versa
+        for c in NM_CAMPOS:
+            args += [c, antes.get(c, '')]
+        if sh(['nmcli', 'con', 'mod', uuid] + args, verificar=False).returncode != 0:
+            log(f'ERRO ao restaurar a conexão {uuid} do NetworkManager')
+        iface = antes.get('connection.interface-name') or velho_conf.get('FOG_IFACE', '')
+        if iface and ler_sys(f"/sys/class/net/{iface}/carrier") == '1':
+            sh(['nmcli', '--wait', '20', 'con', 'up', uuid], verificar=False)
+    for u in desfazer.get('derrubadas', []):
+        sh(['nmcli', '--wait', '20', 'con', 'up', u], verificar=False)
+
+
+def escrever_dropin_kea(iface, inst):
+    inst.guardar(KEA_DROPIN)
+    os.makedirs(os.path.dirname(KEA_DROPIN), exist_ok=True)
+    gravar_atomico(KEA_DROPIN, f"""# LabFree ImageDeploy (gerado pelo LabFreeImageDeploy-root; não edite à mão).
+# O Kea 2.4 recusa a configuração e não sobe se a interface listada em
+# interfaces-config não existir. Sem a placa da rede de clonagem o serviço fica apenas
+# inativo (sem erro); quando a placa sobe, o NetworkManager executa
+# /etc/NetworkManager/dispatcher.d/90-LabFreeImageDeploy-kea, que inicia o Kea.
+[Unit]
+ConditionPathExists=/sys/class/net/{iface}
+After=NetworkManager.service
+StartLimitIntervalSec=0
+
+[Service]
+Restart=on-failure
+RestartSec=10
+""")
+
+
+def escrever_udev(iface, inst):
+    inst.guardar(UDEV_REGRA)
+    usb = info_usb(iface)
+    if not usb:
+        if os.path.exists(UDEV_REGRA):
+            os.remove(UDEV_REGRA)
+        return
+    v, p, nome = usb
+    gravar_atomico(UDEV_REGRA, f"# LabFree ImageDeploy (gerado pelo LabFreeImageDeploy-root): sem autosuspend USB no adaptador da rede FOG ({nome})\n"
+                               f'ACTION=="add", SUBSYSTEM=="usb", ATTR{{idVendor}}=="{v}", ATTR{{idProduct}}=="{p}", TEST=="power/control", ATTR{{power/control}}="on"\n')
+
+
+def escrever_nm_carrier(iface, inst):
+    """Mantém o IP fixo da rede FOG quando o link cai por segundos (cliente PXE reiniciando
+    a placa). Sem isto o NetworkManager tira o IP e o udp-sender do multicast morre com
+    'Set multicast send interface: Cannot assign requested address'."""
+    inst.guardar(NM_CARRIER)
+    gravar_atomico(NM_CARRIER, f"""# LabFree ImageDeploy (gerado pelo LabFreeImageDeploy-root): a placa da rede de clonagem mantém o IP fixo mesmo
+# quando o link cai por alguns segundos (cliente PXE reiniciando a placa). Sem isto o
+# NetworkManager tira o IP e o envio multicast (udp-sender) morre.
+[device-LabFreeImageDeploy]
+match-device=interface-name:{iface}
+ignore-carrier=yes
+""")
+    sh(['nmcli', 'general', 'reload', 'conf'], verificar=False)
+
+
+def escrever_chrony(rede, inst):
+    inst.guardar(CHRONY_FOG)
+    os.makedirs(os.path.dirname(CHRONY_FOG), exist_ok=True)
+    gravar_atomico(CHRONY_FOG, f"""# LabFree ImageDeploy (gerado pelo LabFreeImageDeploy-root): serve a hora para os clientes PXE da rede FOG.
+# O iPXE executa "ntp <IP do FOG>" (default.ipxe) antes de validar o certificado
+# HTTPS; sem isso, clientes com relógio de BIOS errado falham com
+# "Permission denied (ipxe.org/0216eb8f)".
+allow {rede}
+# Continua servindo hora mesmo sem internet (usa o relógio local)
+local stratum 10 orphan
+""")
+
+
+def reemitir_certificado(ip, inst):
+    """Reemite o certificado do site com o novo IP, assinado pela mesma 'FOG Web CA'
+    (o iPXE confia na CA raiz do FOG, então não precisa recompilar nada)."""
+    leaf = f'{PKI_WEB}/leaf'
+    chave, cert, csr, sans = f'{leaf}/.webLeaf.key', f'{leaf}/.webLeaf.pem', f'{leaf}/.webLeaf.csr', f'{leaf}/.webLeaf.sans'
+    ca_pem, ca_key, cadeia = f'{PKI_WEB}/ca/.fogWebCA.pem', f'{PKI_WEB}/ca/.fogWebCA.key', f'{PKI_WEB}/ca/.fogWebCAchain.pem'
+    for f in (chave, ca_pem, ca_key):
+        if not os.path.exists(f):
+            raise Erro(f'Certificado do FOG não encontrado ({f}).')
+    texto = sh(['openssl', 'x509', '-in', cert, '-noout', '-ext', 'subjectAltName'], verificar=False).stdout
+    nomes = [n for n in re.findall(r'DNS:([^,\s]+)', texto)] or [os.uname().nodename]
+    alt = f"IP.1 = {ip}\n" + ''.join(f"DNS.{i} = {n}\n" for i, n in enumerate(nomes, 1))
+    for f in (cert, csr, sans, f'{SSL_DIR}/ca.cnf', f'{SSL_DIR}/req.cnf'):
+        inst.guardar(f)
+    os.makedirs(SSL_DIR, exist_ok=True)
+    gravar_atomico(f'{SSL_DIR}/ca.cnf', f"[v3_ca]\nsubjectAltName = @alt_names\n[alt_names]\n{alt}", 0o644)
+    gravar_atomico(f'{SSL_DIR}/req.cnf', "[req]\ndistinguished_name = req_distinguished_name\nreq_extensions = v3_req\nprompt = yes\n"
+                   f"[req_distinguished_name]\nCN = {ip}\nO = FOG Project\nOU = FOG Client Communication\n"
+                   f"[v3_req]\nsubjectAltName = @alt_names\n[alt_names]\n{alt}", 0o644)
+    cn = nomes[0]
+    sh(['openssl', 'req', '-new', '-sha512', '-key', chave, '-out', csr, '-config', f'{SSL_DIR}/req.cnf',
+        '-subj', f'/CN={cn}/O=FOG Project/OU=FOG Web UI'])
+    novo = cert + '.LabFreeImageDeploy-novo'
+    sh(['openssl', 'x509', '-req', '-in', csr, '-CA', ca_pem, '-CAkey', ca_key, '-CAcreateserial',
+        '-out', novo, '-days', '1825', '-extensions', 'v3_ca', '-extfile', f'{SSL_DIR}/ca.cnf'])
+    sh(['openssl', 'verify', '-CAfile', cadeia, novo])
+    atual = os.stat(cert)
+    os.chown(novo, atual.st_uid, atual.st_gid)
+    os.chmod(novo, atual.st_mode & 0o7777)
+    os.replace(novo, cert)
+    # mesmo carimbo que o instalador do FOG usa para saber que o certificado está em dia
+    carimbo = sh(['openssl', 'md5'], entrada=open(f'{SSL_DIR}/ca.cnf').read() +
+                 sh(['openssl', 'x509', '-in', ca_pem, '-noout', '-fingerprint', '-sha256']).stdout).stdout
+    gravar_atomico(sans, carimbo, 0o644)
+
+
+def garantir_ipxe_ntp(ip, inst):
+    """O iPXE acerta o relógio pelo NTP do servidor antes de validar o HTTPS (evita 0216eb8f)."""
+    if not os.path.exists(DEFAULT_IPXE):
+        return False
+    texto = open(DEFAULT_IPXE).read()
+    if re.search(rf'^ntp {re.escape(str(ip))}\b', texto, re.M) or not re.search(r'^chain https://', texto, re.M):
+        return False
+    inst.guardar(DEFAULT_IPXE)
+    novo = re.sub(r'^ntp \S+ .*\n', '', texto, flags=re.M)
+    novo = re.sub(r'^(chain https://)', f'ntp {ip} || echo NTP {ip} falhou, usando o relogio da BIOS\n\\1', novo, count=1, flags=re.M)
+    gravar_atomico(DEFAULT_IPXE, novo)
+    return True
+
+
+def banco_ler_rede():
+    linhas = mysql("SELECT settingKey, settingValue FROM globalSettings WHERE settingKey IN "
+                   "('FOG_TFTP_HOST','FOG_WEB_HOST','FOG_NFS_ETH_MONITOR','FOG_UDPCAST_INTERFACE');")
+    d = dict(l.split('\t', 1) for l in linhas.splitlines() if '\t' in l)
+    no = mysql("SELECT ngmID, ngmHostname, ngmInterface FROM nfsGroupMembers;")
+    return d, [l.split('\t') for l in no.splitlines() if l]
+
+
+def banco_gravar_rede(ip_velho, ip_novo, if_velho, if_novo):
+    # valores já validados (IPv4 e nome de interface), seguros para o SQL
+    mysql(f"UPDATE globalSettings SET settingValue='{ip_novo}' WHERE settingKey IN ('FOG_TFTP_HOST','FOG_WEB_HOST') AND settingValue IN ('{ip_velho}','');"
+          f"UPDATE globalSettings SET settingValue='{if_novo}' WHERE settingKey IN ('FOG_NFS_ETH_MONITOR','FOG_UDPCAST_INTERFACE') AND settingValue IN ('{if_velho}','');"
+          f"UPDATE nfsGroupMembers SET ngmHostname='{ip_novo}' WHERE ngmHostname='{ip_velho}';"
+          f"UPDATE nfsGroupMembers SET ngmInterface='{if_novo}' WHERE ngmInterface='{if_velho}';")
+
+
+def sqlq(v):
+    """Texto para dentro de aspas simples no SQL (os valores vêm do próprio banco, que o www-data pode alterar)."""
+    return str(v).replace('\\', '\\\\').replace("'", "\\'").replace('\0', '')
+
+
+def banco_restaurar(config, nos):
+    sql = ''
+    for k, v in config.items():
+        sql += f"UPDATE globalSettings SET settingValue='{sqlq(v)}' WHERE settingKey='{sqlq(k)}';"
+    for ng_id, host, iface in nos:
+        sql += f"UPDATE nfsGroupMembers SET ngmHostname='{sqlq(host)}', ngmInterface='{sqlq(iface)}' WHERE ngmID={int(ng_id)};"
+    if sql:
+        mysql(sql)
+
+
+# Serviços da base FOG expostos com o nome do produto (os originais ficam desligados).
+SERVICOS_FOG = {
+    'FOGMulticastManager': ('multicast', 'Envio de imagens em grupo (multicast)'),
+    'FOGScheduler': ('agendador', 'Agendador de tarefas'),
+    'FOGImageReplicator': ('replicacao-imagens', 'Replicação de imagens'),
+    'FOGSnapinReplicator': ('replicacao-snapins', 'Replicação de snapins'),
+    'FOGPingHosts': ('ping', 'Verificação de máquinas ligadas'),
+    'FOGImageSize': ('tamanho-imagens', 'Cálculo do tamanho das imagens'),
+    'FOGSnapinHash': ('hash-snapins', 'Verificação de snapins'),
+}
+
+
+def nome_servico(fog):
+    return f'LabFreeImageDeploy-{SERVICOS_FOG[fog][0]}'
+
+
+def servicos_aplicar(_entrada=None):
+    """Cria LabFreeImageDeploy-*.service a partir dos serviços do FOG e desliga os originais."""
+    feito = []
+    for fog, (curto, desc) in SERVICOS_FOG.items():
+        origem = next((d for d in ('/etc/systemd/system', '/lib/systemd/system', '/usr/lib/systemd/system')
+                       if os.path.exists(f'{d}/{fog}.service')), None)
+        if not origem:
+            continue
+        execstart = next((l.split('=', 1)[1].strip() for l in open(f'{origem}/{fog}.service') if l.startswith('ExecStart=')), '')
+        if not execstart:
+            continue
+        novo = f'/etc/systemd/system/{nome_servico(fog)}.service'
+        conteudo = (f"# LabFree ImageDeploy (gerado pelo LabFreeImageDeploy-root a partir de {fog}.service)\n"
+                    f"[Unit]\nDescription=LabFree ImageDeploy - {desc}\n"
+                    "After=syslog.target network.target network-online.target mariadb.service mysql.service\n"
+                    f"Conflicts={fog}.service\nStartLimitIntervalSec=0\n\n"
+                    f"[Service]\nType=simple\nRestart=always\nRestartSec=1\nExecStart={execstart}\n\n"
+                    "[Install]\nWantedBy=multi-user.target\n")
+        if not os.path.exists(novo) or open(novo).read() != conteudo:
+            gravar_atomico(novo, conteudo, 0o644)
+            feito.append(nome_servico(fog))
+    if feito:
+        sh(['systemctl', 'daemon-reload'], verificar=False)
+    for fog in SERVICOS_FOG:
+        if os.path.exists(f'/etc/systemd/system/{nome_servico(fog)}.service'):
+            if servico_ativo(fog) or servico_habilitado(fog):
+                sh(['systemctl', 'disable', '--now', f'{fog}.service'], verificar=False)
+            sh(['systemctl', 'enable', '--now', f'{nome_servico(fog)}.service'], verificar=False)
+    return feito
+
+
+def reiniciar_servicos_fog():
+    # o PHP-FPM não precisa reiniciar (lê config.class.php a cada pedido) e reiniciá-lo derrubaria o próprio painel
+    servicos = ['apache2', 'chrony']
+    for fog in SERVICOS_FOG:
+        servicos.append(nome_servico(fog) if os.path.exists(f'/etc/systemd/system/{nome_servico(fog)}.service') else fog)
+    for s in servicos:
+        if s == 'apache2':
+            # reload = "graceful": o pedido do painel que chamou este ajudante não é morto no meio
+            if sh(['systemctl', 'reload', s], verificar=False).returncode == 0:
+                continue
+        sh(['systemctl', 'try-restart', s], verificar=False)
+
+
+def web_ok(ip):
+    """O FOG responde? (menu de boot por HTTP e painel por HTTPS, no IP indicado)."""
+    for url in (f'http://{ip}/fog/service/ipxe/boot.php', f'https://{ip}/LabFreeImageDeploy/api.php?a=sessao'):
+        ok = False
+        for _ in range(10):
+            r = sh(['curl', '-sk', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '5', url], verificar=False)
+            if r.stdout.strip() == '200':
+                ok = True
+                break
+            time.sleep(1)
+        if not ok:
+            return False
+    return True
+
+
+def rede_aplicar(e):
+    p = rede_planejar(e)
+    velho_conf = ler_conf()
+    ip_v, if_v = p['velho']['ip'], p['velho']['iface']
+    ip_n, if_n = str(p['ip']), p['iface']
+    inst = Instantaneo('rede')
+    banco_antes = None
+    nm_desfazer = {}
+    fog_instalado = os.path.exists(FOG_CONFIG_PHP)
+    log(f"rede-aplicar: {if_v} {ip_v}/{p['velho']['prefixo']} -> {if_n} {ip_n}/{p['prefixo']}")
+    try:
+        inst.guardar(CONF)
+        escrever_nm_carrier(if_n, inst)
+        uuid = nm_configurar(p, velho_conf, nm_desfazer)
+        nova_conf = {**velho_conf, 'FOG_IFACE': if_n, 'FOG_MAC': p['mac'], 'FOG_IP': ip_n,
+                     'FOG_PREFIXO': str(p['prefixo']), 'FOG_NM_UUID': uuid}
+        gravar_conf(nova_conf)
+        escrever_dropin_kea(if_n, inst)
+        escrever_udev(if_n, inst)
+        escrever_chrony(p['rede'], inst)
+        sh(['systemctl', 'daemon-reload'], verificar=False)
+        sh(['udevadm', 'control', '--reload'], verificar=False)
+        if os.path.exists(KEA):
+            cfg = kea_ler()
+            d = p['dhcp']
+            v = dhcp_validar({'inicio': d['inicio'], 'fim': d['fim'], 'gateway': d['gateway'], 'dns': d['dns'],
+                              'dominio': d['dominio'], 'concessao_horas': d['concessao_horas'], 'reservas': d['reservas'],
+                              'ativo': d['ativo']}, p['rede'], p['ip'])
+            kea_instalar(kea_montar(cfg, v, p['rede'], p['ip'], if_n), inst)
+        pares = [(ip_v, ip_n), (if_v, if_n)]
+        for arq in (DEFAULT_IPXE, APACHE_FOG, FOG_CONFIG_PHP):
+            substituir_em_arquivo(arq, pares, inst)
+        garantir_ipxe_ntp(ip_n, inst)
+        if os.path.exists(FOGSETTINGS):
+            extra = {}
+            if p['dhcp']:
+                extra = {'startrange': p['dhcp']['inicio'], 'endrange': p['dhcp']['fim'],
+                         'routeraddress': p['dhcp']['gateway'], 'plainrouter': p['dhcp']['gateway']}
+            fogsettings_gravar({'ipaddress': ip_n, 'ipaddresses': ip_n, 'interface': if_n,
+                                'submask': str(p['rede'].netmask), **extra}, inst)
+        if fog_instalado:
+            banco_antes = banco_ler_rede()
+            banco_gravar_rede(ip_v, ip_n, if_v, if_n)
+            if p['mudou_ip']:
+                reemitir_certificado(ip_n, inst)
+        reiniciar_servicos_fog()
+        aviso = kea_reiniciar(nova_conf) if os.path.exists(KEA) else ''
+        alvo_teste = ip_n if any(c.startswith(ip_n + '/') for c in ips_da_iface(if_n)) else '127.0.0.1'
+        if fog_instalado and not web_ok(alvo_teste):
+            raise Erro('o sistema parou de responder depois da troca')
+    except Exception as ex:
+        log(f"rede-aplicar FALHOU, desfazendo: {ex}")
+        inst.restaurar()
+        if banco_antes:
+            try:
+                banco_restaurar(*banco_antes)
+            except Exception as ex2:
+                log(f"ERRO ao restaurar o banco: {ex2}")
+        nm_reverter(velho_conf, nm_desfazer)
+        sh(['systemctl', 'daemon-reload'], verificar=False)
+        reiniciar_servicos_fog()
+        kea_reiniciar_seguro(velho_conf)
+        if fog_instalado and not web_ok('127.0.0.1'):
+            log('ATENÇÃO: depois de desfazer, o sistema ainda não responde. Rode LabFreeImageDeploy-verificar.')
+            raise Erro(f"Não foi possível aplicar e, depois de desfazer, o sistema ainda não responde. Rode 'sudo LabFreeImageDeploy-verificar'. Motivo: {ex}")
+        raise Erro(f"Não foi possível aplicar; tudo foi desfeito. Motivo: {ex}")
+    log(f"rede-aplicar ok ({inst.dir})")
+    avisos = list(p['avisos']) + ([aviso] if aviso else [])
+    return {'ok': True, 'msg': 'Rede de clonagem configurada.', 'avisos': avisos, 'url': f'https://{ip_n}/',
+            'mudancas': p['mudancas'], 'copia': inst.dir}
+
+
+def reaplicar(_entrada=None):
+    """Devolve todas as customizações do LabFree ImageDeploy (usar depois do installfog.sh, que regrava
+    o Kea e o default.ipxe). Idempotente: rodar de novo não muda nada."""
+    conf = ler_conf()
+    iface, ip = conf.get('FOG_IFACE'), conf.get('FOG_IP')
+    if not iface or not ip:
+        raise Erro('Rede de clonagem ainda não configurada (/etc/LabFreeImageDeploy/LabFreeImageDeploy.conf). Use rede-aplicar primeiro.')
+    feito = []
+    inst = Instantaneo('reaplicar')
+    escrever_nm_carrier(iface, inst)
+    escrever_dropin_kea(iface, inst)
+    escrever_udev(iface, inst)
+    escrever_chrony(ipaddress.IPv4Network(f"{ip}/{conf.get('FOG_PREFIXO', 24)}", strict=False), inst)
+    sh(['systemctl', 'daemon-reload'], verificar=False)
+    sh(['udevadm', 'control', '--reload'], verificar=False)
+    feito.append('NetworkManager, drop-in do Kea, udev e NTP conferidos')
+    if garantir_ipxe_ntp(ip, inst):
+        feito.append('default.ipxe: linha ntp reinserida')
+    if os.path.exists(KEA):
+        dados = json.load(open(DHCP_SALVO)) if os.path.exists(DHCP_SALVO) else dhcp_ler()
+        dhcp_aplicar(dados)
+        feito.append('DHCP reaplicado' + (' (de /etc/LabFreeImageDeploy/dhcp.json)' if os.path.exists(DHCP_SALVO) else ''))
+    if os.path.exists(FOG_CONFIG_PHP):
+        feito += marca_aplicar()['feito']
+        novos = servicos_aplicar()
+        feito.append('serviços com o nome LabFreeImageDeploy-*' + (f' ({len(novos)} criados)' if novos else ''))
+    log('reaplicar ok: ' + '; '.join(feito))
+    return {'ok': True, 'msg': 'Customizações reaplicadas.', 'feito': feito}
+
+
+def imagem_apagar(e):
+    """Apaga /images/<caminho> de uma imagem que já foi excluída do cadastro."""
+    caminho = str(e.get('caminho', '')).strip()
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', caminho) or caminho.lower() in ('dev', 'postdownloadscripts', 'postinitscripts'):
+        raise Erro('Pasta de imagem inválida.')
+    raiz = os.path.realpath('/images')
+    alvo = os.path.realpath(os.path.join(raiz, caminho))
+    if os.path.dirname(alvo) != raiz or not os.path.isdir(alvo):
+        raise Erro('A pasta dessa imagem não existe.')
+    if mysql(f"SELECT COUNT(*) FROM images WHERE imagePath='{caminho}'").strip() != '0':
+        raise Erro('Esta pasta ainda pertence a uma imagem cadastrada.')
+    tamanho = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(alvo) for f in fs)
+    shutil.rmtree(alvo)
+    log(f"imagem-apagar: {alvo} ({tamanho} bytes)")
+    return {'ok': True, 'bytes': tamanho}
+
+
+# ------------------------------------------------------------------ marca e autonomia
+
+MARCA_DIR = '/usr/local/share/LabFreeImageDeploy'
+IPXE_WEB = '/var/www/html/fog/service/ipxe'
+BOOTMENU_PHP = '/var/www/html/fog/lib/fog/bootmenu.class.php'
+APACHE_LABFREE = '/etc/apache2/conf-available/LabFreeImageDeploy.conf'
+COR_FOG, COR_LABFREE = '0x00567a', '0x4338ca'
+# A fonte do iPXE e do console do FOS só tem ASCII: nada de acentos no que aparece no boot.
+MENU_BOOT = {
+    'fog.local': 'Iniciar pelo disco rigido', 'fog.memtest': 'Testar memoria (Memtest86+)',
+    'fog.reginput': 'Cadastrar esta maquina (nome e imagem)', 'fog.keyreg': 'Atualizar chave de produto',
+    'fog.reg': 'Cadastro automatico (sem perguntas)', 'fog.deployimage': 'Restaurar uma imagem',
+    'fog.multijoin': 'Entrar em sessao de grupo (multicast)', 'fog.quickdel': 'Excluir esta maquina do cadastro',
+    'fog.sysinfo': 'Informacoes do sistema (compatibilidade)', 'fog.debug': 'Modo de depuracao',
+    'fog.advanced': 'Menu avancado', 'fog.advancedlogin': 'Menu avancado',
+    'fog.approvehost': 'Aprovar esta maquina', 'fog.enrollsecureboot': 'Registrar chave do Secure Boot',
+}
+BOOTMENU_TROCAS = [
+    ("$reg_string = 'NOT registered!';", "$reg_string = 'NAO cadastrada!';"),
+    ("'pending approval!' :", "'aguardando aprovacao!' :"),
+    ("'registered as ' . self::$Host->get('name') . '!'", "'cadastrada como ' . self::$Host->get('name') . '!'"),
+    ('"item --gap Host is $reg_string",', '"item --gap LabFree ImageDeploy - Maquina $reg_string",'),
+]
+BANNER_FOS = """displayBanner() {
+    # LabFree ImageDeploy (banner trocado pelo LabFreeImageDeploy-root; o original fica em init.xz.fog-original)
+    callServer "${web}service/getversion.php"
+    version="$serverBody"
+    echo "   =============================================="
+    echo "   ||                                          ||"
+    echo "   ||  L A B F R E E   I m a g e D e p l o y   ||"
+    echo "   ||      Clonagem de maquinas pela rede      ||"
+    echo "   ||                                          ||"
+    echo "   =============================================="
+    echo "   Baseado no FOG Project - licenca GNU GPL v3"
+    echo "   Versao da base (FOG): $version"
+    echo "   Versao do init: $initversion"
+    echo "   Kernel: $(uname -r)"
+}
+"""
+APACHE_CONF = """# LabFree ImageDeploy (gerado pelo LabFreeImageDeploy-root): a interface original do FOG fica desligada.
+# As máquinas clientes continuam usando /fog/service e /fog/status (boot, clonagem, progresso).
+RedirectMatch 302 ^/painel(/.*)?$ /LabFreeImageDeploy/
+RedirectMatch 302 ^/fog/?$ /LabFreeImageDeploy/
+RedirectMatch 302 ^/fog/index\\.php$ /LabFreeImageDeploy/
+RedirectMatch 302 ^/fog/management(/(?!other/).*)?$ /LabFreeImageDeploy/
+<Directory /var/www/html/fog/management>
+    Require all denied
+</Directory>
+<Directory /var/www/html/fog/management/other>
+    Require all granted
+</Directory>
+<Directory /var/www/html/fog/api>
+    Require all denied
+</Directory>
+<Directory /var/www/html/fog/fogdoc>
+    Require all denied
+</Directory>
+"""
+HOSTS_MARCA = ('# LabFreeImageDeploy-inicio: sem contato com os servidores do FOG Project (sistema autônomo)',
+               '0.0.0.0 fogproject.org www.fogproject.org wiki.fogproject.org forums.fogproject.org news.fogproject.org',
+               '# LabFreeImageDeploy-fim')
+
+
+def sha256(caminho):
+    import hashlib
+    h = hashlib.sha256()
+    with open(caminho, 'rb') as f:
+        for bloco in iter(lambda: f.read(1 << 20), b''):
+            h.update(bloco)
+    return h.hexdigest()
+
+
+def marca_fos(nome):
+    """Troca o banner do sistema de clonagem (FOS) dentro do init.xz. Idempotente."""
+    alvo = f'{IPXE_WEB}/{nome}'
+    if not os.path.exists(alvo):
+        return None
+    import hashlib
+    carimbo = f'/var/lib/LabFreeImageDeploy/marca-{nome}.sha256'
+    h = hashlib.sha256(BANNER_FOS.encode())
+    for raiz, _, arqs in sorted(os.walk(f'{MARCA_DIR}/fos')):
+        for a in sorted(arqs):
+            h.update(a.encode()); h.update(open(os.path.join(raiz, a), 'rb').read())
+    versao_banner = h.hexdigest()[:16]
+    atual = sha256(alvo)
+    salvo = open(carimbo).read().split() if os.path.exists(carimbo) else []
+    original = alvo + '.fog-original'
+    if salvo[:1] == [atual] and salvo[1:2] == [versao_banner]:
+        return False  # já é a versão LabFree com este banner
+    if salvo[:1] != [atual] or not os.path.exists(original):
+        # o arquivo atual vira a base, mas só se for do FOG (sem a nossa marca); senão mantém o original guardado
+        com_marca = sh(['sh', '-c', 'xz -dc "$1" | grep -aqF "LabFree ImageDeploy (banner"', '-', alvo],
+                       verificar=False, tempo=300).returncode == 0
+        if not com_marca:
+            st = os.stat(alvo)
+            copiar_seguro(alvo, original, st.st_mode & 0o7777, (st.st_uid, st.st_gid))
+        elif not os.path.exists(original):
+            raise Erro(f'{alvo} já tem a marca e o original do FOG não foi encontrado.')
+    base = original
+    os.makedirs('/var/lib/LabFreeImageDeploy', exist_ok=True)
+    tmp = tempfile.mkdtemp(prefix='fos-', dir='/var/lib/LabFreeImageDeploy')
+    os.makedirs(f'{tmp}/mnt')
+    montado = False
+
+    def dentro(caminho):  # nada dentro da imagem pode apontar para fora dela
+        if not os.path.realpath(caminho).startswith(os.path.realpath(f'{tmp}/mnt') + '/') or os.path.islink(caminho):
+            raise Erro(f'Arquivo suspeito dentro de {nome}: {os.path.relpath(caminho, tmp)}')
+        return caminho
+    img = f'{tmp}/init.img'
+    try:
+        with open(img, 'wb') as f:
+            subprocess.run(['xz', '-dc', base], stdout=f, check=True, timeout=600)
+        sh(['mount', '-o', 'loop,nosuid,nodev', img, f'{tmp}/mnt'])
+        montado = True
+        try:
+            funcs = dentro(f'{tmp}/mnt/usr/share/fog/lib/funcs.sh')
+            if 'displayBanner() {' not in open(funcs).read():
+                raise Erro(f'Formato inesperado do {nome} (displayBanner não encontrado).')
+            texto = open(funcs).read()
+            ini = texto.index('displayBanner() {')
+            fim = texto.index('\n}\n', ini) + 3
+            open(funcs, 'w').write(texto[:ini] + BANNER_FOS + texto[fim:])
+            open(dentro(f'{tmp}/mnt/etc/issue'), 'w').write('LabFree ImageDeploy - Clonagem de maquinas pela rede\n')
+            # arquivos do LabFree dentro do sistema de clonagem (ex.: cadastro guiado em /bin/fog.man.reg)
+            for raiz, _, arqs in os.walk(f'{MARCA_DIR}/fos'):
+                for a in arqs:
+                    origem = os.path.join(raiz, a)
+                    destino = os.path.join(f'{tmp}/mnt', os.path.relpath(origem, f'{MARCA_DIR}/fos'))
+                    if os.path.lexists(destino):
+                        dentro(destino)
+                    if os.path.exists(destino) and not os.path.exists(destino + '.fog-original'):
+                        shutil.copy2(destino, destino + '.fog-original')
+                    shutil.copy2(origem, destino)
+                    os.chmod(destino, 0o755 if '/bin/' in destino else 0o644)
+        finally:
+            if sh(['umount', f'{tmp}/mnt'], verificar=False).returncode == 0:
+                montado = False
+            else:
+                log(f'ERRO: não consegui desmontar {tmp}/mnt')
+        sh(['xz', '-9', '-T1', '--check=crc32', '--lzma2=dict=64MiB', '-f', img], tempo=900)
+        sh(['xz', '-t', img + '.xz'])
+        st = os.stat(alvo)
+        os.chown(img + '.xz', st.st_uid, st.st_gid)
+        os.chmod(img + '.xz', st.st_mode & 0o7777)
+        os.replace(img + '.xz', alvo)
+        gravar_atomico(carimbo, f'{sha256(alvo)} {versao_banner}\n', 0o644)
+    finally:
+        if not montado:  # nunca apagar por dentro de uma imagem ainda montada
+            shutil.rmtree(tmp, ignore_errors=True)
+    return True
+
+
+def marca_aplicar(_entrada=None):
+    feito = []
+    inst = Instantaneo('marca')
+    fog = os.path.exists(FOG_CONFIG_PHP)
+    if not fog:
+        raise Erro('O FOG (base do sistema) não está instalado.')
+    # 1) menu de boot: imagem de fundo, cores, itens e textos
+    fundo = f'{MARCA_DIR}/LabFreeImageDeploy-fundo.png'
+    if os.path.exists(fundo):
+        ref = f'{IPXE_WEB}/bg.png'
+        st = os.stat(ref) if os.path.exists(ref) else os.stat(IPXE_WEB)
+        copiar_seguro(fundo, f'{IPXE_WEB}/LabFreeImageDeploy-fundo.png', 0o644, (st.st_uid, st.st_gid))
+        mysql("UPDATE globalSettings SET settingValue='LabFreeImageDeploy-fundo.png' WHERE settingKey='FOG_IPXE_BG_FILE';")
+    mysql(f"UPDATE globalSettings SET settingValue=REPLACE(settingValue,'{COR_FOG}','{COR_LABFREE}') "
+          "WHERE settingKey IN ('FOG_IPXE_MAIN_COLOURS','FOG_IPXE_VALID_HOST_COLOURS');")
+    for chave, texto in MENU_BOOT.items():
+        mysql(f"UPDATE pxeMenu SET pxeDesc='{texto}' WHERE pxeName='{chave}';")
+    # menos itens na tela: troca de chave de produto e exclusão pelo boot ficam escondidos (o painel faz isso)
+    mysql("UPDATE pxeMenu SET pxeRegOnly=99 WHERE pxeName IN ('fog.keyreg','fog.quickdel');")
+    # o cadastro automático usa o padrão de nomes do painel (ex.: LAB-001)
+    mysql("UPDATE globalSettings SET settingValue='1' WHERE settingKey='FOG_QUICKREG_AUTOPOP';")
+    if mysql("SELECT settingValue FROM globalSettings WHERE settingKey='FOG_QUICKREG_SYS_NAME'").strip() in ('', 'PC-*', 'MAC'):
+        mysql("UPDATE globalSettings SET settingValue='LAB-***' WHERE settingKey='FOG_QUICKREG_SYS_NAME';")
+    servidor = f'{MARCA_DIR}/servidor/LabFreeImageDeploy-cadastro.php'
+    if os.path.exists(servidor):
+        st = os.stat('/var/www/html/fog/service')
+        copiar_seguro(servidor, '/var/www/html/fog/service/LabFreeImageDeploy-cadastro.php', 0o644, (st.st_uid, st.st_gid))
+    feito.append('menu de boot: fundo, cores e itens em português')
+    if os.path.exists(BOOTMENU_PHP):
+        texto = open(BOOTMENU_PHP).read()
+        novo = texto
+        for a, b in BOOTMENU_TROCAS:
+            novo = novo.replace(a, b)
+        if novo != texto:
+            inst.guardar(BOOTMENU_PHP)
+            gravar_atomico(BOOTMENU_PHP, novo)
+            feito.append('textos de cadastro do menu de boot')
+    # 2) sistema de clonagem (FOS)
+    for nome in ('init.xz', 'init_32.xz'):
+        r = marca_fos(nome)
+        if r:
+            feito.append(f'banner do sistema de clonagem ({nome})')
+    # 3) interface antiga do FOG desligada
+    if os.path.isdir('/etc/apache2/conf-available'):
+        inst.guardar(APACHE_LABFREE)
+        gravar_atomico(APACHE_LABFREE, APACHE_CONF, 0o644)
+        sh(['a2enconf', '-q', 'LabFreeImageDeploy'], verificar=False)
+        r = sh(['apache2ctl', 'configtest'], verificar=False)
+        if r.returncode != 0:
+            inst.restaurar()
+            sh(['a2disconf', '-q', 'LabFreeImageDeploy'], verificar=False)
+            raise Erro('O Apache recusou a configuração que desliga a interface antiga: ' + r.stderr.strip()[-300:])
+        sh(['systemctl', 'reload', 'apache2'], verificar=False)
+        feito.append('interface antiga /fog desligada (redireciona para o painel)')
+    # 4) autonomia: nada busca atualização do FOG
+    if os.path.exists(FOGSETTINGS):
+        fogsettings_gravar({'sendreports': 'N'}, inst)
+    mysql("UPDATE globalSettings SET settingValue='0' WHERE settingKey IN ('FOG_CLIENT_AUTOUPDATE');")
+    hosts = open('/etc/hosts').read()
+    if HOSTS_MARCA[0] not in hosts:
+        inst.guardar('/etc/hosts')
+        gravar_atomico('/etc/hosts', hosts.rstrip('\n') + '\n' + '\n'.join(HOSTS_MARCA) + '\n')
+    feito.append('sem relatório de uso, sem autoatualização e sem acesso a fogproject.org')
+    log('marca-aplicar ok: ' + '; '.join(feito))
+    return {'ok': True, 'msg': 'Marca LabFree ImageDeploy aplicada.', 'feito': feito}
+
+
+def status(_entrada=None):
+    conf = ler_conf()
+    return {'conf': conf, 'placa_presente': iface_existe(conf.get('FOG_IFACE')), 'ips': ips_da_iface(conf.get('FOG_IFACE', '')) if iface_existe(conf.get('FOG_IFACE')) else [],
+            'dhcp_escutando': socket_dhcp_aberto(conf.get('FOG_IP', '')), 'kea_habilitado': servico_habilitado(KEA_SERVICO)}
+
+
+ACOES = {'status': status, 'dhcp-ler': dhcp_ler, 'dhcp-aplicar': dhcp_aplicar,
+         'rede-listar': rede_listar, 'rede-simular': rede_simular, 'rede-aplicar': rede_aplicar, 'reaplicar': reaplicar,
+         'imagem-apagar': imagem_apagar, 'marca-aplicar': marca_aplicar,
+         'servicos-aplicar': lambda e=None: {'ok': True, 'criados': servicos_aplicar()}}
+
+
+# o painel (www-data via sudo) só pode pedir estas ações; o resto é para o administrador e o instalador
+ACOES_PAINEL = {'status', 'dhcp-ler', 'dhcp-aplicar', 'rede-listar', 'rede-simular', 'rede-aplicar', 'imagem-apagar'}
+ACOES_LEITURA = {'status', 'dhcp-ler', 'rede-listar', 'rede-simular'}
+TRAVA = '/run/LabFreeImageDeploy.lock'
+
+
+def travar(segundos):
+    """Uma alteração por vez (painel, instalador, comandos)."""
+    fd = os.open(TRAVA, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    fim = time.time() + segundos
+    while True:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return fd
+        except BlockingIOError:
+            if time.time() >= fim:
+                os.close(fd)
+                raise Erro('Outra alteração está sendo aplicada agora. Aguarde um minuto e tente de novo.')
+            time.sleep(0.5)
+
+
+def main():
+    if os.geteuid() != 0:
+        print(json.dumps({'erro': 'Precisa ser executado como root (sudo).'}))
+        return 1
+    if len(sys.argv) != 2 or sys.argv[1] not in ACOES:
+        print(json.dumps({'erro': f"Uso: LabFreeImageDeploy-root {{{'|'.join(ACOES)}}} < entrada.json"}))
+        return 1
+    acao = sys.argv[1]
+    if os.environ.get('SUDO_USER') == 'www-data' and acao not in ACOES_PAINEL:
+        print(json.dumps({'erro': 'Ação não permitida pelo painel.'}, ensure_ascii=False))
+        return 1
+    bruto = '' if sys.stdin.isatty() else sys.stdin.read(65536)
+    if acao == 'rede-aplicar' and not os.environ.get('LABFREE_DESTACADO') and shutil.which('systemd-run'):
+        # roda numa unidade própria do systemd: reiniciar o Apache/PHP durante a troca não mata o ajudante
+        # no meio (o que deixaria a rede meio trocada e sem desfazer)
+        r = subprocess.run(['systemd-run', '--quiet', '--wait', '--pipe', '--collect',
+                            f'--unit=LabFreeImageDeploy-rede-{os.getpid()}', '--setenv=LABFREE_DESTACADO=1',
+                            f"--setenv=SUDO_USER={os.environ.get('SUDO_USER', '')}",
+                            sys.executable, '-I', os.path.realpath(__file__), acao],
+                           input=bruto, capture_output=True, text=True)
+        sys.stdout.write(r.stdout)
+        if r.returncode != 0 and not r.stdout.strip():
+            print(json.dumps({'erro': f'Falha ao iniciar a alteração: {r.stderr.strip()[-300:]}'}, ensure_ascii=False))
+        return r.returncode
+    try:
+        if acao not in ACOES_LEITURA:
+            # quem chama pelo painel não espera muito; o instalador e os comandos esperam a vez
+            travar(20 if os.environ.get('SUDO_USER') == 'www-data' else 1800)
+        entrada = json.loads(bruto) if bruto.strip() else {}
+        if entrada == []:  # lista vazia vinda do PHP equivale a "sem dados"
+            entrada = {}
+        if not isinstance(entrada, dict):
+            raise Erro('Entrada inválida.')
+        print(json.dumps(ACOES[sys.argv[1]](entrada), ensure_ascii=False, default=str))
+        return 0
+    except Erro as ex:
+        print(json.dumps({'erro': str(ex)}, ensure_ascii=False))
+        return 1
+    except json.JSONDecodeError:
+        print(json.dumps({'erro': 'Entrada JSON inválida.'}, ensure_ascii=False))
+        return 1
+    except Exception as ex:  # erro inesperado: registra e devolve mensagem genérica
+        log(f"ERRO inesperado em {sys.argv[1]}: {type(ex).__name__}: {ex}")
+        print(json.dumps({'erro': f'Erro inesperado: {ex}'}, ensure_ascii=False))
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -1,0 +1,82 @@
+#!/bin/bash
+# LabFree ImageDeploy: backup do painel simplificado, das configurações
+# personalizadas e do banco de dados do FOG (não inclui as imagens em /images).
+# Uso: LabFreeImageDeploy-backup            -> cria um backup agora
+#      LabFreeImageDeploy-backup --se-antigo -> só cria se o último tiver mais de 6 horas (usado pelo apt)
+# Guarda os 15 mais recentes em /var/backups/LabFreeImageDeploy/.
+set -uo pipefail
+DESTINO=/var/backups/LabFreeImageDeploy
+MANTER=15
+mkdir -p "$DESTINO" && chmod 700 "$DESTINO"
+
+if [ "${1:-}" = "--se-antigo" ]; then
+    recente=$(find "$DESTINO" -maxdepth 1 -name 'LabFreeImageDeploy-*.tar.gz' -size +1k -mmin -360 | head -1)
+    [ -n "$recente" ] && exit 0
+fi
+
+carimbo=$(date +%Y%m%d-%H%M%S)
+tmp=$(mktemp -d)
+trap 'rm -rf -- "$tmp"' EXIT
+
+# Banco do FOG (hosts, imagens, tarefas, configurações)
+if mysqldump --single-transaction --routines fog > "$tmp/fog-banco.sql" 2>"$tmp/erro-banco.txt"; then
+    rm -f "$tmp/erro-banco.txt"
+else
+    echo "LabFreeImageDeploy-backup: AVISO: não foi possível exportar o banco (veja erro-banco.txt dentro do backup)" >&2
+fi
+
+ARQUIVOS=(
+    /var/www/html/LabFreeImageDeploy
+    /var/www/html/index.php
+    /usr/local/sbin/LabFreeImageDeploy-backup
+    /usr/local/sbin/LabFreeImageDeploy-verificar
+    /usr/local/sbin/LabFreeImageDeploy-reaplicar
+    /usr/local/sbin/LabFreeImageDeploy-restaurar-backup
+    /opt/fog/.fogsettings
+    /opt/fog/snapins/ssl
+    /var/www/html/fog/lib/fog/config.class.php
+    /var/www/html/fog/service/LabFreeImageDeploy-cadastro.php
+    /etc/apache2/conf-available/LabFreeImageDeploy.conf
+    /etc/NetworkManager/system-connections
+    /etc/LabFreeImageDeploy
+    /usr/local/lib/LabFreeImageDeploy
+    /etc/sudoers.d/LabFreeImageDeploy
+    /etc/NetworkManager/conf.d/90-LabFreeImageDeploy-ignorar-carrier.conf
+    /etc/kea
+    /etc/NetworkManager/dispatcher.d/90-LabFreeImageDeploy-kea
+    /etc/netplan
+    /etc/systemd/system/kea-dhcp4-server.service.d
+    /etc/systemd/system/LabFreeImageDeploy-backup.service
+    /etc/systemd/system/LabFreeImageDeploy-backup.timer
+    /etc/systemd/logind.conf.d/90-LabFreeImageDeploy.conf
+    /etc/systemd/sleep.conf.d/90-LabFreeImageDeploy.conf
+    /etc/udev/rules.d/90-LabFreeImageDeploy-usb-nic.rules
+    /etc/chrony/conf.d/LabFreeImageDeploy.conf
+    /etc/apt/apt.conf.d/99-LabFreeImageDeploy-sem-atualizacao-automatica
+    /etc/apt/apt.conf.d/99-LabFreeImageDeploy-protecao
+    /etc/apache2/sites-available/001-fog.conf
+    /etc/exports
+    /etc/default/tftpd-hpa
+    /etc/vsftpd.conf
+    /tftpboot/default.ipxe
+    /root/FOG-CUSTOMIZACOES.md
+)
+existentes=()
+for a in "${ARQUIVOS[@]}"; do [ -e "$a" ] && existentes+=("${a#/}"); done
+apt-mark showhold > "$tmp/pacotes-travados.txt" 2>/dev/null
+
+arquivo="$DESTINO/LabFreeImageDeploy-$carimbo.tar.gz"
+# grava num temporário e só depois de conferido vira um backup (disco cheio não deixa backup truncado)
+if ! tar czf "$arquivo.parcial" -C / "${existentes[@]}" -C "$tmp" . 2>"$tmp/erro-tar.txt" || ! gzip -t "$arquivo.parcial" 2>/dev/null; then
+    rm -f -- "$arquivo.parcial"
+    echo "LabFreeImageDeploy-backup: ERRO: o backup não foi gravado ($(tail -1 "$tmp/erro-tar.txt" 2>/dev/null)). Espaço livre: $(df -h --output=avail "$DESTINO" | tail -1)" >&2
+    exit 1
+fi
+chmod 600 "$arquivo.parcial"
+mv -f -- "$arquivo.parcial" "$arquivo"
+
+# Mantém só os mais recentes (o backup indicado em LABFREE_PROTEGER, se houver, nunca é apagado)
+ls -1t "$DESTINO"/LabFreeImageDeploy-*.tar.gz 2>/dev/null | tail -n +$((MANTER + 1)) | while read -r velho; do
+    [ "$velho" = "${LABFREE_PROTEGER:-}" ] || rm -f -- "$velho"
+done
+echo "Backup criado: $arquivo ($(du -h "$arquivo" | cut -f1))"

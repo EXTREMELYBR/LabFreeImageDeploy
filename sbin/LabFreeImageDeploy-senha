@@ -1,0 +1,23 @@
+#!/bin/bash
+# LabFree ImageDeploy: define a senha de um usuário do painel direto no servidor
+# (para quando ninguém consegue entrar). Uso: sudo LabFreeImageDeploy senha USUARIO [--redefinir]
+#   --redefinir: volta a senha para "admin"; o painel exige uma senha nova no próximo acesso.
+set -euo pipefail
+[ "$(id -u)" -eq 0 ] || { echo "rode como root (sudo)"; exit 1; }
+usuario="${1:-}"; redefinir=0
+[ "${2:-}" = "--redefinir" ] && redefinir=1
+[[ "$usuario" =~ ^[A-Za-z][A-Za-z0-9._-]{2,39}$ ]] || { echo "Uso: sudo LabFreeImageDeploy-senha NOME_DO_USUARIO"; echo "Usuários: $(mysql -N fog -e 'select group_concat(uName) from users')"; exit 1; }
+[ "$(mysql -N fog -e "select count(*) from users where uName='$usuario'")" = "1" ] || { echo "Usuário '$usuario' não existe. Usuários: $(mysql -N fog -e 'select group_concat(uName) from users')"; exit 1; }
+if [ $redefinir = 1 ]; then
+    hash=$(php -r 'echo password_hash("admin", PASSWORD_BCRYPT, ["cost" => 11]);')
+    mysql fog -e "update users set uPass='$hash' where uName='$usuario'"
+    echo "Senha de '$usuario' voltou para \"admin\". No próximo acesso o painel pede uma senha nova."
+    exit 0
+fi
+read -r -s -p "Nova senha para $usuario (mínimo 8 caracteres): " s1; echo
+read -r -s -p "Repita a senha: " s2; echo
+[ "$s1" = "$s2" ] || { echo "As senhas não são iguais."; exit 1; }
+[ ${#s1} -ge 8 ] || { echo "A senha precisa ter pelo menos 8 caracteres."; exit 1; }
+hash=$(SENHA="$s1" php -r 'echo password_hash(getenv("SENHA"), PASSWORD_BCRYPT, ["cost" => 11]);')
+mysql fog -e "update users set uPass='$hash' where uName='$usuario'"
+echo "Senha de '$usuario' alterada."

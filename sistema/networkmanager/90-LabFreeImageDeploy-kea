@@ -1,0 +1,28 @@
+#!/bin/bash
+# LabFree ImageDeploy: (re)inicia o DHCP (Kea) sempre que a placa da rede FOG sobe
+# (boot, adaptador USB plugado, cabo religado depois de ficar sem IP, "nmcli con up").
+# A placa e o IP vêm de /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf. Se o DHCP do FOG estiver
+# desligado no painel (serviço desabilitado), não faz nada.
+CONF=/etc/LabFreeImageDeploy/LabFreeImageDeploy.conf
+[ -r "$CONF" ] || exit 0
+. "$CONF"
+SERVICE="kea-dhcp4-server"
+
+[ -n "${FOG_IFACE:-}" ] && [ "$1" = "$FOG_IFACE" ] || exit 0
+
+case "$2" in
+    up)
+        systemctl is-enabled --quiet "$SERVICE" || { logger -t 90-LabFreeImageDeploy-kea "$FOG_IFACE up: DHCP do FOG desligado, nada a fazer"; exit 0; }
+        # Garante que o IP já está na placa antes de reabrir o socket (até 10s)
+        for _ in $(seq 1 20); do
+            ip -4 -o addr show dev "$FOG_IFACE" | grep -q " inet $FOG_IP/" && break
+            sleep 0.5
+        done
+        logger -t 90-LabFreeImageDeploy-kea "$FOG_IFACE up: reiniciando $SERVICE"
+        systemctl restart "$SERVICE"
+        ;;
+    down)
+        logger -t 90-LabFreeImageDeploy-kea "$FOG_IFACE down: $SERVICE será reiniciado quando a placa voltar"
+        ;;
+esac
+exit 0

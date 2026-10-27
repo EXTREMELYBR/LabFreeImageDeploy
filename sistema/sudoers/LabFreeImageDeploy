@@ -1,0 +1,10 @@
+# LabFree ImageDeploy: o painel (www-data) só pode executar o ajudante de root, e só nas ações que usa.
+# O ajudante valida toda a entrada (e também recusa outras ações vindas do www-data).
+Cmnd_Alias LABFREE_PAINEL = /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root status, \
+    /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root dhcp-ler, \
+    /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root dhcp-aplicar, \
+    /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root rede-listar, \
+    /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root rede-simular, \
+    /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root rede-aplicar, \
+    /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root imagem-apagar
+www-data ALL=(root) NOPASSWD: LABFREE_PAINEL

@@ -1,0 +1,146 @@
+#!/bin/bash
+# LabFree ImageDeploy — cadastro guiado de uma máquina pelo boot da rede.
+# Substitui o cadastro completo do FOG (12 perguntas) por 2 passos: nome e imagem.
+# Roda dentro do sistema de clonagem (FOS). Fala com o servidor pelos mesmos
+# endereços do cadastro original (/fog/service/*). O console só tem ASCII: sem acentos.
+. /usr/share/fog/lib/funcs.sh
+. /usr/share/fog/lib/secureboot-funcs.sh
+
+export NEWT_COLORS='root=white,blue
+window=black,lightgray
+border=blue,lightgray
+shadow=black,black
+title=blue,lightgray
+textbox=black,lightgray
+button=white,blue
+actbutton=white,magenta
+compactbutton=black,lightgray
+entry=black,white
+disentry=gray,lightgray
+label=black,lightgray
+listbox=black,white
+actlistbox=white,blue
+sellistbox=white,blue
+actsellistbox=white,magenta
+roottext=white,blue
+helpline=white,blue'
+TITULO="LabFree ImageDeploy - Cadastro"
+RODAPE="LabFree ImageDeploy  |  Use as setas, Tab e Enter"
+b64() { printf '%s' "$1" | base64; }
+tela() { whiptail --backtitle "$RODAPE" --title "$TITULO" "$@" 3>&1 1>&2 2>&3; }
+
+clearScreen
+echo " * Lendo as informacoes desta maquina..."
+# disco interno (o getHardDisk do FOS reinicia a máquina se não achar disco; aqui o disco é só informativo)
+hd=""
+for d in $(lsblk -dpno KNAME -I 3,8,9,179,202,253,259 2>/dev/null); do
+    [[ $(lsblk -dno RM "$d" 2>/dev/null | tr -d ' ') == "0" && $(lsblk -dno TRAN "$d" 2>/dev/null) != *usb* ]] && { hd="$d"; break; }
+done
+mac=$(getMACAddresses | base64)
+mac_texto=$(getMACAddresses | cut -d'|' -f1)
+sysuuid=$(dmidecode -s system-uuid); sysuuid=$(b64 "${sysuuid,,}")
+sysserial=$(dmidecode -s system-serial-number); serial_texto="$sysserial"; sysserial=$(b64 "${sysserial,,}")
+mbserial=$(dmidecode -s baseboard-serial-number); mbserial=$(b64 "${mbserial,,}")
+caseasset=$(dmidecode -s chassis-asset-tag); caseasset=$(b64 "${caseasset,,}")
+fabricante=$(dmidecode -s system-manufacturer 2>/dev/null | head -1)
+modelo=$(dmidecode -s system-product-name 2>/dev/null | head -1)
+disco_gb=""
+[[ -n $hd ]] && disco_gb=$(( $(blockdev --getsize64 "$hd" 2>/dev/null || echo 0) / 1000000000 ))
+
+falar() { # falar URL DADOS -> resposta em $serverBody; se o servidor não responder, pergunta se tenta de novo
+    while :; do
+        serverBody=""
+        callServer "$1" "$2"
+        [[ -n $serverBody ]] && return 0
+        tela --yes-button "Tentar de novo" --no-button "Reiniciar" --yesno \
+            "O servidor nao respondeu.\n\n${serverReason:-Sem resposta}\n\nConfira o cabo de rede e se o servidor esta ligado." 12 64 || { reboot -f; exit 1; }
+    done
+}
+
+falar "${web}service/man.hostexists.php" "sysuuid=${sysuuid}&sysserial=${sysserial}&mbserial=${mbserial}&caseasset=${caseasset}&mac=$mac"
+case "$serverBody" in
+    '#!ok') ;;
+    Already*)
+        tela --msgbox "Esta maquina ja esta cadastrada.\n\n${serverBody/Already registered as/Nome:}\n\nPara mudar o nome ou a imagem, use o painel do LabFree ImageDeploy." 13 64
+        exit 0 ;;
+    *)
+        tela --msgbox "O servidor recusou o cadastro desta maquina:\n\n$serverBody" 12 64
+        exit 1 ;;
+esac
+
+# sugestao de nome e imagem padrao (configuradas no painel: Configuracoes > Cadastro)
+falar "${web}service/LabFreeImageDeploy-cadastro.php" "acao=sugestao"
+sugestao="${serverBody%%|*}"; imagem_padrao="${serverBody##*|}"
+[[ $serverBody == *"|"* ]] || { sugestao=""; imagem_padrao="0"; }
+
+info="Fabricante: ${fabricante:-?}\nModelo: ${modelo:-?}\nMAC: ${mac_texto:-?}\nSerie: ${serial_texto:-?}\nDisco: ${hd:-nao encontrado}${disco_gb:+ (${disco_gb} GB)}"
+
+host=""; imageid="0"; passo=1
+while :; do
+    # ---------- passo 1: nome
+    if [[ $passo == 1 ]]; then
+        nome=$(tela --ok-button "Continuar" --cancel-button "Cancelar" --inputbox \
+            "Passo 1 de 2 - Nome desta maquina\n\n${info}\n\nNome (ate 15 letras, numeros ou hifen):" 19 64 "${nome:-$sugestao}") || {
+            tela --yesno "Cancelar o cadastro?" 8 40 && exit 0; continue; }
+        nome=$(echo "$nome" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+        if [[ ! $nome =~ ^[A-Z0-9][A-Z0-9-]{0,14}$ ]]; then
+            tela --msgbox "Nome invalido: \"$nome\"\n\nUse de 1 a 15 caracteres: letras, numeros e hifen." 10 60; continue
+        fi
+        falar "${web}service/hostnameloop.php" "host=$(b64 "$nome")"
+        if [[ $serverBody != "#!ok" ]]; then
+            tela --msgbox "Nao foi possivel usar \"$nome\":\n\n${serverBody}" 11 60; continue
+        fi
+        host="$nome"; passo=2
+    fi
+    # ---------- passo 2: imagem
+    falar "${web}service/LabFreeImageDeploy-cadastro.php" "acao=imagens"
+    itens=("0" "Nenhuma por enquanto")
+    while IFS='|' read -r id nome_img tamanho; do
+        [[ $id =~ ^[0-9]+$ ]] || continue
+        itens+=("$id" "${nome_img}${tamanho:+  ($tamanho)}")
+    done <<< "$serverBody"
+    lista_msg=""
+    [[ $serverBody == *"#!fim"* ]] || lista_msg="\n(Nao foi possivel ler a lista de imagens: ${serverBody:0:60})"
+    padrao="0"; for ((i = 0; i < ${#itens[@]}; i += 2)); do [[ ${itens[i]} == "$imagem_padrao" ]] && padrao="$imagem_padrao"; done
+    if imageid=$(tela --ok-button "Continuar" --cancel-button "Voltar" --default-item "$padrao" --menu \
+        "Passo 2 de 2 - Qual imagem esta maquina vai usar?\n\nMaquina: $host$lista_msg" 18 64 8 -- "${itens[@]}"); then
+        break
+    fi
+    passo=1  # Voltar: de novo ao nome
+done
+
+# ---------- opcional: restaurar agora
+doimage=""; user64=""; pass64=""
+if [[ $imageid != "0" ]] && tela --yes-button "Sim, restaurar" --no-button "Agora nao" --defaultno --yesno \
+    "Restaurar a imagem nesta maquina agora?\n\nATENCAO: tudo o que estiver no disco sera APAGADO.\n\nPara confirmar, sera pedido um usuario do painel." 13 64; then
+    for tentativa in 1 2 3; do
+        usuario=$(tela --inputbox "Usuario do painel:" 9 50) || break
+        senha=$(tela --passwordbox "Senha de $usuario:" 9 50) || break
+        falar "${web}service/checkcredentials.php" "sysuuid=${sysuuid}&mac=$mac&username=$(b64 "$usuario")&password=$(b64 "$senha")"
+        case "$serverBody" in
+            '#!ok') doimage=$(b64 1); user64=$(b64 "$usuario"); pass64=$(b64 "$senha"); break ;;
+            '#!rl') tela --msgbox "Muitas tentativas erradas. Espere alguns minutos." 8 54; break ;;
+            *) tela --msgbox "Usuario ou senha incorretos (tentativa $tentativa de 3)." 8 54 ;;
+        esac
+    done
+fi
+
+# ---------- envia o cadastro
+while :; do
+    tela --infobox "Cadastrando $host..." 7 50
+    falar "${web}service/auto.register.php" "sysuuid=${sysuuid}&sysserial=${sysserial}&mbserial=${mbserial}&caseasset=${caseasset}&mac=$mac&advanced=$(b64 1)&host=$(b64 "$host")&imageid=$(b64 "$imageid")&doimage=$doimage&username=$user64&password=$pass64"
+    res="$serverBody"
+    # respostas do servidor (registration.class.php): "Done, with imaging!", "Done, without imaging!...", "Done, Failed to create tasking"
+    [[ $res == Done* ]] && break
+    tela --yes-button "Tentar de novo" --no-button "Reiniciar" --yesno "O cadastro NAO foi feito.\n\nResposta do servidor:\n${res:0:200}" 13 64 || { reboot -f; exit 1; }
+done
+. /bin/fog.inventory >/dev/null 2>&1 || true
+sbEnrollAtRegistration
+case "$res" in
+    "Done, with imaging!"*) final="A maquina vai reiniciar e a restauracao comeca sozinha." ;;
+    *"Invalid Login"*) final="A restauracao NAO foi agendada (usuario ou senha recusados).\nUse o painel para restaurar." ;;
+    *"Failed to create tasking"*) final="A restauracao NAO foi agendada (o servidor nao criou a tarefa).\nUse o painel para restaurar." ;;
+    *) final="A maquina vai reiniciar. Para restaurar depois, use o painel." ;;
+esac
+tela --infobox "Pronto! Maquina \"$host\" cadastrada.\n\n$final" 10 64
+usleep 5000000

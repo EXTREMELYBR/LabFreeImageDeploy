@@ -1,0 +1,26 @@
+#!/bin/bash
+# LabFree ImageDeploy — comando de administração no servidor.
+# Uso: sudo LabFreeImageDeploy AÇÃO [argumentos]
+case "${1:-}" in
+    verificar)        shift; exec /usr/local/sbin/LabFreeImageDeploy-verificar "$@" ;;
+    backup)           shift; exec /usr/local/sbin/LabFreeImageDeploy-backup "$@" ;;
+    restaurar)        shift; exec /usr/local/sbin/LabFreeImageDeploy-restaurar-backup "$@" ;;
+    reaplicar)        shift; exec /usr/local/sbin/LabFreeImageDeploy-reaplicar "$@" ;;
+    senha)            shift; exec /usr/local/sbin/LabFreeImageDeploy-senha "$@" ;;
+    recompilar-ipxe)  shift; exec /usr/local/sbin/LabFreeImageDeploy-recompilar-ipxe "$@" ;;
+    versao)           cat /etc/LabFreeImageDeploy/versao 2>/dev/null || echo "desconhecida" ;;
+    *)
+        cat <<AJUDA
+LabFree ImageDeploy $(cat /etc/LabFreeImageDeploy/versao 2>/dev/null)
+
+  sudo LabFreeImageDeploy verificar           confere se está tudo funcionando
+  sudo LabFreeImageDeploy backup              faz um backup agora (painel, configurações e banco)
+  sudo LabFreeImageDeploy restaurar           lista os backups / restaura (ultimo painel|configuracoes|banco)
+  sudo LabFreeImageDeploy reaplicar           reaplica todas as configurações do sistema
+  sudo LabFreeImageDeploy senha USUARIO       define a senha de um usuário do painel
+  sudo LabFreeImageDeploy senha USUARIO --redefinir   volta a senha para admin (troca obrigatória no próximo acesso)
+  sudo LabFreeImageDeploy recompilar-ipxe     compilar|instalar|desfazer o iPXE com o nome do produto
+  LabFreeImageDeploy versao                   mostra a versão instalada
+AJUDA
+        ;;
+esac
