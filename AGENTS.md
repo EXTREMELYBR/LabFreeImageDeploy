@@ -99,6 +99,11 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
 
 ## 6. Como testar
 - `sudo LabFreeImageDeploy verificar` → deve terminar com "Tudo certo."
+- **Painel sem tocar na produção** (recomendado): `python3 -I testes/painel_simulado.py 8099` serve o `web/` com a API
+  simulada (cenários pelo cookie `cenario`: cheio, vazio, problema, senha, deslogado); `python3 -I testes/plano_fotos.py`
+  gera `plano.json` (todas as telas, janelas e assistentes) e `python3 -I testes/fotos_painel.py SAIDA plano.json`
+  fotografa em celular/tablet/computador, claro/escuro, e lista erros de JS, rolagem horizontal, elementos que vazam,
+  textos cortados e alvos de toque pequenos. Ao mudar o formato de uma resposta da API, atualize o simulado.
 - **Painel** (Chrome headless): `testes/cdp_teste.py SID "rota1;;rota2|js@@js"`. Sessão de teste: crie como www-data em
   `/opt/fog/sessions` com `$_SESSION['FOG_USER']=1; $_SESSION['PAINEL_TOKEN']='tokteste'` e apague no fim.
   Variáveis `TELAS`, `TEMAS`, `MOCKS` (interceptar chamadas que dependem do sudo).
@@ -151,6 +156,12 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
 - Pendências conhecidas: multicast de máquinas cadastradas sem login em cada uma (hoje a sessão por nome pede usuário e
   senha do painel na máquina); expirar tarefas esquecidas automaticamente (hoje só avisa); limpar `/images/dev`
   órfãos; testar Ubuntu 22.04/Debian 12 (Kea 2.0/2.2); fuso FOG_TZ_INFO (UTC) diferente do sistema.
+
+## 7d. Versão 0.7.0 (27/10) — varredura do painel
+- 47 situações fotografadas (telas, janelas, assistentes, menus) × celular/tablet/computador × claro/escuro com a API
+  simulada; verificação automática de layout sem achados no fim (só reticências esperadas em nomes de placa) e sem erros de JS.
+- Os cartões (`.cartao`) são `container-type: inline-size`: regras `@container` ajustam histórico e tarefas pela
+  largura do cartão. Navegadores sem container queries (anteriores a 2023) caem no `@media` antigo.
 
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,

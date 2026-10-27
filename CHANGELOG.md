@@ -5,6 +5,37 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.7.0] - 2026-10-27
+
+Varredura do painel tela a tela (todas as telas, janelas e assistentes, em celular, tablet e computador, tema claro
+e escuro), com dados simulados que incluem tarefas ao vivo, máquinas sem notícia, falhas e sessões em grupo.
+
+### Novo
+- **Trilha das 5 etapas** em cada máquina em andamento (Conectar → Verificar o disco → Partições → Gravar/Copiar →
+  Finalizar), igual à tela da máquina. Sem a tela nova na máquina, a etapa é estimada pela fase.
+- **Tarefas**: quatro números no topo (clonando agora, esperando, sem notícia, falhas hoje); histórico agrupado por
+  dia (Hoje, Ontem, …) com filtros Todas / Concluídas / Com falha / Canceladas; sessões em grupo do histórico com o nome.
+- **Máquinas**: filtros Em tarefa agora / Nunca clonadas / Sem imagem padrão; máquina ocupada mostra "Acompanhar"
+  em vez de "Restaurar"; a pílula diz "Última: restauração há 1 h".
+- Máquina sem notícia: barra e pílula em laranja ("Sem notícia"); tarefa agendada há mais de 1 dia em laranja com o
+  lembrete de cancelar. Sessão em grupo esperando máquinas mostra na barra quantas já entraram.
+
+### Correções de layout
+- Histórico no Início (meia coluna) e no tablet: nome cortado com "…", motivo espremido e textos vazando do cartão.
+  Os cartões agora se adaptam à própria largura (container queries), não só à largura da tela.
+- Pílulas de estado do histórico desalinhadas quando a linha não tinha "Ver registro".
+- Celular: avisos com botão espremiam o texto; abas de Configurações cortadas ("Cadastr…"); MAC cortado nas reservas
+  do DHCP; links "Ver tudo"/"Histórico" e o indicador de rede pequenos demais para o dedo.
+- Nomes longos de imagem/máquina cortados nos cartões de escolha dos assistentes (agora quebram linha).
+- Ponto "ao vivo" desalinhado em textos de duas linhas.
+- "Restaurar em grupo": logo depois de criar, a tela dizia "A sessão terminou" antes de a sessão aparecer.
+- Capturar: "Agora, em cada máquina" virou "Agora, na máquina"; Restaurar: "0 selecionada(s)" virou "Nenhuma
+  selecionada" / "3 selecionadas".
+
+### Para quem mantém
+- `testes/painel_simulado.py` (API simulada), `testes/plano_fotos.py` e `testes/fotos_painel.py` (fotos e
+  verificação automática de layout) — ver AGENTS.md seção 6.
+
 ## [0.6.1] - 2026-10-27
 
 ### Documentação

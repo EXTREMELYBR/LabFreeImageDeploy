@@ -45,9 +45,16 @@ motivo) e espera uma tecla: **R** reinicia, **D** desliga, **L** mostra o regist
 técnicos. Se o agendamento marcou *Desligar quando terminar*, ela desliga sozinha em 60 s (qualquer tecla cancela).
 
 ## Acompanhar e limpar (painel → Tarefas)
-- Cada máquina em andamento mostra a etapa informada por ela mesma, a porcentagem, o quanto já foi copiado, a
-  velocidade e o tempo restante. Se ficar mais de 3 minutos sem notícia, aparece um aviso (travou, desligou, cabo).
-- No histórico, falhas mostram o motivo em português; **Ver registro** abre o registro completo enviado pela máquina.
+- No topo, quatro números de relance: quantas máquinas estão clonando agora, quantas esperam ligar, quantas estão
+  sem notícia e quantas falhas houve hoje.
+- Cada máquina em andamento mostra a **trilha das 5 etapas** (Conectar → Verificar o disco → Partições →
+  Gravar/Copiar → Finalizar, as mesmas da tela da máquina), a porcentagem, o quanto já foi copiado, a velocidade e o
+  tempo restante. Se ficar mais de 3 minutos sem notícia, a barra fica laranja e aparece um aviso (travou, desligou,
+  cabo). Tarefa agendada há mais de 1 dia aparece em laranja com o lembrete de cancelar.
+- O histórico fica agrupado por dia (Hoje, Ontem, …) e tem filtros: Todas, Concluídas, Com falha, Canceladas.
+  Falhas mostram o motivo em português; **Ver registro** abre o registro completo enviado pela máquina.
+- Em **Máquinas**, os filtros Em tarefa agora, Nunca clonadas e Sem imagem padrão ajudam a achar máquinas; uma
+  máquina ocupada mostra **Acompanhar** no lugar de Restaurar.
 - **Limpar histórico**: apaga o histórico de tarefas, cancela a fila de espera (máquinas que ainda não ligaram),
   apaga o registro de clonagens e os registros internos — cada um opcional, com a contagem antes e a sua senha.
   O que está em andamento nunca é apagado.

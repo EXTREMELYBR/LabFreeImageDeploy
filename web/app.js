@@ -555,25 +555,52 @@ const duracao = (seg) => (seg < 90 ? `${Math.max(1, Math.round(seg))} s` : seg <
 /** Chave para comparar respostas sem redesenhar a cada segundo de "sem notícia" (só quando muda o minuto). */
 const chaveVivo = (dados) => JSON.stringify(dados, (k, v) => (k === 'sem_noticia' ? Math.floor(v / 60) : v));
 
-/** Cartão ao vivo de uma tarefa: fase, barra, números e alerta se a máquina parou de dar notícia. */
+// as mesmas 5 etapas que a tela da máquina mostra (marca/fos/bin/labfree-tela)
+const NOMES_ETAPAS = {
+  captura: ['Conectar', 'Verificar o disco', 'Partições', 'Copiar para o servidor', 'Finalizar'],
+  restauracao: ['Conectar', 'Verificar o disco', 'Partições', 'Gravar no disco', 'Finalizar'],
+};
+/** Etapa atual: a informada pela máquina ou, sem ela (sistema de clonagem antigo), uma estimativa pela fase. */
+function etapaDe(t) {
+  if (t.etapa) return { atual: Number(t.etapa), total: Number(t.etapas) || 5 };
+  const estimada = { preparando: 2, copiando: 4, finalizando: 5 }[t.fase];
+  return estimada ? { atual: estimada, total: 5 } : null;
+}
+/** Trilha de etapas: o que já foi feito, o que está acontecendo e o que falta. */
+function trilha(t) {
+  const e = etapaDe(t);
+  if (!e) return null;
+  const nomes = t.tipo.startsWith('Captura') ? NOMES_ETAPAS.captura : NOMES_ETAPAS.restauracao;
+  return el('ol', { class: 'trilha', 'aria-label': `Etapa ${e.atual} de ${e.total}` }, Array.from({ length: e.total }, (_, i) => {
+    const n = i + 1;
+    return el('li', { class: n < e.atual ? 'feita' : n === e.atual ? 'atual' : null },
+      el('span', { class: 'bolinha' }, n < e.atual ? icone('check', '') : String(n)), el('span', { class: 'nome' }, nomes[i] || `Etapa ${n}`));
+  }));
+}
+
+/** Cartão ao vivo de uma tarefa: etapas, barra, números e alerta se a máquina parou de dar notícia. */
 function cartaoTarefa(t, detalhado, cor = corTipo(t.tipo)) {
   const copiando = t.fase === 'copiando' || t.fase === 'finalizando';
-  const direita = copiando ? el('span', { class: 'pct' }, `${t.pct}%`)
-    : pilula(t.fase === 'aguardando' ? 'Aguardando ligar' : t.fase === 'fila' ? 'Na fila' : 'Preparando', t.fase === 'preparando' ? 'info' : 'aviso', true);
+  const esquecida = t.fase === 'aguardando' && t.criada && Date.now() - new Date(t.criada).getTime() > 86400000;
+  const direita = t.parada ? pilula('Sem notícia', 'aviso')
+    : copiando ? el('span', { class: 'pct' }, `${t.pct}%`)
+      : pilula(t.fase === 'aguardando' ? 'Aguardando ligar' : t.fase === 'fila' ? 'Na fila' : 'Preparando', t.fase === 'preparando' ? 'info' : 'aviso', true);
   return el('div', { class: 'tarefa-viva' + (t.parada ? ' parada' : ''), 'data-cor': cor },
     el('div', { class: 'topo-t' }, ladrilho(iconeTipo(t.tipo), cor, 'p'),
-      el('div', { style: 'flex:1;min-width:0' }, el('strong', {}, t.maquina), el('div', { class: 'small muted' }, `${t.tipo} · ${t.imagem || '—'}`)),
-      direita,
-      detalhado ? el('button', { class: 'btn p perigo', type: 'button', onclick: () => cancelarTarefa(t) }, 'Cancelar') : null),
-    copiando ? barra(t.pct, '', cor) : barra(0, 'indeterminado', cor),
-    el('div', { class: 'fase' }, el('span', { class: 'ponto-vivo' }), t.etapa ? el('span', { class: 'pilula info sem-ponto' }, `Etapa ${t.etapa} de ${t.etapas}`) : null, t.fase_texto),
+      el('div', { class: 'quem' }, el('strong', {}, t.maquina), el('div', { class: 'small muted' }, `${t.tipo} · ${t.imagem || '—'}`)),
+      el('div', { class: 'acoes-t' }, direita,
+        detalhado ? el('button', { class: 'btn p perigo', type: 'button', onclick: () => cancelarTarefa(t) }, 'Cancelar') : null)),
+    trilha(t),
+    copiando ? barra(t.pct, t.parada ? 'aviso' : '', cor) : barra(0, t.parada ? 'aviso' : 'indeterminado', cor),
+    el('div', { class: 'fase' }, el('span', { class: 'ponto-vivo' }), el('span', {}, t.fase_texto, copiando && t.parada ? ` · ${t.pct}%` : null)),
     copiando ? el('div', { class: 'dados' },
       el('span', {}, el('b', {}, t.copiado || '—'), ' de ', el('b', {}, t.total || '—')),
       t.velocidade && !/^0+([.,]0+)?\s*[a-z]*\/min$/i.test(t.velocidade) ? el('span', {}, el('b', {}, t.velocidade)) : null,
-      t.restante && t.fase === 'copiando' ? el('span', {}, 'faltam ', el('b', {}, t.restante)) : null,
+      t.restante && t.fase === 'copiando' && !t.parada ? el('span', {}, 'faltam ', el('b', {}, t.restante)) : null,
       detalhado && t.decorrido ? el('span', {}, 'nesta parte há ', el('b', {}, t.decorrido)) : null) : null,
-    t.fase === 'aguardando' ? el('div', { class: 'small muted', style: 'margin-top:6px' },
-      `Agendada ${haQuanto(t.criada)}. Ligue a máquina e dê boot pela rede: `, teclasBoot(), '.') : null,
+    t.fase === 'aguardando' ? el('div', { class: 'small ' + (esquecida ? 'texto-aviso' : 'muted'), style: 'margin-top:6px' },
+      esquecida ? `Agendada ${haQuanto(t.criada)} e ainda esperando. Se não vai mais usar, cancele: um boot pela rede nesta máquina apaga o disco.`
+        : [`Agendada ${haQuanto(t.criada)}. Ligue a máquina e dê boot pela rede: `, teclasBoot(), '.']) : null,
     t.parada ? el('div', { class: 'faixa aviso', style: 'margin-top:10px' }, icone('alerta'), el('div', {},
       el('strong', {}, `Sem notícia da máquina há ${duracao(t.sem_noticia)}`),
       'Ela pode ter travado, desligado ou perdido o cabo. Olhe a tela da máquina; se estiver parada, cancele e agende de novo.')) : null);
@@ -587,18 +614,22 @@ function cartaoSessao(s, detalhado) {
   const transmitindo = maquinas.some((m) => m.fase === 'copiando' || m.fase === 'finalizando');
   return el('div', { class: 'tarefa-viva', 'data-cor': 'grupo' },
     el('div', { class: 'topo-t' }, ladrilho('grupo', 'grupo', 'p'),
-      el('div', { style: 'flex:1;min-width:0' }, el('strong', {}, `Sessão em grupo “${s.nome || s.id}”`),
-        el('div', { class: 'small muted' }, `${s.imagem || '—'} · ${conectadas} de ${plural(esperadas, 'máquina', 'máquinas')} conectadas`)),
-      transmitindo ? el('span', { class: 'pct' }, `${s.pct}%`) : pilula(conectadas ? 'Aguardando as demais' : 'Aguardando máquinas', 'aviso', true),
-      detalhado ? el('button', { class: 'btn p perigo', type: 'button', onclick: () => cancelarSessao(s) }, 'Cancelar') : null),
-    transmitindo ? barra(s.pct, '', 'grupo') : barra(0, 'indeterminado', 'grupo'),
-    el('div', { class: 'fase' }, el('span', { class: 'ponto-vivo' }), transmitindo ? 'Transmitindo para todas as máquinas ao mesmo tempo'
-      : `A transmissão começa quando as ${esperadas} máquinas entrarem. Em cada uma: boot pela rede → “Entrar em sessao de grupo” → usuário e senha do painel → ${s.nome}.`),
-    maquinas.length ? el('div', { class: 'sub-maquinas' }, maquinas.map((m) => el('div', { class: 'sub-maquina' + (m.parada ? ' parada' : '') },
-      el('strong', {}, m.maquina),
-      el('span', { class: 'small muted' }, m.parada ? `sem notícia há ${duracao(m.sem_noticia)}` : m.fase_texto),
-      el('span', { class: 'pct-p' }, m.fase === 'copiando' || m.fase === 'finalizando' ? `${m.pct}%` : ''),
-      m.fase === 'copiando' || m.fase === 'finalizando' ? barra(m.pct, '', 'grupo') : barra(0, 'indeterminado', 'grupo')))) : null);
+      el('div', { class: 'quem' }, el('strong', {}, `Sessão em grupo “${s.nome || s.id}”`),
+        el('div', { class: 'small muted' }, `${s.imagem || '—'} · ${conectadas} de ${plural(esperadas, 'máquina conectada', 'máquinas conectadas')}`)),
+      el('div', { class: 'acoes-t' },
+        transmitindo ? el('span', { class: 'pct' }, `${s.pct}%`) : pilula(conectadas ? 'Aguardando as demais' : 'Aguardando máquinas', 'aviso', true),
+        detalhado ? el('button', { class: 'btn p perigo', type: 'button', onclick: () => cancelarSessao(s) }, 'Cancelar') : null)),
+    transmitindo ? barra(s.pct, '', 'grupo') : barra(esperadas ? (conectadas / esperadas) * 100 : 0, '', 'grupo'),
+    el('div', { class: 'fase' }, el('span', { class: 'ponto-vivo' }), el('span', {}, transmitindo ? 'Transmitindo para todas as máquinas ao mesmo tempo'
+      : `A transmissão começa quando as ${esperadas} máquinas entrarem. Em cada uma: boot pela rede → “Entrar em sessao de grupo” → usuário e senha do painel → ${s.nome}.`)),
+    maquinas.length ? el('div', { class: 'sub-maquinas' }, maquinas.map((m) => {
+      const copiandoM = m.fase === 'copiando' || m.fase === 'finalizando';
+      return el('div', { class: 'sub-maquina' + (m.parada ? ' parada' : '') },
+        el('strong', {}, m.maquina),
+        el('span', { class: 'small ' + (m.parada ? 'texto-aviso' : 'muted') }, m.parada ? `Sem notícia há ${duracao(m.sem_noticia)}` : m.fase_texto),
+        el('span', { class: 'pct-p' }, copiandoM ? `${m.pct}%` : ''),
+        copiandoM ? barra(m.pct, m.parada ? 'aviso' : '', 'grupo') : barra(0, m.parada ? 'aviso' : 'indeterminado', 'grupo'));
+    })) : null);
 }
 
 function blocoAtivas(tarefas, sessoes, detalhado) {
@@ -622,12 +653,32 @@ async function cancelarSessao(s) {
 function linhaHistorico(h) {
   const cor = corTipo(h.tipo);
   const falhou = Number(h.estado) === 6;
-  return el('div', { class: 'linha quebra', 'data-cor': cor }, ladrilho(iconeTipo(h.tipo), cor, 'p'),
-    el('div', { class: 'corpo' }, el('strong', {}, `${h.tipo} · ${h.maquina}`),
-      el('div', { class: 'meta' }, el('span', {}, h.imagem || '—'), el('span', {}, dataHora(h.criada)), h.por ? el('span', {}, `por ${h.por}`) : null),
+  const registro = h.tem_registro || falhou;
+  return el('div', { class: 'linha quebra hist', 'data-cor': cor }, ladrilho(iconeTipo(h.tipo), cor, 'p'),
+    el('div', { class: 'corpo' }, el('strong', {}, h.maquina, el('span', { class: 'tipo-h' }, ` · ${h.tipo}`)),
+      el('div', { class: 'meta' }, el('span', {}, h.imagem || 'imagem excluída'), el('span', {}, dataHora(h.criada)), h.por ? el('span', {}, `por ${h.por}`) : null),
       h.motivo ? el('div', { class: 'motivo' + (falhou ? ' ruim' : '') }, icone(falhou ? 'alerta' : 'info'), el('span', {}, h.motivo)) : null),
     el('div', { class: 'lado' }, pilulaEstado(h.estado, h.estado_texto),
-      h.tem_registro || falhou ? el('button', { class: 'btn p fantasma', type: 'button', onclick: () => verRegistro(h) }, icone('tarefas'), 'Ver registro') : null));
+      // o espaço do botão fica reservado: as pílulas de estado alinham na mesma coluna em todas as linhas
+      el('button', { class: 'btn p fantasma', type: 'button', disabled: !registro, 'aria-hidden': registro ? null : 'true', tabindex: registro ? null : '-1',
+        style: registro ? null : 'visibility:hidden', onclick: () => verRegistro(h) }, icone('tarefas'), 'Ver registro')));
+}
+
+/** Rótulo do dia para agrupar listas: Hoje, Ontem ou a data. */
+function rotuloDia(iso) {
+  if (!iso) return 'Sem data';
+  const d = new Date(iso), hoje = new Date();
+  const dias = Math.round((new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+  if (dias === 0) return 'Hoje';
+  if (dias === 1) return 'Ontem';
+  return d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+}
+
+/** Botões de filtro (um ativo por vez), com contagem. opcoes: [[id, rótulo, quantidade]] */
+function filtros(opcoes, atual, aoMudar) {
+  return el('div', { class: 'filtros', role: 'group', 'aria-label': 'Filtrar' }, opcoes.map(([id, rot, n]) => el('button', {
+    type: 'button', class: 'filtro' + (id === atual ? ' ativo' : ''), 'aria-pressed': String(id === atual), onclick: () => aoMudar(id),
+  }, rot, n !== undefined ? el('span', { class: 'n' }, String(n)) : null)));
 }
 
 /** Registro completo que a máquina enviou no fim (e os erros que o FOG recebeu). */
@@ -705,10 +756,10 @@ async function telaInicio(alvo) {
           el('div', { style: 'width:100%;margin-top:4px' }, barra(usado, usado > 90 ? 'ruim' : usado > 75 ? 'aviso' : '')))),
       el('div', { class: 'grade g2' },
         el('div', { class: 'cartao', 'data-cor': 'tarefas' },
-          el('div', { class: 'cartao-cab' }, el('h2', {}, 'Em andamento'), el('a', { class: 'small forte', href: '#/tarefas' }, 'Ver tudo')),
+          el('div', { class: 'cartao-cab' }, el('h2', {}, 'Em andamento'), el('a', { class: 'btn p fantasma', href: '#/tarefas' }, 'Ver tudo', icone('seta'))),
           blocoAtivas(r.tarefas, r.multicast, false)),
         el('div', { class: 'cartao' },
-          el('div', { class: 'cartao-cab' }, el('h2', {}, 'Atividade recente'), el('a', { class: 'small forte', href: '#/tarefas' }, 'Histórico')),
+          el('div', { class: 'cartao-cab' }, el('h2', {}, 'Atividade recente'), el('a', { class: 'btn p fantasma', href: '#/tarefas' }, 'Histórico', icone('seta'))),
           t.historico.length ? el('div', { class: 'lista' }, t.historico.slice(0, 5).map(linhaHistorico)) : vazio('relogio', 'Sem atividade ainda', 'Suas capturas e restaurações aparecem aqui.'))),
       el('details', { class: 'cartao', style: 'margin-top:16px', open: servicosAbertos ?? (ativos < r.servicos.length),
         ontoggle: (e) => { servicosAbertos = e.currentTarget.open; } },
@@ -794,20 +845,28 @@ async function telaMaquinas(alvo, p) {
     if (novo && termo) { novo.value = termo; novo.dispatchEvent(new Event('input')); }
     setTimeout(() => window.scrollTo(0, y), 200);
   };
+  const filtroBox = el('div');
+  let filtro = 'todas';
+  const FILTROS = [['todas', 'Todas', () => true], ['ocupadas', 'Em tarefa agora', (m) => m.tarefa], ['nunca', 'Nunca clonadas', (m) => !m.tarefa && !m.ultima],
+    ['sem-imagem', 'Sem imagem padrão', (m) => !m.imagem_id]];
   const desenhar = () => {
     const termo = campoBusca.value.trim().toLowerCase();
-    const itens = dados.maquinas.filter((m) => !termo || [m.nome, m.mac, m.imagem, m.descricao].join(' ').toLowerCase().includes(termo));
-    contagem.textContent = termo ? `${itens.length} de ${dados.maquinas.length}` : plural(dados.maquinas.length, 'máquina', 'máquinas');
+    const regra = FILTROS.find((f) => f[0] === filtro)[2];
+    filtroBox.replaceChildren(dados.maquinas.length ? filtros(FILTROS.map(([id, rot, f]) => [id, rot, dados.maquinas.filter(f).length]), filtro, (f) => { filtro = f; desenhar(); }) : null);
+    const itens = dados.maquinas.filter((m) => regra(m) && (!termo || [m.nome, m.mac, m.imagem, m.descricao].join(' ').toLowerCase().includes(termo)));
+    contagem.textContent = termo || filtro !== 'todas' ? `${itens.length} de ${dados.maquinas.length}` : plural(dados.maquinas.length, 'máquina', 'máquinas');
     lista.replaceChildren(...itens.map((m) => {
       const status = m.tarefa ? pilula(`${m.tarefa.tipo}${m.tarefa.estado == 3 ? ` · ${m.tarefa.pct}%` : ' agendada'}`, 'info', true)
-        : m.ultima ? pilula(`${m.ultima.tipo} ${haQuanto(m.ultima.quando)}`, 'ok') : pilula('Nunca usada', '');
+        : m.ultima ? pilula(`Última: ${m.ultima.tipo.toLowerCase()} ${haQuanto(m.ultima.quando)}`, 'ok') : pilula('Nunca clonada', '');
       const mais = el('button', { class: 'btn p icone fantasma', type: 'button', 'aria-label': `Mais ações para ${m.nome}` }, icone('pontos'));
       return el('div', { class: 'linha quebra', 'data-cor': 'maquinas' }, ladrilho('maquinas', 'maquinas', 'p'),
         el('div', { class: 'corpo' }, el('strong', {}, m.nome),
           el('div', { class: 'meta' }, el('span', { class: 'mono' }, m.mac || '—'), el('span', {}, m.imagem ? `Imagem: ${m.imagem}` : 'Sem imagem padrão'),
             m.rede ? el('span', {}, `visto na rede ${haQuanto(m.rede.visto)}`) : null)),
         el('div', { class: 'lado' }, status,
-          el('a', { class: 'btn p', href: `#/restaurar?maquina=${m.id}${m.imagem_id ? `&imagem=${m.imagem_id}` : ''}` }, icone('restaurar'), 'Restaurar'),
+          // máquina ocupada não pode receber outra tarefa: o botão leva ao acompanhamento
+          m.tarefa ? el('a', { class: 'btn p', href: '#/tarefas' }, icone('tarefas'), 'Acompanhar')
+            : el('a', { class: 'btn p', href: `#/restaurar?maquina=${m.id}${m.imagem_id ? `&imagem=${m.imagem_id}` : ''}` }, icone('restaurar'), 'Restaurar'),
           menuSuspenso(mais, [
             { texto: 'Capturar desta máquina', icone: 'capturar', href: `#/capturar?maquina=${m.id}` },
             { texto: 'Editar', icone: 'editar', acao: async () => recarregar(await formMaquina(m, imagens)) },
@@ -818,7 +877,7 @@ async function telaMaquinas(alvo, p) {
             } },
           ])));
     }));
-    if (!itens.length) lista.replaceChildren(termo ? vazio('buscar', 'Nenhuma máquina encontrada', `Nada corresponde a “${campoBusca.value}”.`)
+    if (!itens.length) lista.replaceChildren(termo || filtro !== 'todas' ? vazio('buscar', 'Nenhuma máquina encontrada', termo ? `Nada corresponde a “${campoBusca.value}”.` : 'Nenhuma máquina neste filtro.')
       : vazio('maquinas', 'Nenhuma máquina cadastrada', 'Cadastre manualmente ou dê boot pela rede numa máquina para ela aparecer em “Detectadas na rede”.'));
   };
   campoBusca.addEventListener('input', aoParar(desenhar));
@@ -843,7 +902,7 @@ async function telaMaquinas(alvo, p) {
       el('a', { class: 'btn p', href: '#/configuracoes?aba=cadastro' }, 'Como funciona')),
     el('div', { class: 'cartao' },
       el('div', { class: 'cartao-cab' }, el('div', { style: 'flex:1;min-width:220px' }, noBusca), contagem),
-      lista));
+      filtroBox, lista));
   if (p.get('novo')) {
     history.replaceState(null, '', '#/maquinas');
     recarregar(await formMaquina(null, imagens));
@@ -1097,7 +1156,7 @@ function acompanhamento(nomes, cor, ids) {
 function telaSucesso(titulo, texto, nomes, cor, ultimoPasso, ids) {
   return el('div', { class: 'pilha' },
     el('div', { class: 'heroi' }, ladrilho('ok', '', 'g'), el('div', { style: 'position:relative;z-index:1' }, el('h2', {}, titulo), el('p', {}, texto))),
-    el('div', { class: 'cartao', 'data-cor': cor }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Agora, em cada máquina')), passosBoot(ultimoPasso)),
+    el('div', { class: 'cartao', 'data-cor': cor }, el('div', { class: 'cartao-cab' }, el('h2', {}, nomes.length === 1 ? 'Agora, na máquina' : 'Agora, em cada máquina')), passosBoot(ultimoPasso)),
     el('div', { class: 'cartao' }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Acompanhe aqui'), pilula('ao vivo', 'info', true)), acompanhamento(nomes, cor, ids),
       el('div', { class: 'botoes', style: 'margin-top:16px' }, el('a', { class: 'btn', href: '#/tarefas' }, 'Ver todas as tarefas'), el('a', { class: 'btn fantasma', href: '#/inicio' }, 'Voltar ao início'))));
 }
@@ -1215,7 +1274,7 @@ async function telaRestaurar(alvo, p) {
           input.value = e.filtro;
           const cont = el('span', { class: 'pilula info sem-ponto' });
           const lista = el('div');
-          const contar = () => { cont.textContent = `${e.selecionadas.size} selecionada(s)`; };
+          const contar = () => { const n = e.selecionadas.size; cont.textContent = n ? plural(n, 'selecionada', 'selecionadas') : 'Nenhuma selecionada'; };
           const pintar = () => {
             const termo = e.filtro.toLowerCase();
             const visiveis = e.maquinas.filter((m) => !termo || `${m.nome} ${m.mac} ${m.imagem}`.toLowerCase().includes(termo));
@@ -1302,10 +1361,18 @@ async function telaGrupo(alvo, p) {
     finalizar: (e) => api('multicast', { imagem_id: Number(e.imagem), nome: e.nome, quantidade: e.quantidade, espera_min: e.espera }),
     sucesso: (e) => {
       const vivo = el('div');
+      let vista = false; // só diz "terminou" depois de ter visto a sessão ativa pelo menos uma vez
+      let anterior = '';
       const pintar = async () => {
         const t = await api('tarefas');
         const s = t.multicast_ativas.find((x) => x.nome === e.nome);
-        vivo.replaceChildren(s ? blocoAtivas([], [s], true) : el('div', { class: 'faixa ok' }, icone('ok'), el('div', {}, 'A sessão terminou ou foi encerrada. Veja o resultado em Tarefas.')));
+        if (s) vista = true;
+        const chave = s ? chaveVivo(s) : String(vista);
+        if (chave === anterior || interagindo(vivo)) return;
+        anterior = chave;
+        vivo.replaceChildren(s ? blocoAtivas([], [s], true)
+          : vista ? el('div', { class: 'faixa ok' }, icone('ok'), el('div', {}, 'A sessão terminou ou foi encerrada. Veja o resultado em Tarefas.'))
+            : el('div', { class: 'faixa info' }, icone('relogio'), el('div', {}, 'Preparando a sessão no servidor…')));
       };
       pintar().catch(() => {});
       repetir(pintar, 4000);
@@ -1326,28 +1393,65 @@ async function telaGrupo(alvo, p) {
 // ================================================================ tarefas
 
 async function telaTarefas(alvo) {
+  const numeros = el('div');
   const ativas = el('div');
   const hist = el('div');
+  const filtroBox = el('div');
   let anterior = '';
+  let ultimo = null;
+  let filtro = 'todas';
+  const pintarHistorico = () => {
+    const t = ultimo;
+    // tarefas e sessões em grupo numa lista só, da mais nova para a mais antiga
+    const itens = [...t.historico.map((h) => ({ quando: h.criada, estado: Number(h.estado), no: () => linhaHistorico(h) })),
+      ...t.multicast_historico.map((s) => ({ quando: s.inicio, estado: Number(s.estado), no: () => el('div', { class: 'linha quebra hist', 'data-cor': 'grupo' }, ladrilho('grupo', 'grupo', 'p'),
+        el('div', { class: 'corpo' }, el('strong', {}, `Sessão “${s.nome || s.id}”`, el('span', { class: 'tipo-h' }, ' · Restauração em grupo')),
+          el('div', { class: 'meta' }, el('span', {}, s.imagem || 'imagem excluída'), el('span', {}, dataHora(s.inicio)), el('span', {}, plural(Number(s.esperadas), 'máquina', 'máquinas')))),
+        el('div', { class: 'lado' }, pilulaEstado(s.estado, s.estado_texto), el('span', { class: 'btn p fantasma', 'aria-hidden': 'true', style: 'visibility:hidden' }, icone('tarefas'), 'Ver registro'))) }))]
+      .sort((a, b) => new Date(b.quando || 0) - new Date(a.quando || 0));
+    const conta = (e) => itens.filter((x) => x.estado === e).length;
+    filtroBox.replaceChildren(itens.length ? filtros([['todas', 'Todas', itens.length], ['ok', 'Concluídas', conta(4)], ['falhas', 'Com falha', conta(6)], ['canceladas', 'Canceladas', conta(5)]],
+      filtro, (f) => { filtro = f; pintarHistorico(); }) : null);
+    const visiveis = itens.filter((x) => filtro === 'todas' || x.estado === { ok: 4, falhas: 6, canceladas: 5 }[filtro]);
+    if (!itens.length) return hist.replaceChildren(vazio('relogio', 'Nenhuma tarefa concluída ainda', 'O histórico de capturas e restaurações aparece aqui.'));
+    if (!visiveis.length) return hist.replaceChildren(vazio('relogio', 'Nada neste filtro', null));
+    const grupos = [];
+    for (const x of visiveis) {
+      const dia = rotuloDia(x.quando);
+      if (!grupos.length || grupos[grupos.length - 1][0] !== dia) grupos.push([dia, []]);
+      grupos[grupos.length - 1][1].push(x.no());
+    }
+    hist.replaceChildren(...grupos.map(([dia, nos]) => el('section', { class: 'dia' }, el('h3', { class: 'rotulo-dia' }, dia), el('div', { class: 'lista' }, nos))));
+  };
   const montar = async () => {
     const t = await api('tarefas');
     const igual = chaveVivo(t);
-    if (igual === anterior || interagindo(ativas)) return; // sem mudança ou com a pessoa clicando: os botões ficam
+    if (igual === anterior || interagindo(ativas) || interagindo(hist)) return; // sem mudança ou com a pessoa clicando: os botões ficam
     anterior = igual;
+    ultimo = t;
+    // resumo em números: o que está acontecendo agora, de relance
+    const todas = [...t.ativas, ...t.multicast_ativas.flatMap((s) => s.maquinas || [])];
+    const trabalhando = todas.filter((x) => ['preparando', 'copiando', 'finalizando'].includes(x.fase) && !x.parada).length;
+    const esperando = t.ativas.filter((x) => x.fase === 'aguardando' || x.fase === 'fila').length + t.multicast_ativas.filter((s) => !(s.maquinas || []).length).length;
+    const paradas = todas.filter((x) => x.parada).length;
+    const falhasHoje = t.historico.filter((h) => Number(h.estado) === 6 && rotuloDia(h.criada) === 'Hoje').length;
+    const numero = (ic, cor, valor, rot, tipo) => el('div', { class: 'cartao numero' + (tipo ? ` destaque-${tipo}` : ''), 'data-cor': cor },
+      ladrilho(ic, cor), el('div', {}, el('div', { class: 'valor' }, String(valor)), el('div', { class: 'rot' }, rot)));
+    numeros.replaceChildren(el('div', { class: 'grade g4', style: 'margin-bottom:16px' },
+      numero('relogio', 'tarefas', trabalhando, 'clonando agora'),
+      numero('maquinas', 'inicio', esperando, esperando === 1 ? 'esperando a máquina' : 'esperando as máquinas'),
+      numero('alerta', 'maquinas', paradas, 'sem notícia há mais de 3 min', paradas ? 'aviso' : null),
+      numero('x', 'imagens', falhasHoje, falhasHoje === 1 ? 'falha hoje' : 'falhas hoje', falhasHoje ? 'ruim' : null)));
     ativas.replaceChildren(blocoAtivas(t.ativas, t.multicast_ativas, true));
-    const sessoesHist = t.multicast_historico.map((s) => el('div', { class: 'linha', 'data-cor': 'grupo' }, ladrilho('grupo', 'grupo', 'p'),
-      el('div', { class: 'corpo' }, el('strong', {}, 'Restauração em grupo'), el('div', { class: 'meta' }, el('span', {}, s.imagem || '—'), el('span', {}, dataHora(s.inicio)), el('span', {}, plural(Number(s.esperadas), 'máquina', 'máquinas')))),
-      el('div', { class: 'lado' }, pilulaEstado(s.estado, s.estado_texto))));
-    hist.replaceChildren(t.historico.length || sessoesHist.length
-      ? el('div', { class: 'lista' }, t.historico.map(linhaHistorico), sessoesHist)
-      : vazio('relogio', 'Nenhuma tarefa concluída ainda', 'O histórico de capturas e restaurações aparece aqui.'));
+    pintarHistorico();
   };
   await montar();
   alvo.replaceChildren(
     cabPagina('tarefas', 'Capturas e restaurações. Esta tela se atualiza sozinha.',
       el('button', { class: 'btn', type: 'button', onclick: async () => { if (await limparHistorico()) { anterior = ''; await montar(); } } }, icone('lixo'), 'Limpar histórico')),
+    numeros,
     el('div', { class: 'cartao', 'data-cor': 'tarefas' }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Em andamento'), pilula('ao vivo', 'info', true)), ativas),
-    el('div', { class: 'cartao' }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Histórico')), hist));
+    el('div', { class: 'cartao' }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Histórico'), filtroBox), hist));
   repetir(montar, 3000);
 }
 
