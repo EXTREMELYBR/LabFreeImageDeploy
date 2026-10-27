@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 27/10/2026 (versão 0.10.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 27/10/2026 (versão 0.11.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -43,6 +43,10 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     externo ou outro servidor com conferência bit a bit e opção de importar; visual das estações bonito, moderno e
     com a identidade da LabFree (empresa do usuário, labfree.com.br: marinho #0d1b3e, azul #1a73e8, ciano da nuvem
     #0ca8e8, fonte Jost, logo nuvem + LABFREE em itálico). Feito na 0.10.0.
+17. (27/10, noite) Painel também com a identidade da LabFree, com logomarca e favicon — feito na 0.11.0.
+18. (27/10, noite) **REGRA: o sistema tem de ser 100% autônomo** — o instalador já traz a base FOG e tudo de que
+    ela precisa, sem baixar nada do projeto FOG (se os links do FOG sumirem, ninguém mais instalaria). Pedido também
+    um NAT opcional (rede de clonagem com internet pelo Wi-Fi do servidor): o usuário pediu primeiro a avaliação.
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.

@@ -5,6 +5,18 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.11.0] - 2026-10-27
+
+### Novo
+- **Painel com a identidade visual da LabFree** (labfree.com.br): cores da marca (azul #1a73e8, marinho #0d1b3e;
+  o tema escuro é o marinho da LabFree), fonte Jost (arquivos locais, funciona sem internet), logomarca da nuvem
+  no menu, no topo do celular e no login (logo completo), nome no estilo do logo (LABFREE em itálico + ImageDeploy),
+  **favicon** e ícone para celular (tela inicial) com a nuvem, e a página Ajuda → Sobre com a LabFree.
+
+### Para quem mantém
+- `web/fontes/jost-*.woff2`, `web/marca/` (logo, nuvem, favicon-64, icone-180), `web/favicon.ico`.
+  `logoMarca()`/`nomeMarca()` no `app.js`. Fotos do painel: 117 situações sem achados.
+
 ## [0.10.0] - 2026-10-27
 
 Precisa do instalador para chegar ao servidor (`sudo ./instalar.sh`, sem clonagem em andamento; reconstrói o

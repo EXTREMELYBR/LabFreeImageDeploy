@@ -87,6 +87,9 @@ function icone(nome, classe = 'i') {
   s.append(p);
   return s;
 }
+/** Logomarca da LabFree (nuvem) e o nome do produto no estilo do logo: LABFREE em itálico + ImageDeploy. */
+const logoMarca = () => el('img', { class: 'logo', src: 'marca/labfree-nuvem.png', alt: '' });
+const nomeMarca = () => el('strong', {}, el('b', {}, 'LABFREE'), 'ImageDeploy');
 const ladrilho = (ic, cor, tam = '') => el('span', { class: `ladrilho ${tam}`, 'data-cor': cor || null }, icone(ic));
 
 function gb(bytes) {
@@ -324,16 +327,17 @@ function telaLogin(msg) {
   const recurso = (ic, cor, t) => el('div', { class: 'recurso' }, ladrilho(ic, cor, 'p'), t);
   document.getElementById('app').replaceChildren(el('div', { class: 'tela-login' },
     el('div', { class: 'login-arte' },
-      el('div', { class: 'marca', style: 'color:#fff;padding:0' }, el('span', { class: 'logo' }, icone('logo')), el('div', {}, el('strong', {}, 'LabFree ImageDeploy'), el('span', { style: 'color:rgba(255,255,255,.7)' }, 'Clonagem de máquinas pela rede'))),
+      el('div', {}, el('img', { class: 'logo-grande', src: 'marca/labfree-logo.png', alt: 'LabFree' }),
+        el('div', { class: 'marca', style: 'color:#fff;padding:0' }, el('div', {}, nomeMarca(), el('span', { style: 'color:rgba(255,255,255,.7)' }, 'Clonagem de máquinas pela rede')))),
       el('div', {}, el('h1', {}, 'Capture e restaure máquinas em poucos cliques.'),
         el('p', {}, 'Clonagem de máquinas pela rede sem complicação: assistentes passo a passo, acompanhamento ao vivo e avisos claros quando algo não está certo.'),
         el('div', { class: 'recursos' },
           recurso('capturar', 'capturar', 'Capturar a imagem de uma máquina modelo'),
           recurso('restaurar', 'restaurar', 'Restaurar em uma ou várias máquinas'),
           recurso('grupo', 'grupo', 'Restaurar uma sala inteira de uma vez'))),
-      el('span', { class: 'small', style: 'color:rgba(255,255,255,.55)' }, 'Baseado no FOG Project · software livre (GPL v3)')),
+      el('span', { class: 'small', style: 'color:rgba(255,255,255,.55)' }, 'LabFree · labfree.com.br · baseado no FOG Project (software livre, GPL v3)')),
     el('div', { class: 'login-form' }, el('div', { class: 'caixa' },
-      el('div', { class: 'marca', style: 'padding:0 0 28px' }, el('span', { class: 'logo' }, icone('logo')), el('div', {}, el('strong', {}, 'LabFree ImageDeploy'), el('span', {}, 'Bem-vindo de volta'))),
+      el('div', { class: 'marca', style: 'padding:0 0 28px' }, logoMarca(), el('div', {}, nomeMarca(), el('span', {}, 'Bem-vindo de volta'))),
       el('h2', { style: 'font-size:1.5rem;margin-bottom:6px' }, 'Entrar'),
       el('p', { class: 'muted', style: 'margin-bottom:22px' }, 'Entre com seu usuário e senha.'),
       form))));
@@ -374,13 +378,13 @@ function telaPrimeiraSenha() {
   const item = (ic, t) => el('div', { class: 'recurso' }, ladrilho(ic, 'inicio', 'p'), t);
   document.getElementById('app').replaceChildren(el('div', { class: 'tela-login' },
     el('div', { class: 'login-arte' },
-      el('div', { class: 'marca', style: 'color:#fff;padding:0' }, el('span', { class: 'logo' }, icone('logo')), el('div', {}, el('strong', {}, 'LabFree ImageDeploy'), el('span', { style: 'color:rgba(255,255,255,.7)' }, 'Primeiro acesso'))),
+      el('div', { class: 'marca', style: 'color:#fff;padding:0' }, logoMarca(), el('div', {}, nomeMarca(), el('span', { style: 'color:rgba(255,255,255,.7)' }, 'Primeiro acesso'))),
       el('div', {}, el('h1', {}, 'Proteja o seu sistema de clonagem.'),
         el('p', {}, 'Você entrou com a senha de fábrica. Crie uma senha só sua antes de continuar: quem tem acesso ao painel pode apagar o disco de qualquer máquina da rede.'),
         el('div', { class: 'recursos' }, item('escudo', 'A senha de fábrica deixa de funcionar'), item('usuarios', 'Depois, crie um usuário para cada técnico em Usuários'))),
       el('span', { class: 'small', style: 'color:rgba(255,255,255,.55)' }, 'LabFree ImageDeploy')),
     el('div', { class: 'login-form' }, el('div', { class: 'caixa' },
-      el('div', { class: 'marca', style: 'padding:0 0 28px' }, el('span', { class: 'logo' }, icone('logo')), el('div', {}, el('strong', {}, 'LabFree ImageDeploy'), el('span', {}, `Olá, ${sessao.usuario || ''}`))),
+      el('div', { class: 'marca', style: 'padding:0 0 28px' }, logoMarca(), el('div', {}, nomeMarca(), el('span', {}, `Olá, ${sessao.usuario || ''}`))),
       el('h2', { style: 'font-size:1.5rem;margin-bottom:6px' }, 'Crie sua senha'),
       el('p', { class: 'muted', style: 'margin-bottom:22px' }, 'Este é o primeiro acesso com esta conta.'),
       form))));
@@ -427,7 +431,7 @@ async function sair() {
 function montarCasca() {
   estadoGlobal.tela = 'painel';
   const nav = el('nav', { class: 'lateral', 'aria-label': 'Menu principal' },
-    el('a', { class: 'marca', href: '#/inicio' }, el('span', { class: 'logo' }, icone('logo')), el('div', {}, el('strong', {}, 'LabFree ImageDeploy'), el('span', {}, 'Clonagem pela rede'))),
+    el('a', { class: 'marca', href: '#/inicio' }, logoMarca(), el('div', {}, nomeMarca(), el('span', {}, 'Clonagem pela rede'))),
     GRUPOS_NAV.map(([titulo, ids]) => el('div', { class: 'grupo-nav' }, el('span', {}, titulo),
       ids.map((id) => el('a', { class: 'nav-item', href: `#/${id}`, 'data-rota': id, 'data-cor': ROTAS[id].cor },
         ladrilho(ROTAS[id].icone, ROTAS[id].cor), ROTAS[id].nome, el('span', { class: 'contador', id: `cont-${id}`, hidden: true }))))),
@@ -440,7 +444,7 @@ function montarCasca() {
   const statusRede = el('a', { class: 'status-rede', href: '#/inicio', id: 'status-rede', title: 'Estado da rede de clonagem' }, el('span', { class: 'ponto' }), el('span', { class: 'txt' }, 'Verificando…'));
   const avatar = el('button', { class: 'avatar', type: 'button', 'aria-label': 'Menu do usuário' }, (sessao.usuario || '?').slice(0, 1).toUpperCase());
   const topo = el('header', { class: 'topo' },
-    el('a', { class: 'marca', href: '#/inicio' }, el('span', { class: 'logo' }, icone('logo')), el('div', {}, el('strong', {}, 'LabFree ImageDeploy'))),
+    el('a', { class: 'marca', href: '#/inicio' }, logoMarca(), el('div', {}, nomeMarca())),
     el('div', { class: 'espaco' }), statusRede, menuSuspenso(avatar, itensUsuario));
 
   const maisBotao = el('button', { type: 'button', 'data-rota': 'mais', onclick: abrirMais }, el('span', { class: 'bolha' }, icone('menu')), 'Mais');
@@ -1658,7 +1662,9 @@ async function telaAjuda(alvo) {
         pergunta('Esqueci a senha do painel',
           el('p', {}, 'Outro usuário pode definir uma nova senha em Usuários. Se ninguém consegue entrar, no servidor rode: ', el('code', {}, 'sudo LabFreeImageDeploy senha admin --redefinir'), ' (volta para admin/admin e pede uma senha nova no próximo acesso).')))),
     el('div', { class: 'cartao', style: 'margin-top:24px' }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Sobre o LabFree ImageDeploy')),
-      el('p', { class: 'small' }, `Versão ${estadoGlobal.versao || ''}. Sistema de clonagem de máquinas pela rede.`),
+      el('div', { class: 'marca', style: 'padding:0 0 12px' }, logoMarca(), el('div', {}, nomeMarca(), el('span', {}, `Versão ${estadoGlobal.versao || ''}`))),
+      el('p', { class: 'small' }, 'Sistema de clonagem de máquinas pela rede da LabFree, o departamento de TI de empresas e escolas que não têm um. ',
+        el('a', { href: 'https://labfree.com.br', target: '_blank', rel: 'noopener' }, 'labfree.com.br')),
       el('p', { class: 'small muted', style: 'margin-top:8px' }, 'Baseado no FOG Project (fogproject.org), distribuído sob a licença GNU GPL versão 3. ',
         'Também usa iPXE, Partclone, udpcast, Kea DHCP e outros softwares livres, cada um sob sua própria licença. ',
         'O código-fonte desta distribuição acompanha o pacote de instalação.')));

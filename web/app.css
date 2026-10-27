@@ -1,4 +1,15 @@
-/* LabFree ImageDeploy simplificado — customização local (não faz parte do FOG) */
+/* LabFree ImageDeploy simplificado — customização local (não faz parte do FOG).
+   Identidade visual da LabFree (labfree.com.br): azul #1a73e8 / #0d47a1, marinho #0d1b3e, ciano da nuvem #0ca8e8,
+   fonte Jost (OFL, arquivos locais em fontes/). */
+@font-face { font-family: "Jost"; font-style: normal; font-weight: 300 800; font-display: swap;
+  src: url(fontes/jost-latin.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Jost"; font-style: normal; font-weight: 300 800; font-display: swap;
+  src: url(fontes/jost-latin-ext.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Jost"; font-style: italic; font-weight: 500 800; font-display: swap;
+  src: url(fontes/jost-italic-latin.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+2000-206F; }
 @font-face { font-family: "Inter"; font-style: normal; font-weight: 400 800; font-display: swap;
   src: url(fontes/inter-latin.woff2) format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
@@ -8,23 +19,23 @@
 
 /* ------------------------------------------------------------ tokens */
 :root {
-  --bg: #f5f6fa;
+  --bg: #f6f8fb;
   --surface: #ffffff;
-  --surface-2: #f1f3f8;
-  --surface-3: #e8ebf3;
-  --border: #e3e6ef;
-  --border-strong: #cfd4e2;
-  --text: #0f172a;
-  --text-2: #334155;
-  --muted: #64748b;
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
+  --surface-2: #f0f4fa;
+  --surface-3: #e5ebf4;
+  --border: #e4e8ee;
+  --border-strong: #cdd5e1;
+  --text: #0d1b3e;
+  --text-2: #33415a;
+  --muted: #6b7280;
+  --primary: #1a73e8;
+  --primary-hover: #0d47a1;
   --primary-ink: #ffffff;
   --ok: #059669;
   --warn: #b45309;
   --bad: #dc2626;
   --c-capturar: #7c3aed;
-  --c-restaurar: #2563eb;
+  --c-restaurar: #1a73e8;
   --c-grupo: #0d9488;
   --c-maquinas: #ea580c;
   --c-imagens: #db2777;
@@ -42,24 +53,24 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
-    --bg: #0a0e17; --surface: #111726; --surface-2: #182033; --surface-3: #212a40;
-    --border: #232c42; --border-strong: #34405c;
-    --text: #e8ecf6; --text-2: #c3cadb; --muted: #8e9ab3;
-    --primary: #818cf8; --primary-hover: #a5b4fc; --primary-ink: #0b1020;
+    --bg: #081127; --surface: #0d1b3e; --surface-2: #13254f; --surface-3: #1a3060;
+    --border: #1c3263; --border-strong: #2b477e;
+    --text: #eaf1fd; --text-2: #c3d0e8; --muted: #8fa1c4;
+    --primary: #4c9bff; --primary-hover: #7db6ff; --primary-ink: #061230;
     --ok: #34d399; --warn: #fbbf24; --bad: #f87171;
-    --c-capturar: #a78bfa; --c-restaurar: #60a5fa; --c-grupo: #2dd4bf; --c-maquinas: #fb923c; --c-imagens: #f472b6; --c-tarefas: #38bdf8; --c-ajuda: #94a3b8; --c-config: #94a3b8;
+    --c-capturar: #a78bfa; --c-restaurar: #4c9bff; --c-grupo: #2dd4bf; --c-maquinas: #fb923c; --c-imagens: #f472b6; --c-tarefas: #38bdf8; --c-ajuda: #94a3b8; --c-config: #94a3b8;
     --soft: 16%;
     --shadow-sm: none; --shadow: 0 0 0 1px rgba(255,255,255,.02); --shadow-lg: 0 24px 48px -12px rgba(0,0,0,.6);
     color-scheme: dark;
   }
 }
 :root[data-tema="escuro"] {
-  --bg: #0a0e17; --surface: #111726; --surface-2: #182033; --surface-3: #212a40;
-  --border: #232c42; --border-strong: #34405c;
-  --text: #e8ecf6; --text-2: #c3cadb; --muted: #8e9ab3;
-  --primary: #818cf8; --primary-hover: #a5b4fc; --primary-ink: #0b1020;
+  --bg: #081127; --surface: #0d1b3e; --surface-2: #13254f; --surface-3: #1a3060;
+  --border: #1c3263; --border-strong: #2b477e;
+  --text: #eaf1fd; --text-2: #c3d0e8; --muted: #8fa1c4;
+  --primary: #4c9bff; --primary-hover: #7db6ff; --primary-ink: #061230;
   --ok: #34d399; --warn: #fbbf24; --bad: #f87171;
-  --c-capturar: #a78bfa; --c-restaurar: #60a5fa; --c-grupo: #2dd4bf; --c-maquinas: #fb923c; --c-imagens: #f472b6; --c-tarefas: #38bdf8; --c-ajuda: #94a3b8; --c-config: #94a3b8;
+  --c-capturar: #a78bfa; --c-restaurar: #4c9bff; --c-grupo: #2dd4bf; --c-maquinas: #fb923c; --c-imagens: #f472b6; --c-tarefas: #38bdf8; --c-ajuda: #94a3b8; --c-config: #94a3b8;
   --soft: 16%;
   --shadow-sm: none; --shadow: 0 0 0 1px rgba(255,255,255,.02); --shadow-lg: 0 24px 48px -12px rgba(0,0,0,.6);
   color-scheme: dark;
@@ -70,8 +81,8 @@
 html, body { margin: 0; }
 body {
   background: var(--bg); color: var(--text);
-  font: 15px/1.55 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased;
+  font: 15.5px/1.55 "Jost", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -116,13 +127,11 @@ svg.i { width: 20px; height: 20px; flex: none; }
 }
 .marca { display: flex; align-items: center; gap: 11px; padding: 4px 8px 22px; color: var(--text); }
 .marca:hover { text-decoration: none; }
-.logo {
-  width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; flex: none;
-  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #06b6d4));
-  color: #fff; box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--primary) 70%, transparent);
-}
-.logo svg.i { width: 22px; height: 22px; }
-.marca strong { display: block; font-size: 1.02rem; letter-spacing: -.01em; }
+.logo { width: 40px; height: auto; flex: none; display: block; }
+.marca > div { min-width: 0; }
+.marca strong { display: block; font-size: 1rem; letter-spacing: 0; font-weight: 500; white-space: nowrap; }
+.marca strong b { font-style: italic; font-weight: 700; letter-spacing: .03em; margin-right: 4px; }
+.topo .marca { min-height: 40px; }
 .marca div > span { display: block; font-size: .76rem; color: var(--muted); }
 .grupo-nav { margin-bottom: 18px; }
 .grupo-nav > span { display: block; font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 10px 6px; }
@@ -441,7 +450,7 @@ pre.registro { max-height: 50vh; overflow: auto; background: #0b1020; color: #d7
 .menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
 .menu .rotulo-menu { font-size: .72rem; color: var(--muted); padding: 6px 10px 2px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; }
 .avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .9rem; color: #fff;
-  background: linear-gradient(135deg, #6366f1, #06b6d4); border: 0; cursor: pointer; }
+  background: linear-gradient(135deg, #0ca8e8, #1a73e8 55%, #0d47a1); border: 0; cursor: pointer; }
 .status-rede { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 99px; font-size: .82rem; font-weight: 600;
   background: var(--surface); border: 1px solid var(--border); color: var(--text-2); }
 .status-rede .ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
@@ -478,7 +487,9 @@ a.escolha { color: var(--text); text-decoration: none; }
 /* login */
 .tela-login { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; }
 .login-arte { position: relative; overflow: hidden; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; color: #fff;
-  background: radial-gradient(circle at 20% 20%, #6366f1 0, transparent 50%), radial-gradient(circle at 80% 70%, #06b6d4 0, transparent 45%), linear-gradient(140deg, #1e1b4b, #0f172a); }
+  background: radial-gradient(circle at 15% 15%, rgba(26,115,232,.55) 0, transparent 50%), radial-gradient(circle at 85% 75%, rgba(12,168,232,.35) 0, transparent 45%), linear-gradient(140deg, #0d1b3e, #081127); }
+.login-arte .marca strong { color: #fff; }
+.logo-grande { width: 150px; height: auto; display: block; margin-bottom: 8px; filter: drop-shadow(0 10px 24px rgba(0,0,0,.35)); }
 .login-arte h1 { font-size: 2.3rem; color: #fff; max-width: 440px; }
 .login-arte p { color: rgba(255,255,255,.75); max-width: 420px; margin-top: 12px; font-size: 1.02rem; }
 .login-arte .recursos { display: grid; gap: 14px; margin-top: 34px; }
