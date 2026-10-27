@@ -92,6 +92,14 @@ else
     falha "Tela Configurações sem permissão (falta /etc/sudoers.d/LabFreeImageDeploy). Rode: sudo /opt/LabFreeImageDeploy/instalar.sh"
 fi
 
+# 6c) envio em grupo só começa pelo painel (porteiro no lugar do udp-sender)
+if [ -x /usr/local/lib/LabFreeImageDeploy/udp-sender ] && grep -q "'UDPSENDERPATH', '/usr/local/lib/LabFreeImageDeploy/udp-sender'" /var/www/html/fog/lib/fog/config.class.php 2>/dev/null \
+    && [ -d /run/LabFreeImageDeploy/grupo ]; then
+    ok "Envio em grupo começa só pelo botão Iniciar do painel"
+else
+    falha "Envio em grupo sem o controle do painel (rode: sudo LabFreeImageDeploy reaplicar)"
+fi
+
 # 7) Site responde
 codigo=$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1/LabFreeImageDeploy/api.php?a=sessao 2>/dev/null)
 [ "$codigo" = "200" ] && ok "Painel responde (HTTP 200)" || falha "Painel não respondeu (HTTP $codigo)"

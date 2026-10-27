@@ -12,6 +12,8 @@ FOG 1.5.10 embutida e travada nessa versão (não recebe atualizações do FOG) 
   português; no fim mostra o resultado e não reinicia sozinha.
 - **Acompanhamento e histórico**: trilha das 5 etapas de cada máquina, aviso de máquina sem notícia, histórico por
   dia com filtros, motivo das falhas e o registro completo de cada tarefa.
+- **Restaurar em grupo sob controle**: o painel mostra cada máquina que entrou (cadastrada ou não), avisa quando a
+  sala está completa e só começa quando alguém clica em Iniciar. Nada começa sozinho na máquina.
 - **Cadastro de máquinas em 2 passos** direto na tela da máquina, pelo boot da rede: nome sugerido e imagem.
 - **Rede e DHCP configuráveis pelo painel**, com teste e desfazer automático se algo der errado.
 - **Funciona com adaptador USB-Ethernet** e não mexe na internet do servidor.

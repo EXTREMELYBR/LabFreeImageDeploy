@@ -23,6 +23,7 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
 |---|---|---|
 | Instalador | `instalar.sh` | instalação nova (rede → base FOG com respostas prontas → camada) e atualização/migração |
 | Painel | `web/` | página única em JS puro (sem framework/CDN, fonte Inter local), `api.php` em JSON |
+| Porteiro do envio em grupo | `lib/LabFreeImageDeploy-udp-sender` | fica no lugar do udp-sender da base: início só pelo painel, andamento para o painel, registro de cada sessão |
 | Ajudante root | `lib/LabFreeImageDeploy-root` (Python, só biblioteca padrão) | ações privilegiadas: `dhcp-*`, `rede-*`, `reaplicar`, `marca-aplicar`, `servicos-aplicar`, `imagem-apagar` |
 | Comandos | `sbin/LabFreeImageDeploy*` | `LabFreeImageDeploy verificar|backup|restaurar|reaplicar|senha|recompilar-ipxe` |
 | Sistema | `sistema/` | sudoers, dispatcher do NetworkManager, timer de backup, regras do apt, energia |
@@ -75,6 +76,19 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
 - `api.php` também guarda, por tarefa, quando o andamento mudou pela última vez (arquivo em `/opt/fog/sessions`) para
   avisar "sem notícia há X min".
 
+## Envio em grupo (multicast)
+- A base (serviço `LabFreeImageDeploy-multicast`) roda, por sessão, `sh -c "udp-sender … --file d1p1.img; udp-sender …
+  --file d1p2.img; …"` (uma partição por vez). `UDPSENDERPATH` aponta para o porteiro
+  (`/usr/local/lib/LabFreeImageDeploy/udp-sender`), que chama o udp-sender de verdade.
+- 1ª partição: o porteiro tira o início automático (`--min-receivers`, `--max-wait`, `--nokbd`) e liga um pipe como
+  "teclado". O painel (`iniciar_multicast`) cria `/run/LabFreeImageDeploy/grupo/<porta>.iniciar`; com pelo menos uma
+  máquina conectada, o porteiro "aperta a tecla". O painel também põe `msSenderStart` no passado: a base deixa de
+  aceitar máquinas novas na sessão.
+- Partições seguintes: `--min-receivers` = máquinas que receberam a anterior, `--max-wait 600`.
+- O porteiro lê a saída do udp-sender (conexões, bytes, retiradas) e grava `<porta>.json`; o painel junta com as
+  concessões do Kea (IP → MAC) e o cadastro (MAC → nome). Resumo por partição em `/var/log/LabFreeImageDeploy/grupo.log`.
+- `FOG_UDPCAST_MAXWAIT` = 1440: janela para entrar e espera das máquinas (`--start-timeout` do udp-receiver no FOS).
+
 ## Rede de clonagem
 - Configuração central: `/etc/LabFreeImageDeploy/LabFreeImageDeploy.conf` (`FOG_IFACE`, `FOG_MAC`, `FOG_IP`,
   `FOG_PREFIXO`, `FOG_NM_UUID`). Todos os scripts leem daqui.
@@ -109,7 +123,7 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
   `apt` e verificação depois (`/etc/apt/apt.conf.d/99-LabFreeImageDeploy-protecao`).
 
 ## Testes
-`testes/` (fora do pacote): `painel_simulado.py` + `plano_fotos.py` + `fotos_painel.py` (painel com API simulada,
+`testes/` (fora do pacote): `teste_grupo.sh` (envio em grupo real numa rede virtual, sem root), `painel_simulado.py` + `plano_fotos.py` + `fotos_painel.py` (painel com API simulada,
 fotos de todas as telas e verificação automática de layout), `cdp_teste.py` (painel no Chrome headless, com MOCKS), `boot_vm.sh` (boot PXE real numa
 VM QEMU/KVM via slirp, BIOS e UEFI), testes de desfazer do DHCP e da rede, reemissão de certificado em cópia.
 Veja `AGENTS.md` para os comandos.

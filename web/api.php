@@ -646,10 +646,11 @@ final class Painel
         unset($t);
         // ativas sempre todas (uma sessão antiga presa precisa aparecer para ser cancelada); histórico só as 15 últimas
         $sessoes = self::q("(SELECT m.msID id, m.msName nome, m.msState estado, m.msSessClients esperadas, m.msClients conectadas,
-                m.msPercent pct, m.msStartDateTime inicio, m.msCompleteDateTime fim, i.imageName imagem
+                m.msPercent pct, m.msStartDateTime inicio, m.msCompleteDateTime fim, i.imageName imagem, m.msBasePort porta
             FROM multicastSessions m LEFT JOIN images i ON i.imageID = m.msImage WHERE m.msState IN (0,1,2,3))
             UNION ALL
-            (SELECT m.msID, m.msName, m.msState, m.msSessClients, m.msClients, m.msPercent, m.msStartDateTime, m.msCompleteDateTime, i.imageName
+            (SELECT m.msID, m.msName, m.msState, m.msSessClients, m.msClients, m.msPercent, m.msStartDateTime, m.msCompleteDateTime, i.imageName,
+                m.msBasePort
             FROM multicastSessions m LEFT JOIN images i ON i.imageID = m.msImage WHERE m.msState NOT IN (0,1,2,3) ORDER BY m.msID DESC LIMIT 15)
             ORDER BY id DESC");
         $sessAtivas = [];
@@ -665,9 +666,14 @@ final class Painel
                 $s['maquinas'] = array_values(array_filter($ativas, function ($t) use ($s) {
                     return $t['sessao'] === (int)$s['id'];
                 }));
-                $s['conectadas'] = max((int)$s['conectadas'], count($s['maquinas']));
+                // máquinas conectadas e andamento do envio, lidos do porteiro (vale também para máquinas sem cadastro)
+                $s['grupo'] = self::grupoAndamento($s['porta']);
+                $s['conectadas'] = $s['grupo'] ? count($s['grupo']['conectadas'])
+                    : max((int)$s['conectadas'], count($s['maquinas']));
+                unset($s['porta']);
                 $sessAtivas[] = $s;
             } else {
+                unset($s['porta']);
                 $sessHist[] = $s;
             }
         }
@@ -709,6 +715,102 @@ final class Painel
             $t['criada'] = self::data($t['criada']);
         }
         return ['ativas' => $ativas, 'multicast_ativas' => $sessAtivas, 'historico' => $hist, 'multicast_historico' => $sessHist];
+    }
+
+    const GRUPO = '/run/LabFreeImageDeploy/grupo';
+
+    /** Início (campo 22 de /proc/PID/stat) de um processo, para saber se o PID ainda é o mesmo processo. */
+    private static function inicioProcesso($pid)
+    {
+        $st = @file_get_contents('/proc/' . (int)$pid . '/stat');
+        if (!$st || ($p = strrpos($st, ')')) === false) {
+            return -1;
+        }
+        return (int)(preg_split('/\s+/', trim(substr($st, $p + 1)))[19] ?? -1);
+    }
+
+    /**
+     * Andamento de uma sessão em grupo, gravado pelo porteiro do envio (lib/LabFreeImageDeploy-udp-sender) em
+     * GRUPO/<porta>.json: máquinas conectadas (por IP, com nome/MAC quando dá), fase e quanto já foi enviado.
+     * null quando o porteiro não está cuidando desta sessão (servidor sem a versão nova ou envio ainda não aberto).
+     */
+    public static function grupoAndamento($porta)
+    {
+        $arq = self::GRUPO . '/' . (int)$porta . '.json';
+        if (!is_file($arq) || is_link($arq)) {
+            return null;
+        }
+        $d = json_decode((string)@file_get_contents($arq), true);
+        if (!is_array($d) || empty($d['sh']) || self::inicioProcesso($d['sh']) !== (int)($d['sh_inicio'] ?? -2)) {
+            return null; // o envio daquela sessão já acabou (ou é de uma sessão antiga na mesma porta)
+        }
+        $porIp = [];
+        foreach (self::leases() as $l) {
+            $porIp[$l['ip']] = $l['mac'];
+        }
+        $nomes = array_column(self::q('SELECT LOWER(m.hmMAC) mac, h.hostName nome FROM hostMAC m JOIN hosts h ON h.hostID = m.hmHostID'), 'nome', 'mac');
+        $lista = [];
+        foreach ((array)($d['conectadas'] ?? []) as $ip) {
+            if (!is_string($ip) || !filter_var($ip, FILTER_VALIDATE_IP)) {
+                continue;
+            }
+            $mac = $porIp[$ip] ?? '';
+            $lista[] = ['ip' => $ip, 'mac' => $mac, 'nome' => isset($nomes[$mac]) ? self::txt($nomes[$mac]) : ''];
+        }
+        usort($lista, fn($a, $b) => strnatcasecmp($a['nome'] ?: 'zz' . $a['ip'], $b['nome'] ?: 'zz' . $b['ip']));
+        $total = max(1, (int)($d['total'] ?? 0));
+        $enviado = min($total, (int)($d['enviado_antes'] ?? 0) + (int)($d['bytes'] ?? 0));
+        $fase = (string)($d['fase'] ?? '');
+        $vel = 0;
+        if ($fase === 'enviando' && !empty($d['inicio_envio']) && ($seg = (int)$d['atualizado'] - (int)$d['inicio_envio']) >= 5) {
+            $vel = (int)($d['bytes'] ?? 0) / $seg;
+        }
+        return [
+            'fase' => in_array($fase, ['aguardando', 'iniciando', 'enviando', 'terminando', 'proxima', 'parte_concluida', 'concluido', 'erro', 'cancelado'], true) ? $fase : 'aguardando',
+            'conectadas' => $lista,
+            'iniciadas' => (int)($d['iniciadas'] ?? 0),
+            'parte' => (int)($d['parte'] ?? 0) + 1,
+            'partes' => max(1, (int)($d['partes'] ?? 1)),
+            'enviado' => $enviado,
+            'total' => $total,
+            'pct' => (int)floor($enviado * 100 / $total),
+            'velocidade' => (int)$vel,                                    // bytes por segundo
+            'restante' => $vel > 0 ? (int)(($total - $enviado) / $vel) : 0, // segundos
+            'retiradas' => count((array)($d['retiradas'] ?? [])),
+            'espera_desde' => isset($d['criado']) ? date(DATE_ATOM, (int)$d['criado']) : null,
+        ];
+    }
+
+    /** Botão "Iniciar agora": pede ao porteiro para começar a transmissão com as máquinas que já entraram. */
+    public static function iniciarMulticast($d)
+    {
+        $id = (int)($d['id'] ?? 0);
+        $s = self::q('SELECT msID id, msBasePort porta, msState estado, msName nome FROM multicastSessions WHERE msID = ?', [$id])[0] ?? null;
+        if (!$s || !in_array((int)$s['estado'], self::ESTADOS_ATIVOS, true)) {
+            self::erro('Sessão não encontrada ou já encerrada.');
+        }
+        $g = self::grupoAndamento($s['porta']);
+        if (!$g) {
+            self::erro('O servidor ainda está abrindo esta sessão. Aguarde alguns segundos e tente de novo.');
+        }
+        if ($g['fase'] !== 'aguardando') {
+            self::erro('A transmissão desta sessão já começou.');
+        }
+        if (!$g['conectadas']) {
+            self::erro('Nenhuma máquina entrou na sessão ainda.');
+        }
+        $pedido = self::GRUPO . '/' . (int)$s['porta'] . '.iniciar';
+        if (is_link($pedido)) {
+            @unlink($pedido);
+        }
+        if (@file_put_contents($pedido, (string)time()) === false) {
+            self::erro('Não foi possível avisar o servidor de envio. Tente de novo.');
+        }
+        // depois do início, máquinas novas não podem mais entrar (pegariam a imagem pela metade): a base só deixa
+        // entrar até msSenderStart + FOG_UDPCAST_MAXWAIT
+        self::db()->prepare("UPDATE multicastSessions SET msSenderStart = '2000-01-01 00:00:00' WHERE msID = ?")->execute([$id]);
+        $n = count($g['conectadas']);
+        return ['ok' => true, 'msg' => 'Transmissão iniciada para ' . ($n === 1 ? '1 máquina.' : "$n máquinas.")];
     }
 
     /** Quantas máquinas deram boot na rede de clonagem e ainda não estão cadastradas. */
@@ -1280,10 +1382,6 @@ final class Painel
         if (FOGCore::getClass('HostManager')->exists($nome)) {
             self::erro('O nome da sessão não pode ser igual ao nome de uma máquina.');
         }
-        $espera = (int)($d['espera_min'] ?? 0);
-        if ($espera > 0) {
-            FOGCore::setSetting('FOG_UDPCAST_MAXWAIT', min($espera, 60));
-        }
         try {
             $StorageGroup = $Image->getStorageGroup();
             $StorageNode = $StorageGroup->getMasterStorageNode();
@@ -1306,7 +1404,7 @@ final class Painel
         } catch (Exception $e) {
             self::erro('Não foi possível criar a sessão multicast: ' . $e->getMessage());
         }
-        return ['ok' => true, 'msg' => "Sessão \"$nome\" criada.", 'nome' => $nome];
+        return ['ok' => true, 'msg' => "Sessão \"$nome\" criada.", 'nome' => $nome, 'id' => (int)$Sessao->get('id')];
     }
 
     public static function cancelarTarefa($d)
@@ -1494,6 +1592,8 @@ final class Painel
             'imagem_id' => (int)FOGCore::getSetting('FOG_QUICKREG_IMG_ID'),
             'restaurar' => (bool)(int)FOGCore::getSetting('FOG_QUICKREG_IMG_WHEN_REG'),
             'sugestao' => $sugestao,
+            // menu de boot: 0 = espera alguém escolher; N = depois de N segundos inicia pelo disco
+            'menu_espera' => max(0, (int)FOGCore::getSetting('FOG_PXE_MENU_TIMEOUT')),
         ];
     }
 
@@ -1524,6 +1624,13 @@ final class Painel
         FOGCore::setSetting('FOG_QUICKREG_IMG_ID', $img ?: -1);
         FOGCore::setSetting('FOG_QUICKREG_IMG_WHEN_REG', (!empty($d['restaurar']) && $img) ? 1 : 0);
         FOGCore::setSetting('FOG_QUICKREG_AUTOPOP', 1);
+        if (isset($d['menu_espera'])) {
+            $espera = (int)$d['menu_espera'];
+            if ($espera < 0 || $espera > 600) {
+                self::erro('Tempo do menu de boot: de 0 (esperar a escolha) a 600 segundos.');
+            }
+            FOGCore::setSetting('FOG_PXE_MENU_TIMEOUT', $espera);
+        }
         return ['ok' => true, 'msg' => 'Cadastro pelo boot configurado.', 'cadastro' => self::cadastroConfig()];
     }
 
@@ -1659,6 +1766,8 @@ try {
             Painel::responder(Painel::limparHistorico($d));
         case 'cancelar_multicast':
             Painel::responder(Painel::cancelarMulticast($d));
+        case 'iniciar_multicast':
+            Painel::responder(Painel::iniciarMulticast($d));
         case 'cadastro_salvar':
             Painel::responder(Painel::cadastroSalvar($d));
         case 'excluir_imagem':

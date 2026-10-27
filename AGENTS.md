@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 27/10/2026 (versão 0.7.1). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 27/10/2026 (versão 0.8.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -31,6 +31,11 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 12. Porcentagem, etapas e mensagens na tela da máquina e no painel; a máquina **não reinicia sozinha** no fim (mostra o
     resultado e o registro); limpar o histórico pelo painel — feito na 0.6.0 (tela da máquina depende do instalador, seção 8).
 13. Varredura do painel tela a tela: mais bonito, moderno, fácil de entender, sem falhas de layout — feito na 0.7.0.
+14. (27/10, noite) Multicast: mostrar **todas** as máquinas conectadas (o painel não mostrava as não cadastradas nem o
+    progresso); **avisar quando a sala completar e esperar o humano iniciar**; poder iniciar com menos máquinas;
+    **a máquina não inicia nada sozinha** (o menu de boot ia para o disco em 3 s); opções para gastar menos banda e
+    tempo — escolhidas: compressão no painel + recomprimir no servidor (pendente, seção 9) e guia de limpeza +
+    medição (feitos). Tarefa agendada continua começando sozinha no boot (decisão do usuário). Feito na 0.8.0.
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -49,6 +54,7 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 | `instalar.sh` | instalador (nova instalação e atualização/migração); `--ajuda` lista opções |
 | `web/` | painel (index.html, app.css, app.js, api.php, fontes/Inter) |
 | `lib/LabFreeImageDeploy-root` | ajudante root em Python (ações na seção 4) |
+| `lib/LabFreeImageDeploy-udp-sender` | "porteiro" do envio em grupo, no lugar do udp-sender da base (seção 7e) |
 | `sbin/` | `LabFreeImageDeploy` (comando único) + `LabFreeImageDeploy-{verificar,backup,restaurar-backup,reaplicar,senha}` |
 | `sistema/` | sudoers, dispatcher NM, timer de backup, regras apt, energia, `raiz-index.php` |
 | `marca/` | `LabFreeImageDeploy-fundo.png` (+ `fundo-boot.html` que o gera); `fos/` (arquivos que entram no FOS: `bin/fog.man.reg` cadastro guiado, `bin/labfree-tela` tela da clonagem, `etc/init.d/S99fog`, `usr/share/fog/lib/labfree-tela.sh`); `servidor/` (`LabFreeImageDeploy-cadastro.php`, `LabFreeImageDeploy-etapa.php`) |
@@ -99,6 +105,15 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
 24. O FOG guarda a velocidade (`taskBPM`) só como número; o partclone manda "674.08MB" ou "3.9GB" (por minuto). A
     unidade certa vem da tela da máquina (`labfreeEtapas.velocidade`).
 25. Reconstruir o `init.xz` leva ~7 min (xz -9 de um só processo, 2 arquivos): faça todas as mudanças do FOS antes.
+26. **Multicast da base**: máquina NÃO cadastrada que entra pelo menu "sessão de grupo" não gera tarefa (`falseTasking`):
+    o FOG não sabe que ela existe. Quem sabe é o udp-sender (saída "New connection from IP"); o porteiro lê isso.
+27. `FOG_UDPCAST_MAXWAIT` vale para 3 coisas: espera do 1º udp-sender, janela para entrar (`isJoinable`: até
+    `msSenderStart` + maxwait) e `--start-timeout` do udp-receiver na máquina (`mcStartTimeout` no FOS). Com início
+    manual precisa ser grande (1440); o porteiro limita as partições seguintes a 600 s.
+28. A base cancela matando de baixo para cima (udp-sender → porteiro → `sh`): no meio-tempo o `sh` lançaria a partição
+    seguinte. O porteiro encerra o `sh` da sessão quando o udp-sender morre por sinal.
+29. Teste de udpcast em namespace: o udp-receiver manda o pedido de conexão para o **broadcast** da placa; sem
+    `brd +` no `ip addr add` ele manda para 0.0.0.0 e nunca conecta. Duas máquinas no mesmo namespace disputam a porta.
 22. Nunca escreva um heredoc de bash contendo outro `EOF` dentro (o bash fecha no primeiro e executa o resto): scripts de
     edição vão em arquivo (Write) e rodam com `python3 -I arquivo`.
 
@@ -109,6 +124,8 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
   gera `plano.json` (todas as telas, janelas e assistentes) e `python3 -I testes/fotos_painel.py SAIDA plano.json`
   fotografa em celular/tablet/computador, claro/escuro, e lista erros de JS, rolagem horizontal, elementos que vazam,
   textos cortados e alvos de toque pequenos. Ao mudar o formato de uma resposta da API, atualize o simulado.
+- **Envio em grupo real sem root**: `testes/teste_grupo.sh` (ponte + 2 receptores em namespaces; confere que não começa
+  sozinho, começa com o pedido, partições seguintes, arquivos iguais e cancelamento limpo) — deve terminar "Tudo certo."
 - **Painel** (Chrome headless): `testes/cdp_teste.py SID "rota1;;rota2|js@@js"`. Sessão de teste: crie como www-data em
   `/opt/fog/sessions` com `$_SESSION['FOG_USER']=1; $_SESSION['PAINEL_TOKEN']='tokteste'` e apague no fim.
   Variáveis `TELAS`, `TEMAS`, `MOCKS` (interceptar chamadas que dependem do sudo).
@@ -173,6 +190,26 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
 - Os cartões (`.cartao`) são `container-type: inline-size`: regras `@container` ajustam histórico e tarefas pela
   largura do cartão. Navegadores sem container queries (anteriores a 2023) caem no `@media` antigo.
 
+## 7e. Versão 0.8.0 (27/10) — envio em grupo controlado pelo painel
+- **Porteiro** (`lib/LabFreeImageDeploy-udp-sender` → `/usr/local/lib/LabFreeImageDeploy/udp-sender`; `UDPSENDERPATH` no
+  `config.class.php` aponta para ele; o nome precisa conter "udp-sender" porque a base confere o processo por isso).
+  A base roda `sh -c "udp-sender ... --file p1; udp-sender ... --file p2; ..."`. Na 1ª partição o porteiro tira
+  `--nokbd/--min-receivers/--max-wait` e dá ao udp-sender um pipe como "teclado"; quando o painel cria
+  `/run/LabFreeImageDeploy/grupo/<porta>.iniciar` (e há ≥ 1 conectada) ele "aperta a tecla". Nas partições seguintes
+  põe `--min-receivers` = quantas receberam a anterior e `--max-wait 600`. Mesma sessão = mesmo `sh` (PID + início).
+  Andamento em `<porta>.json` (root:www-data 0640; pasta 1770 criada pelo tmpfiles). Se o porteiro falhar antes de
+  começar, roda o udp-sender original (`LABFREE_PORTEIRO=0` também desliga).
+- Painel: `api.php` `grupoAndamento()` (IP → MAC pelas concessões do Kea → nome do cadastro), `iniciarMulticast()`
+  (cria o pedido e põe `msSenderStart` no passado para ninguém mais entrar). `app.js` `cartaoSessao()` (com porteiro) e
+  `cartaoSessaoBase()` (sem ele), `iniciarSessao()`, `avisarSalaPronta()`.
+- Menu de boot: `FOG_PXE_MENU_TIMEOUT` 0 = `choose --timeout 0` = espera sem limite (iPXE: 0 = indefinido).
+- Testado: `testes/teste_grupo.sh` (udpcast real em rede virtual) e fotos do painel (Início, Tarefas, assistente,
+  Configurações) em celular/tablet/computador, claro/escuro, sem achados. **Não testado ainda com máquinas reais**
+  nem em VM com o FOS (próximo passo depois do instalador).
+- Medido em 27/10 na produção: imagem "Laboratorio Fontes" 31 GB (já zstd); sessões de 21–24 máquinas levaram ~70 min
+  (início automático com espera de até 60 min). **O adaptador USB da rede de clonagem estava numa porta USB 2.0
+  (480 Mbit/s, ~35 MB/s)**: mudar para uma porta USB 3 é o maior ganho de velocidade (pedido ao usuário).
+
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,
   sudoers `LabFreeImageDeploy`, serviços `LabFreeImageDeploy-*` ativos, painel em `/var/www/html/LabFreeImageDeploy`,
@@ -192,14 +229,27 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   conferida no Chrome sem erros. Enquanto o instalador não rodar, a trilha de etapas do painel é **estimada pela fase**
   (a máquina ainda usa a tela antiga do FOS e não envia `labfreeEtapas`).
 
+- 27/10 18:47: o usuário rodou o instalador com a **0.7.1** (antes de a 0.8.0 entrar no repositório): chegaram à
+  produção a regra de sudo restrita, a tela nova na máquina (FOS), a unidade de recuperação e o resto da varredura de
+  26/10 (o item "Falta" acima está feito). `/etc/LabFreeImageDeploy/versao` = 0.7.1.
+- 0.8.0 publicada no repositório; **para chegar à produção falta rodar o instalador de novo** (porteiro,
+  `config.class.php`, tmpfiles, menu de boot sem tempo e o painel novo).
+
 ## 9. Próximos passos sugeridos
-1. Depois que o usuário rodar o instalador em produção: conferir `LabFreeImageDeploy verificar`, testar o painel e um cadastro real.
+1. Depois que o usuário rodar o instalador em produção: conferir `LabFreeImageDeploy verificar`, testar o painel, um
+   cadastro real e **uma sessão em grupo pequena (2–3 máquinas)**: lista de conectadas, aviso de sala completa,
+   Iniciar, progresso, e o resumo em `/var/log/LabFreeImageDeploy/grupo.log`.
+1b. **Desempenho (pedido do usuário, opção D)**: escolher o nível de compressão no painel (capturar rápido) e o servidor
+   recomprimir a imagem mais forte depois, quando ocioso (zstd; trocar os arquivos só com a imagem livre). Medir antes
+   e depois com o `grupo.log`.
 2. Traduzir as telas restantes do FOS (menus de inventário/sysinfo, mensagens do Partclone) — hoje em inglês.
 3. Confirmação com tempo na troca de IP (desfaz se o usuário não confirmar em 2 min).
 4. CI no GitHub Actions com `bash -n`, `shellcheck`, `php -l`, `py_compile` (o `publicar.sh` já faz essas conferências localmente).
 5. Registro ao vivo no painel: hoje o painel mostra fase, etapa, porcentagem e velocidade ao vivo, mas as linhas do
    registro só chegam no fim (`LabFreeImageDeploy-etapa.php` recebe o registro com o resultado). Oferecido ao usuário.
-6. Pendências da 0.6.0 (seção 7c): multicast de máquinas cadastradas sem login em cada uma; expirar tarefas esquecidas;
+6. Pendências da 0.6.0 (seção 7c): multicast de máquinas cadastradas sem login em cada uma; progresso de cada máquina
+   sem cadastro no grupo (hoje o painel mostra o progresso da transmissão; por máquina exige a tela do FOS mandar o
+   andamento por MAC); expirar tarefas esquecidas;
    limpar `/images/dev` órfãos; testar Ubuntu 22.04/Debian 12; fuso `FOG_TZ_INFO` diferente do sistema.
 7. Para passar o projeto a outra IA, use o texto de `docs/PROMPT-CONTINUAR.md`.
 

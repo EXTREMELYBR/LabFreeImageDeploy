@@ -1255,6 +1255,44 @@ RedirectMatch 302 ^/fog/management(/(?!other/).*)?$ /LabFreeImageDeploy/
     Require all denied
 </Directory>
 """
+# envio em grupo: o porteiro (lib/LabFreeImageDeploy-udp-sender) fica no lugar do udp-sender e só começa com o clique
+# no painel; o painel lê o andamento em GRUPO_RUN (pasta do root com o grupo www-data, que pode pedir o início)
+PORTEIRO = '/usr/local/lib/LabFreeImageDeploy/udp-sender'
+GRUPO_TMPFILES = '/etc/tmpfiles.d/LabFreeImageDeploy.conf'
+GRUPO_TMPFILES_CONF = ('# LabFree ImageDeploy: andamento das sessões em grupo (gravado pelo porteiro do envio, lido pelo painel)\n'
+                       'd /run/LabFreeImageDeploy/grupo 1770 root www-data -\n')
+# minutos que uma sessão aceita máquinas e que cada máquina espera o início (a base usa FOG_UDPCAST_MAXWAIT para
+# as duas coisas): com o início manual, a sala pode levar horas para ficar pronta
+GRUPO_ESPERA_MIN = 1440
+MENU_ESPERA_MARCADOR = '/var/lib/LabFreeImageDeploy/menu-sem-tempo-aplicado'
+
+
+def porteiro_aplicar(inst):
+    """Liga o porteiro do envio em grupo. Devolve o texto do que foi feito (ou None)."""
+    if not os.path.exists(PORTEIRO) or not os.path.exists(FOG_CONFIG_PHP):
+        return None
+    texto = open(FOG_CONFIG_PHP).read()
+    novo = re.sub(r"define\(\s*'UDPSENDERPATH'\s*,\s*'[^']*'\s*\)", f"define('UDPSENDERPATH', '{PORTEIRO}')", texto)
+    mudou = novo != texto
+    if mudou:
+        inst.guardar(FOG_CONFIG_PHP)
+        gravar_atomico(FOG_CONFIG_PHP, novo)
+    if not os.path.exists(GRUPO_TMPFILES) or open(GRUPO_TMPFILES).read() != GRUPO_TMPFILES_CONF:
+        gravar_atomico(GRUPO_TMPFILES, GRUPO_TMPFILES_CONF, 0o644)
+    sh(['systemd-tmpfiles', '--create', GRUPO_TMPFILES], verificar=False)
+    mysql(f"UPDATE globalSettings SET settingValue='{GRUPO_ESPERA_MIN}' WHERE settingKey='FOG_UDPCAST_MAXWAIT';")
+    if not mudou:
+        return 'envio em grupo: início só pelo painel (já estava ligado)'
+    # o serviço de multicast lê o config.class.php ao iniciar; nunca reiniciar com sessão aberta
+    servico = nome_servico('FOGMulticastManager')
+    abertas = mysql('SELECT COUNT(*) FROM multicastSessions WHERE msState IN (0,1,2,3)').strip()
+    if abertas == '0':
+        sh(['systemctl', 'try-restart', f'{servico}.service'], verificar=False)
+        return 'envio em grupo: início só pelo painel (porteiro ligado)'
+    log(f'porteiro: {abertas} sessão(ões) em grupo aberta(s); {servico} não reiniciado (vale no próximo início do serviço)')
+    return 'envio em grupo: porteiro vale depois que as sessões abertas terminarem e o serviço reiniciar'
+
+
 HOSTS_MARCA = ('# LabFreeImageDeploy-inicio: sem contato com os servidores do FOG Project (sistema autônomo)',
                '0.0.0.0 fogproject.org www.fogproject.org wiki.fogproject.org forums.fogproject.org news.fogproject.org',
                '# LabFreeImageDeploy-fim')
@@ -1393,6 +1431,15 @@ def marca_aplicar(_entrada=None):
         copiar_seguro(arq, f'/var/www/html/fog/service/{os.path.basename(arq)}', 0o644, (st.st_uid, st.st_gid))
     mysql(TABELA_ETAPAS)
     feito.append('menu de boot: fundo, cores e itens em português')
+    # a máquina não escolhe nada sozinha no menu de boot (0 = esperar alguém escolher). Só na primeira vez:
+    # depois vale o que o administrador escolher no painel (Configurações → Cadastro pelo boot)
+    if not os.path.exists(MENU_ESPERA_MARCADOR):
+        mysql("UPDATE globalSettings SET settingValue='0' WHERE settingKey='FOG_PXE_MENU_TIMEOUT';")
+        gravar_atomico(MENU_ESPERA_MARCADOR, datetime.datetime.now().isoformat() + '\n', 0o600)
+        feito.append('menu de boot: espera a escolha de alguém (não inicia sozinho)')
+    texto_porteiro = porteiro_aplicar(inst)
+    if texto_porteiro:
+        feito.append(texto_porteiro)
     if os.path.exists(BOOTMENU_PHP):
         texto = open(BOOTMENU_PHP).read()
         novo = texto

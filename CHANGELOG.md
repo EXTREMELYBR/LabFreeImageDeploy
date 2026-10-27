@@ -5,6 +5,43 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.8.0] - 2026-10-27
+
+Precisa do instalador para chegar ao servidor (`sudo ./instalar.sh`, sem clonagem em andamento).
+
+### Novo
+- **Restaurar em grupo: nada começa sozinho.** A transmissão só começa quando alguém clica em **Iniciar
+  transmissão** no painel. Quando o número de máquinas combinado entra, o painel avisa ("Sala completa", aviso na
+  tela e "(Sala pronta)" no título da aba). **Iniciar agora** começa antes, só com as que já entraram (com
+  confirmação dizendo quantas faltam). Depois do início, máquinas novas não entram mais na sessão (pegariam a imagem
+  pela metade).
+- **O painel mostra todas as máquinas que entraram na sessão em grupo**, inclusive as **não cadastradas** (antes
+  elas recebiam a imagem sem aparecer em lugar nenhum): nome (ou "Máquina sem cadastro"), IP e MAC. Durante a
+  transmissão: porcentagem, parte N de M, quanto já foi enviado, velocidade, tempo restante e aviso se uma máquina
+  foi retirada por parar de responder.
+- **Menu de boot da máquina não escolhe nada sozinho**: antes iniciava pelo disco depois de 3 segundos; agora espera
+  alguém escolher. Configurável em Configurações → Cadastro pelo boot → Menu de boot (esperar, 10 s, 30 s ou 1 min).
+- **Capturar**: guia para deixar a imagem menor antes de capturar (hibernação, limpeza do Windows Update, pontos de
+  restauração, BitLocker, desligamento completo).
+- **Medição do envio em grupo**: resumo de cada partição (espera, tempo de envio, MB/s, retransmissões, máquinas
+  retiradas) em `/var/log/LabFreeImageDeploy/grupo.log` e o registro completo de cada sessão em
+  `/var/log/LabFreeImageDeploy/grupo/`.
+
+### Mudou
+- Assistente Restaurar em grupo: sai o "prazo para entrar" (quem decide o início é a pessoa no painel).
+- `LabFreeImageDeploy verificar` confere se o envio em grupo está sob o controle do painel.
+
+### Para quem mantém
+- Novo `lib/LabFreeImageDeploy-udp-sender` ("porteiro"), instalado em `/usr/local/lib/LabFreeImageDeploy/udp-sender`
+  e posto no lugar do udp-sender da base (`UDPSENDERPATH` no `config.class.php`, por `marca-aplicar`). Andamento em
+  `/run/LabFreeImageDeploy/grupo/<porta>.json`; o painel pede o início criando `<porta>.iniciar`.
+- `FOG_UDPCAST_MAXWAIT` passa a 1440 min (janela para entrar e espera das máquinas pelo início); as partições 2..N
+  esperam no máximo 10 min por uma máquina que sumiu (o porteiro troca o valor).
+- `FOG_PXE_MENU_TIMEOUT` = 0 aplicado uma vez pelo `marca-aplicar` (marcador em `/var/lib/LabFreeImageDeploy`).
+- API: `iniciar_multicast`; `tarefas`/`resumo` trazem `grupo` em cada sessão ativa; `cadastro` traz `menu_espera`.
+- Testes: `testes/teste_grupo.sh` (envio em grupo real numa rede virtual, sem root); `testes/painel_simulado.py`
+  serve o `web/` do próprio repositório e simula sessões em grupo com e sem o porteiro.
+
 ## [0.7.1] - 2026-10-27
 
 ### Documentação

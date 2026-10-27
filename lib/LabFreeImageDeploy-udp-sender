@@ -1,0 +1,417 @@
+#!/usr/bin/python3 -I
+"""LabFreeImageDeploy-udp-sender — porteiro do envio em grupo (multicast).
+
+O serviço de multicast da base FOG chama este programa no lugar do udp-sender (UDPSENDERPATH no config.class.php,
+trocado pelo ajudante root em marca-aplicar). Para cada sessão a base roda um udp-sender por partição, em
+sequência, todos filhos do mesmo `sh -c`. Este porteiro:
+
+  1. Na PRIMEIRA partição, nunca começa sozinho: tira --min-receivers/--max-wait/--nokbd e entrega ao udp-sender
+     um "teclado" (um pipe). O envio só começa quando o painel cria GRUPO/<porta>.iniciar (botão "Iniciar
+     agora") e há pelo menos uma máquina conectada; aí o porteiro "aperta a tecla".
+  2. Nas partições seguintes espera só as máquinas que receberam a anterior (--min-receivers) e no máximo
+     ESPERA_DEMAIS segundos por uma que sumiu.
+  3. Lê a saída do udp-sender (máquinas conectadas, bytes enviados, máquinas retiradas) e grava o andamento em
+     GRUPO/<porta>.json, que o painel (www-data) lê.
+  4. Guarda o registro de cada sessão em /var/log/LabFreeImageDeploy/grupo/ e um resumo por partição em
+     /var/log/LabFreeImageDeploy/grupo.log (espera, tempo de envio, MB/s, retransmissões).
+
+Se algo inesperado acontecer antes de começar, o udp-sender roda com os argumentos originais (como na base).
+"""
+import grp
+import json
+import os
+import re
+import select
+import shlex
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+
+REAL = os.environ.get('LABFREE_UDP_SENDER', '/usr/local/sbin/udp-sender')
+GRUPO = os.environ.get('LABFREE_GRUPO', '/run/LabFreeImageDeploy/grupo')
+LOGS = os.environ.get('LABFREE_GRUPO_LOGS', '/var/log/LabFreeImageDeploy/grupo')
+RESUMO = os.environ.get('LABFREE_GRUPO_RESUMO', '/var/log/LabFreeImageDeploy/grupo.log')
+ESPERA_DEMAIS = 600  # segundos que as partições 2..N esperam por uma máquina que sumiu
+COM_VALOR = {'--file', '--pipe', '--portbase', '--blocksize', '--interface', '--mcast-data-address',
+             '--mcast-rdv-address', '--mcast-all-addr', '--max-bitrate', '--log', '--min-slice-size',
+             '--max-slice-size', '--slice-size', '--ttl', '--rexmit-hello-interval', '--autostart',
+             '--min-receivers', '--min-wait', '--max-wait', '--start-timeout', '--retries-until-drop',
+             '--bw-period', '--rehello-offset', '--rate-governor', '--fec', '--default-slice-size'}
+SO_PRIMEIRA = {'--nokbd', '--min-receivers', '--max-wait', '--min-wait', '--start-timeout', '--autostart'}
+RE_CONEXAO = re.compile(r'New connection from (\S+)\s+\(#(\d+)\)')
+RE_SAIDA = re.compile(r'Disconnecting #(\d+) \((\S+)\)')
+RE_RETIRADA = re.compile(r'Dropping client #(\d+)')
+RE_BYTES = re.compile(r'bytes=\s*([\d ]*\d)')
+RE_REXMIT = re.compile(r're-xmits=(\d+)')
+
+
+def ler_args(args):
+    """[(opção, valor ou None)] na ordem original."""
+    pares, i = [], 0
+    while i < len(args):
+        a = args[i]
+        if a.startswith('--') and '=' in a and a.split('=', 1)[0] in COM_VALOR:
+            pares.append(tuple(a.split('=', 1)))
+        elif a in COM_VALOR and i + 1 < len(args):
+            pares.append((a, args[i + 1]))
+            i += 1
+        else:
+            pares.append((a, None))
+        i += 1
+    return pares
+
+
+def montar(pares):
+    saida = []
+    for op, val in pares:
+        saida.append(op)
+        if val is not None:
+            saida.append(val)
+    return saida
+
+
+def valor(pares, op, padrao=None):
+    for o, v in pares:
+        if o == op:
+            return v
+    return padrao
+
+
+def inicio_processo(pid):
+    """Momento de início do processo (campo 22 de /proc/PID/stat): distingue um PID reaproveitado."""
+    try:
+        with open(f'/proc/{pid}/stat') as f:
+            return int(f.read().rsplit(')', 1)[1].split()[19])
+    except (OSError, ValueError, IndexError):
+        return 0
+
+
+def partes_da_sessao(ppid):
+    """Partições ([arquivos de cada uma]) que a sessão vai enviar, lidas do `sh -c` da base."""
+    try:
+        with open(f'/proc/{ppid}/cmdline', 'rb') as f:
+            cmd = f.read().split(b'\0')
+        texto = cmd[cmd.index(b'-c') + 1].decode('utf-8', 'replace')
+        lex = shlex.shlex(texto, posix=True, punctuation_chars=';|')
+        lex.whitespace_split = True
+        tokens = list(lex)
+    except (OSError, ValueError, IndexError):
+        return []
+    partes, atual = [], []
+    for t in tokens + [';']:
+        if t == ';':
+            if atual:
+                partes.append(atual)
+            atual = []
+        elif t.startswith('/') and 'udp-sender' not in os.path.basename(t) and os.path.isfile(t):
+            atual.append(t)
+    return partes
+
+
+def tamanho(arquivos):
+    total = 0
+    for a in arquivos:
+        try:
+            total += os.path.getsize(a)
+        except OSError:
+            pass
+    return total
+
+
+def preparar_pasta(pasta, modo):
+    """Pasta do root; com o grupo www-data quando existir (o painel lê o andamento e pede o início)."""
+    os.makedirs(pasta, exist_ok=True)
+    st = os.lstat(pasta)
+    if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid():
+        raise OSError(f'{pasta} não é uma pasta deste usuário')
+    try:
+        gid = grp.getgrnam('www-data').gr_gid
+    except KeyError:
+        gid = -1
+    if os.geteuid() == 0:
+        try:
+            os.chown(pasta, 0, gid)
+        except OSError:  # (testes em namespace sem o grupo)
+            pass
+    os.chmod(pasta, modo)
+    return gid
+
+
+class Andamento:
+    """Estado que o painel lê (GRUPO/<porta>.json). Gravado de uma vez (temporário exclusivo + rename)."""
+
+    def __init__(self, porta, gid):
+        self.caminho = f'{GRUPO}/{porta}.json'
+        self.gid = gid
+        self.d = {}
+        self.gravado = 0
+        self.ultimo = None
+
+    def ler(self):
+        try:
+            if not stat.S_ISREG(os.lstat(self.caminho).st_mode):
+                return {}
+            with open(self.caminho) as f:
+                d = json.load(f)
+            return d if isinstance(d, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def gravar(self, forcar=False):
+        agora = time.time()
+        if not forcar and agora - self.gravado < 1:
+            return
+        sem_mudanca = json.dumps(self.d, sort_keys=True) == self.ultimo
+        if sem_mudanca and not forcar and agora - self.gravado < 10:
+            return
+        self.ultimo = json.dumps(self.d, sort_keys=True)
+        self.d['atualizado'] = int(agora)
+        try:
+            fd, tmp = tempfile.mkstemp(prefix='.andamento-', dir=GRUPO)
+        except OSError:
+            return
+        try:
+            with os.fdopen(fd, 'w') as f:
+                json.dump(self.d, f, ensure_ascii=False)
+                if os.geteuid() == 0:
+                    try:
+                        os.fchown(f.fileno(), 0, self.gid)
+                    except OSError:
+                        pass
+                os.fchmod(f.fileno(), 0o640)
+            os.replace(tmp, self.caminho)
+        except OSError:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        self.gravado = agora
+
+
+def encerrar_sessao(d):
+    """Cancelamento: a base mata o udp-sender antes do `sh -c` da sessão, e nesse meio-tempo o `sh` lançaria a
+    partição seguinte (que ficaria esperando sozinha). Encerra o `sh` desta sessão (o mesmo que nos chamou)."""
+    ppid = os.getppid()
+    if ppid == d.get('sh') and inicio_processo(ppid) == d.get('sh_inicio') and ppid > 1:
+        try:
+            os.kill(ppid, signal.SIGTERM)
+        except OSError:
+            pass
+
+
+def podar_registros(dias=120, manter=200):
+    """Registros por sessão: some o que tem mais de `dias` dias, e nunca mais que `manter` arquivos."""
+    try:
+        nomes = sorted((n for n in os.listdir(LOGS) if n.endswith('.log')), reverse=True)
+    except OSError:
+        return
+    limite = time.time() - dias * 86400
+    for i, n in enumerate(nomes):
+        caminho = os.path.join(LOGS, n)
+        try:
+            st = os.lstat(caminho)
+            if stat.S_ISREG(st.st_mode) and (i >= manter or st.st_mtime < limite):
+                os.remove(caminho)
+        except OSError:
+            pass
+
+
+def resumo(texto):
+    try:
+        with open(RESUMO, 'a') as f:
+            f.write(time.strftime('%Y-%m-%d %H:%M:%S ') + texto + '\n')
+    except OSError:
+        pass
+
+
+def preparar(args):
+    """Tudo que pode falhar antes de começar. Devolve o necessário para enviar, ou levanta exceção."""
+    pares = ler_args(args)
+    porta = valor(pares, '--portbase', '9000')
+    if not re.fullmatch(r'\d{1,5}', porta or ''):
+        raise ValueError('porta inválida')
+    gid = preparar_pasta(GRUPO, 0o1770)  # www-data cria o pedido de início; o "sticky" impede apagar o do root
+    preparar_pasta(LOGS, 0o750)
+    podar_registros()
+    ppid = os.getppid()
+    estado = Andamento(porta, gid)
+    anterior = estado.ler()
+    # mesma sessão = mesmo `sh -c` da base (mesmo PID e mesmo início); partição seguinte mesmo depois de erro
+    mesma = anterior.get('sh') == ppid and anterior.get('sh_inicio') == inicio_processo(ppid)
+    partes = partes_da_sessao(ppid)
+    if mesma:
+        d = anterior
+        d['parte'] = int(d.get('parte', 0)) + 1
+        d['enviado_antes'] = int(d.get('enviado_antes', 0)) + int(d.get('tamanho_parte', 0))
+    else:
+        d = {'porta': int(porta), 'sh': ppid, 'sh_inicio': inicio_processo(ppid), 'parte': 0,
+             'criado': int(time.time()), 'enviado_antes': 0, 'total': tamanho([a for p in partes for a in p]),
+             'partes': len(partes) or 1, 'retiradas': [],
+             'registro': f"{LOGS}/{time.strftime('%Y%m%d-%H%M%S')}-{porta}.log"}
+    arquivo = valor(pares, '--file')
+    if 0 <= d['parte'] < len(partes):
+        d['arquivos'] = [os.path.basename(a) for a in partes[d['parte']]]
+        d['tamanho_parte'] = tamanho(partes[d['parte']])
+    else:
+        d['arquivos'] = [os.path.basename(arquivo)] if arquivo else []
+        d['tamanho_parte'] = tamanho([arquivo]) if arquivo else 0
+    primeira = d['parte'] == 0
+    d.update({'fase': 'aguardando' if primeira else 'proxima', 'conectadas': [], 'bytes': 0, 'rexmits': 0,
+              'inicio_envio': None, 'inicio_parte': int(time.time())})
+    if primeira:
+        novos = [(o, v) for o, v in pares if o not in SO_PRIMEIRA]
+    else:
+        quantas = max(1, int(anterior.get('receberam') or anterior.get('iniciadas') or 1))
+        novos = [(o, v) for o, v in pares if o not in ('--min-receivers', '--max-wait')]
+        novos += [('--min-receivers', str(quantas)), ('--max-wait', str(ESPERA_DEMAIS))]
+    estado.d = d
+    return estado, novos, primeira, arquivo
+
+
+def enviar(estado, novos, primeira, arquivo):
+    d = estado.d
+    passar = ()
+    dados = None
+    if primeira and not arquivo:
+        # partição em vários pedaços (`cat ... | udp-sender`): os dados passam para o fd 3 e a entrada vira o teclado
+        dados = os.dup(0)
+        novos = novos + [('--file', f'/dev/fd/{dados}')]
+        passar = (dados,)
+    teclado_r, teclado_w = os.pipe() if primeira else (None, None)
+    registro = open(d['registro'], 'a', buffering=1)
+    registro.write(f"\n==== {time.strftime('%H:%M:%S')} parte {d['parte'] + 1} de {d['partes']}: "
+                   f"{' '.join(d['arquivos'])} ====\n{REAL} {shlex.join(montar(novos))}\n")
+    estado.gravar(True)
+    filho = subprocess.Popen([REAL] + montar(novos), stdin=teclado_r, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, pass_fds=passar)
+    for fd in (teclado_r, dados):
+        if fd is not None:
+            os.close(fd)
+
+    def parar(sig, _quadro):
+        d['fase'] = 'cancelado'
+        estado.gravar(True)
+        try:
+            filho.send_signal(sig)
+            filho.wait(5)
+        except (subprocess.TimeoutExpired, OSError):
+            filho.kill()
+        registro.write(f"[porteiro] {time.strftime('%H:%M:%S')} interrompido (sinal {sig})\n")
+        encerrar_sessao(d)
+        os._exit(128 + sig)
+
+    for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(s, parar)
+
+    pedido = f"{GRUPO}/{d['porta']}.iniciar"
+    conectadas = {}  # nº dado pelo udp-sender -> ip
+    resto = b''
+    ultimo_stat = 0
+    saida = filho.stdout.fileno()
+    while True:
+        prontos, _, _ = select.select([saida], [], [], 1.0)
+        if prontos:
+            bloco = os.read(saida, 65536)
+            if not bloco:
+                break
+            try:
+                os.write(2, bloco)  # a base continua recebendo a saída no registro dela
+            except OSError:
+                pass
+            *linhas, resto = re.split(rb'[\r\n]', resto + bloco)
+            for bruto in linhas:
+                linha = bruto.decode('utf-8', 'replace').strip()
+                if not linha:
+                    continue
+                m = RE_BYTES.search(linha)
+                if m:
+                    d['bytes'] = int(m.group(1).replace(' ', ''))
+                    r = RE_REXMIT.search(linha)
+                    if r:
+                        d['rexmits'] = int(r.group(1))
+                    if time.time() - ultimo_stat >= 30:  # sem a enxurrada de linhas de progresso
+                        registro.write(f"{time.strftime('%H:%M:%S')} {linha}\n")
+                        ultimo_stat = time.time()
+                    continue
+                registro.write(f"{time.strftime('%H:%M:%S')} {linha}\n")
+                if (m := RE_CONEXAO.search(linha)):
+                    conectadas[m.group(2)] = m.group(1)
+                elif (m := RE_SAIDA.search(linha)):
+                    conectadas.pop(m.group(1), None)
+                elif (m := RE_RETIRADA.search(linha)):
+                    ip = conectadas.pop(m.group(1), None)
+                    if ip:
+                        d['retiradas'].append(ip)
+                elif linha.startswith('Starting transfer'):
+                    d['fase'] = 'enviando'
+                    d['inicio_envio'] = int(time.time())
+                    d['iniciadas' if primeira else 'nesta_parte'] = len(conectadas)
+                    if primeira:
+                        d['nesta_parte'] = len(conectadas)
+                elif linha.startswith('Transfer complete'):
+                    d['fase'] = 'terminando'
+                d['conectadas'] = sorted(set(conectadas.values()))
+        if teclado_w is not None and d['fase'] == 'aguardando':
+            # pedido do painel para começar: só vale um arquivo comum criado depois desta sessão e com alguém
+            # conectado; um pedido sem ninguém é descartado (não pode disparar quando a 1ª máquina entrar)
+            try:
+                st = os.lstat(pedido)
+                if not stat.S_ISREG(st.st_mode) or st.st_mtime < d['criado'] - 1 or not conectadas:
+                    os.remove(pedido)
+                    registro.write(f"[porteiro] {time.strftime('%H:%M:%S')} pedido de início ignorado "
+                                   "(nenhuma máquina conectada ou pedido antigo)\n")
+                else:
+                    os.write(teclado_w, b'\n')
+                    os.remove(pedido)
+                    d['fase'] = 'iniciando'
+                    d['iniciado_em'] = int(time.time())
+                    registro.write(f"[porteiro] {time.strftime('%H:%M:%S')} início pedido pelo painel com "
+                                   f"{len(conectadas)} máquina(s) conectada(s)\n")
+            except OSError:
+                pass
+        estado.gravar()
+    rc = filho.wait()
+    if rc < 0:  # udp-sender morto por sinal = sessão cancelada (a base mata de baixo para cima)
+        d['fase'] = 'cancelado'
+        estado.gravar(True)
+        registro.write(f"[porteiro] {time.strftime('%H:%M:%S')} envio interrompido (sinal {-rc})\n")
+        registro.close()
+        encerrar_sessao(d)
+        return 128 - rc
+    if teclado_w is not None:
+        os.close(teclado_w)
+    fim = time.time()
+    d['receberam'] = len(conectadas) if conectadas else int(d.get('nesta_parte') or 0)
+    ultima = d['parte'] + 1 >= d['partes']
+    d['fase'] = 'erro' if rc != 0 else ('concluido' if ultima else 'parte_concluida')
+    if rc == 0:
+        d['bytes'] = d.get('tamanho_parte') or d['bytes']
+    estado.gravar(True)
+    envio = fim - d['inicio_envio'] if d.get('inicio_envio') else 0
+    espera = (d['inicio_envio'] or fim) - d['inicio_parte']
+    mbs = d['tamanho_parte'] / envio / 1e6 if envio > 0 else 0
+    resumo(f"porta {d['porta']} parte {d['parte'] + 1}/{d['partes']} {','.join(d['arquivos'])} "
+           f"{d['tamanho_parte'] / 1e6:.0f} MB, maquinas {d.get('nesta_parte', 0)}, espera {espera:.0f} s, "
+           f"envio {envio:.0f} s ({mbs:.1f} MB/s), retransmissoes {d['rexmits']}, "
+           f"retiradas {len(d['retiradas'])}, saida {rc}")
+    registro.write(f"[porteiro] {time.strftime('%H:%M:%S')} fim da parte: código {rc}, espera {espera:.0f} s, "
+                   f"envio {envio:.0f} s ({mbs:.1f} MB/s)\n")
+    registro.close()
+    return rc
+
+
+def main():
+    args = sys.argv[1:]
+    if os.environ.get('LABFREE_PORTEIRO') == '0':
+        os.execv(REAL, [REAL] + args)
+    try:
+        preparado = preparar(args)
+    except Exception as ex:  # nunca deixar a sala sem envio por um erro do porteiro
+        resumo(f'ERRO no porteiro ({type(ex).__name__}: {ex}); udp-sender sem porteiro')
+        os.execv(REAL, [REAL] + args)
+    return enviar(*preparado)
+
+
+if __name__ == '__main__':
+    sys.exit(main())

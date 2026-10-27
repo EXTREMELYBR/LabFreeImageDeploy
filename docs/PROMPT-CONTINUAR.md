@@ -47,9 +47,10 @@ Fale comigo em português, de forma simples e direta.
 - Não existe `node` instalado; a sintaxe do JS é validada pelo Chrome.
 
 ## O que está pendente (detalhes em AGENTS.md seções 8 e 9)
-- Ação minha: `cd /opt/LabFreeImageDeploy && sudo ./instalar.sh` na produção, sem clonagem em andamento (~10 min,
-  reconstrói o FOS), depois `sudo LabFreeImageDeploy verificar`. Leva a tela nova na máquina, a regra de sudo restrita
-  e a unidade de recuperação. Até lá, o painel estima a etapa pela fase.
+- Ação minha: `cd /opt/LabFreeImageDeploy && sudo ./instalar.sh` na produção, sem clonagem em andamento, depois
+  `sudo LabFreeImageDeploy verificar`. Leva a 0.8.0 (grupo só começa pelo botão Iniciar, máquinas conectadas no painel,
+  menu de boot sem tempo); a 0.7.1 já foi instalada em 27/10. Depois: testar uma sessão em grupo pequena.
+- Desempenho: compressão escolhida no painel + recomprimir no servidor quando ocioso (pedido; AGENTS.md seção 9).
 - Ideias e itens conhecidos: registro ao vivo no painel durante a clonagem; multicast para máquinas cadastradas sem
   login em cada uma; expirar tarefas esquecidas; limpar órfãos em `/images/dev`; testar em Ubuntu 22.04 e Debian 12;
   fuso do `FOG_TZ_INFO`.

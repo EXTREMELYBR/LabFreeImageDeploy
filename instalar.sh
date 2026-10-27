@@ -226,6 +226,7 @@ instalar_arquivos() {
     install -d -m 755 /usr/local/lib/LabFreeImageDeploy /usr/local/share/LabFreeImageDeploy /etc/LabFreeImageDeploy /var/log/LabFreeImageDeploy
     install -d -m 700 /var/lib/LabFreeImageDeploy /var/lib/LabFreeImageDeploy/historico /var/backups/LabFreeImageDeploy
     install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-root" "$AJUDANTE"
+    install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-udp-sender" /usr/local/lib/LabFreeImageDeploy/udp-sender  # porteiro do envio em grupo
     rsync -a --delete "$ORIGEM/marca/" /usr/local/share/LabFreeImageDeploy/
     echo "$VERSAO" > /etc/LabFreeImageDeploy/versao
     for f in "$ORIGEM"/sbin/LabFreeImageDeploy*; do install -m 750 "$f" /usr/local/sbin/; done

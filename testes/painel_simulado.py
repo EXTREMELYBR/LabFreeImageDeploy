@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-WEB = '/opt/LabFreeImageDeploy/web'
+WEB = os.environ.get('WEB') or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'web')  # o web/ deste repositório
 TZ = timezone(timedelta(hours=-3))
 
 
@@ -94,10 +94,21 @@ def sessoes(c):
         {'id': 202, 'maquina': 'sala3-pc02', 'fase': 'copiando', 'pct': 41, 'fase_texto': 'Gravando no disco', 'sem_noticia': 2, 'parada': False},
         {'id': 203, 'maquina': 'MAQUINA-COM-NOME-LONGO', 'fase': 'preparando', 'pct': 0, 'fase_texto': 'Preparando o disco (partições)', 'sem_noticia': 400, 'parada': True},
     ]
+    # 'grupo' = andamento lido do porteiro do envio (máquinas conectadas, cadastradas ou não)
+    conect = [{'ip': '192.168.31.101', 'mac': '00:1a:2b:3c:4d:01', 'nome': 'sala3-pc01'}, {'ip': '192.168.31.102', 'mac': '00:1a:2b:3c:4d:02', 'nome': 'sala3-pc02'},
+              {'ip': '192.168.31.143', 'mac': '6c:4b:90:aa:bb:cc', 'nome': ''}]
+    g1 = {'fase': 'enviando', 'conectadas': conect, 'iniciadas': 3, 'parte': 3, 'partes': 5, 'enviado': 12_700_000_000, 'total': 31_000_000_000, 'pct': 41,
+          'velocidade': 38_400_000, 'restante': 480, 'retiradas': 1 if c == 'problema' else 0, 'espera_desde': iso(20)}
+    n = 5 if c == 'problema' else 12
+    sala = [{'ip': f'192.168.31.{110 + i}', 'mac': f'00:1a:2b:3c:5e:{i:02x}', 'nome': f'LAB-{i + 1:03d}' if i % 4 else ''} for i in range(n)]
+    g2 = {'fase': 'aguardando', 'conectadas': sala, 'iniciadas': 0, 'parte': 1, 'partes': 5, 'enviado': 0, 'total': 28_000_000_000, 'pct': 0,
+          'velocidade': 0, 'restante': 0, 'retiradas': 0, 'espera_desde': iso(9)}
     return [{'id': 7, 'nome': 'sala3', 'estado': 3, 'estado_texto': 'Em andamento', 'esperadas': 3, 'conectadas': 3, 'pct': 41, 'inicio': iso(12), 'fim': None,
-             'imagem': 'Laboratorio Fontes', 'maquinas': mq},
-            {'id': 8, 'nome': 'lab-b', 'estado': 1, 'estado_texto': 'Aguardando', 'esperadas': 12, 'conectadas': 0, 'pct': 0, 'inicio': iso(2), 'fim': None,
-             'imagem': 'Windows 11 Administrativo', 'maquinas': []}]
+             'imagem': 'Laboratorio Fontes', 'maquinas': mq, 'grupo': g1},
+            {'id': 8, 'nome': 'lab-b', 'estado': 1, 'estado_texto': 'Aguardando', 'esperadas': 12, 'conectadas': n, 'pct': 0, 'inicio': iso(9), 'fim': None,
+             'imagem': 'Windows 11 Administrativo', 'maquinas': [], 'grupo': g2},
+            {'id': 9, 'nome': 'antiga', 'estado': 1, 'estado_texto': 'Aguardando', 'esperadas': 4, 'conectadas': 0, 'pct': 0, 'inicio': iso(1), 'fim': None,
+             'imagem': 'Windows 11 Administrativo', 'maquinas': [], 'grupo': None}]
 
 
 def historico(c):
@@ -159,7 +170,7 @@ def resposta(acao, c, q, corpo):
     if acao == 'limpeza':
         return 200, {'historico': 13, 'fila': 2, 'em_andamento': 3, 'clonagens': 154, 'registros': 0}
     if acao == 'cadastro':
-        return 200, {'prefixo': 'LAB-', 'sufixo': '', 'digitos': 3, 'numero': 1, 'imagem_id': 1, 'restaurar': False, 'sugestao': 'LAB-009'}
+        return 200, {'prefixo': 'LAB-', 'sufixo': '', 'digitos': 3, 'numero': 1, 'imagem_id': 1, 'restaurar': False, 'sugestao': 'LAB-009', 'menu_espera': 0}
     if acao == 'dhcp':
         return 200, {'ativo': True, 'escutando': c != 'problema', 'interface': 'enx00e04c690b37', 'inicio': '192.168.31.100', 'fim': '192.168.31.250', 'gateway': '',
                      'dns': [], 'dominio': '', 'concessao_horas': 6, 'rede': '192.168.31.0/24', 'mascara': '255.255.255.0', 'servidor_ip': '192.168.31.1',

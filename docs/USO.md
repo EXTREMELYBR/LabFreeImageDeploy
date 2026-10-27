@@ -21,8 +21,10 @@ em Painel → Configurações → Cadastro pelo boot.
 "Detectadas na rede" (as que deram boot pela rede e ainda não estão cadastradas).
 
 ## Capturar uma imagem
-Prepare a máquina modelo. No Windows: desligue pelo menu Iniciar segurando Shift (desligamento completo) e
-desative o BitLocker. Painel → Capturar imagem → escolha a máquina → escolha ou crie a imagem → Agendar.
+Prepare a máquina modelo. No Windows: desligue a hibernação (`powercfg -h off` no Prompt como administrador),
+rode a Limpeza de Disco com "Limpar arquivos do sistema", apague pontos de restauração antigos, desative o BitLocker
+e desligue pelo menu Iniciar segurando Shift (desligamento completo). Só o espaço ocupado é copiado: imagem menor é
+captura e restauração mais rápidas. Painel → Capturar imagem → escolha a máquina → escolha ou crie a imagem → Agendar.
 Depois ligue a máquina com boot pela rede. Acompanhe em Tarefas.
 
 **Tipo de imagem**: prefira *Redimensionável* — restaura em discos de tamanhos diferentes, inclusive menores.
@@ -30,10 +32,24 @@ Imagens de *tamanho fixo* só restauram em discos iguais ou maiores que o origin
 
 ## Restaurar
 - **Poucas máquinas**: Painel → Restaurar imagem → imagem → máquinas → Apagar e restaurar. Ligue as máquinas pela rede.
-- **Sala inteira**: Painel → Restaurar em grupo → imagem → nome da sessão, quantidade e prazo → Criar sessão. Em cada
+- **Sala inteira**: Painel → Restaurar em grupo → imagem → nome da sessão e quantidade → Criar sessão. Em cada
   máquina: boot pela rede → *Entrar em sessao de grupo (multicast)* → usuário e senha do painel (o teclado dessa tela
-  é americano: cuidado com símbolos) → nome da sessão. A transmissão começa quando todas entrarem; depois do prazo,
-  máquinas novas não entram mais (dê folga para ligar a sala inteira). As máquinas não precisam estar cadastradas.
+  é americano: cuidado com símbolos) → nome da sessão. As máquinas não precisam estar cadastradas.
+  - O painel (Início e Tarefas) mostra cada máquina que entrou: nome, ou "Máquina sem cadastro", com IP e MAC.
+  - **Nada começa sozinho.** Quando entrar o número de máquinas combinado, o painel avisa ("Sala completa"). Confira a
+    sala e clique em **Iniciar transmissão**. Para começar antes, com as que já entraram, use **Iniciar agora**.
+  - Depois do início, nenhuma máquina nova entra nesta sessão: crie outra para as que faltaram.
+  - Durante a transmissão o painel mostra a porcentagem, a parte (uma por partição), a velocidade e quanto falta.
+    Uma máquina que para de responder é retirada para não travar a sala (o painel avisa).
+
+## Menu de boot
+Ao dar boot pela rede, a máquina mostra o menu do LabFree ImageDeploy e **espera alguém escolher** (não inicia nada
+sozinha). Para voltar a iniciar pelo disco depois de alguns segundos: Configurações → Cadastro pelo boot → Menu de
+boot. Deixe a BIOS das máquinas iniciar pelo disco e use a tecla do menu de boot para entrar na rede; se a rede for a
+primeira opção da BIOS, com "Esperar" a máquina para no menu toda vez que ligar.
+
+Máquina com tarefa agendada no painel (captura ou restauração) começa a tarefa direto ao dar boot pela rede: agendar
+já é a ação de alguém.
 
 ## Durante a clonagem, na tela da máquina
 A máquina mostra as etapas (conectando, verificando o disco, preparando as partições, gravando, finalizando), a
@@ -74,6 +90,7 @@ técnicos. Se o agendamento marcou *Desligar quando terminar*, ela desliga sozin
 | Máquina não pega IP / não aparece o menu | Início do painel deve mostrar "Tudo pronto". Confira cabo e switch; na BIOS ative *Network Stack/PXE* e, se possível, desative o *Secure Boot* |
 | `Permission denied (ipxe.org/0216eb8f)` | Relógio da BIOS muito errado. O servidor já acerta a hora pela rede; se persistir, ajuste data/hora na BIOS e troque a bateria da placa-mãe |
 | Restauração falha logo no começo | Imagem de tamanho fixo maior que o disco da máquina. Crie uma imagem *Redimensionável* e capture de novo |
+| Restauração em grupo lenta | Veja `/var/log/LabFreeImageDeploy/grupo.log` (espera, MB/s, retransmissões de cada parte). A sala anda no ritmo da máquina mais lenta: confira se todas estão em gigabit e se o adaptador USB do servidor está numa porta USB 3 (azul/SS) |
 | Restauração em grupo parada em "Starting to restore image (-)" | Rede de clonagem caiu durante o envio. O LabFree mantém o IP do servidor mesmo quando o cabo pisca; se acontecer, cancele a sessão em Tarefas, reinicie as máquinas e crie outra sessão |
 | Máquina não aparece em "Detectadas na rede" | Ela só aparece depois de dar boot pela rede pelo menos uma vez |
 | Esqueci a senha do painel | Outro usuário redefine em Usuários; ou no servidor: `sudo LabFreeImageDeploy senha admin --redefinir` (volta para admin/admin e o painel pede uma senha nova no próximo acesso) |

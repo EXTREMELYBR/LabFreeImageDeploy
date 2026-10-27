@@ -350,6 +350,11 @@ pre.registro { max-height: 50vh; overflow: auto; background: #0b1020; color: #d7
 .sub-maquina .progresso { grid-column: 1 / -1; }
 .sub-maquina .pct-p { font-weight: 700; font-variant-numeric: tabular-nums; font-size: .9rem; }
 .sub-maquina.parada { outline: 1.5px solid var(--warn); }
+.sub-maquinas.chips { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.sub-maquinas.chips .sub-maquina { grid-template-columns: 1fr; padding: 8px 12px; }
+.sub-maquina .mono { overflow-wrap: anywhere; }
+.tarefa-viva.pronta { background: color-mix(in srgb, var(--ok) 7%, transparent); border-radius: 14px; padding-inline: 12px; }
+.progresso.ok > div { background: var(--ok); }
 @media (max-width: 600px) { .sub-maquina { grid-template-columns: 1fr auto; } .sub-maquina .small { grid-column: 1 / -1; grid-row: 2; } }
 
 /* imagens */
@@ -615,4 +620,11 @@ a.escolha { color: var(--text); text-decoration: none; }
   .reserva input:nth-child(2) { grid-row: 2; grid-column: 1; }
   .reserva input:nth-child(3) { grid-row: 2; grid-column: 2; }
   .reserva button { grid-row: 1; grid-column: 3; }
+}
+
+/* faixa com botão dentro de um cartão estreito (ex.: sessão em grupo no Início em meia coluna): o botão desce */
+@container (max-width: 560px) {
+  .faixa { flex-wrap: wrap; }
+  .faixa > div { flex: 1 1 calc(100% - 40px) !important; }
+  .faixa > .btn { margin-left: 32px; }
 }

@@ -48,6 +48,7 @@ const ICONES = {
   mais: 'M12 5v14M5 12h14',
   ok: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12l3 3 5-6',
   check: 'M5 12.5 10 17 19 7',
+  play: 'M8 5.5v13l10.5-6.5z',
   alerta: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17v.01',
   info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 8v.01',
   x: 'M6 6l12 12M18 6 6 18',
@@ -483,6 +484,19 @@ function pintarStatus(r, erro) {
   const cont = (id, n) => { const c = document.getElementById(`cont-${id}`); if (c) { c.hidden = !n; c.textContent = n; } };
   cont('tarefas', r.tarefas.length + r.multicast.length);
   cont('maquinas', r.contagem.novas || 0);
+  avisarSalaPronta(r.multicast);
+}
+/** Quando uma sessão em grupo fica completa: aviso na tela (uma vez) e no título da aba até alguém iniciar. */
+function avisarSalaPronta(sessoes) {
+  const prontas = (sessoes || []).filter(salaPronta);
+  estadoGlobal.salasAvisadas = estadoGlobal.salasAvisadas || new Set();
+  prontas.forEach((s) => {
+    if (estadoGlobal.salasAvisadas.has(s.id)) return;
+    estadoGlobal.salasAvisadas.add(s.id);
+    aviso(`Sessão “${s.nome}”: todas as ${s.esperadas} máquinas entraram. Clique em Iniciar transmissão (Tarefas).`);
+  });
+  document.title = document.title.replace(/^\(Sala pronta\) /, '');
+  if (prontas.length) document.title = `(Sala pronta) ${document.title}`;
 }
 async function atualizarStatus() {
   try {
@@ -606,8 +620,75 @@ function cartaoTarefa(t, detalhado, cor = corTipo(t.tipo)) {
       'Ela pode ter travado, desligado ou perdido o cabo. Olhe a tela da máquina; se estiver parada, cancele e agende de novo.')) : null);
 }
 
-/** Sessão em grupo: quantas entraram e o andamento de cada máquina. */
+const mbs = (bps) => `${(bps / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: bps < 1e7 ? 1 : 0 })} MB/s`;
+/** Sala completa e esperando o clique em Iniciar? */
+const salaPronta = (s) => !!s.grupo && s.grupo.fase === 'aguardando' && s.grupo.conectadas.length > 0
+  && s.grupo.conectadas.length >= (Number(s.esperadas) || 0);
+
+/** Sessão em grupo: todas as máquinas que entraram (cadastradas ou não), o botão Iniciar e o andamento do envio.
+ *  `s.grupo` vem do porteiro do envio; sem ele (servidor ainda sem a versão nova), o cartão antigo. */
 function cartaoSessao(s, detalhado) {
+  if (!s.grupo) return cartaoSessaoBase(s, detalhado);
+  const g = s.grupo;
+  const esperadas = Number(s.esperadas) || 0;
+  const n = g.conectadas.length;
+  const esperando = g.fase === 'aguardando';
+  const enviando = ['iniciando', 'enviando', 'terminando', 'proxima', 'parte_concluida'].includes(g.fase);
+  const pronta = salaPronta(s);
+  const porNome = Object.fromEntries((s.maquinas || []).map((m) => [m.maquina, m]));
+  const direita = enviando || g.fase === 'concluido' ? el('span', { class: 'pct' }, `${g.pct}%`)
+    : pronta ? pilula('Sala completa', 'ok', true) : pilula(n ? 'Entrando máquinas' : 'Aguardando máquinas', 'aviso', true);
+  const btIniciar = esperando && detalhado !== 'compacto' ? el('button', { class: 'btn ' + (pronta ? 'primario' : 'p'), type: 'button', disabled: !n,
+    title: n ? null : 'Nenhuma máquina entrou ainda', onclick: () => iniciarSessao(s) }, icone('play'), pronta ? 'Iniciar transmissão' : 'Iniciar agora') : null;
+  const texto = esperando
+    ? (pronta ? `As ${plural(n, 'máquina entrou', 'máquinas entraram')}. Confira a sala e clique em Iniciar transmissão.`
+      : n ? `${n} de ${esperadas} entraram. Você pode esperar as outras ou iniciar agora só com estas.`
+        : `Em cada máquina: boot pela rede → “Entrar em sessao de grupo” → ${s.nome}. Nada começa sozinho: você inicia por aqui.`)
+    : g.fase === 'iniciando' ? 'Iniciando a transmissão…'
+      : g.fase === 'concluido' ? 'Transmissão concluída. As máquinas estão terminando de gravar.'
+        : g.partes > 1 ? `Transmitindo a parte ${g.parte} de ${g.partes} para ${plural(Math.max(n, g.iniciadas), 'máquina', 'máquinas')} ao mesmo tempo`
+          : `Transmitindo para ${plural(Math.max(n, g.iniciadas), 'máquina', 'máquinas')} ao mesmo tempo`;
+  return el('div', { class: 'tarefa-viva' + (pronta ? ' pronta' : ''), 'data-cor': 'grupo' },
+    el('div', { class: 'topo-t' }, ladrilho('grupo', 'grupo', 'p'),
+      el('div', { class: 'quem' }, el('strong', {}, `Sessão em grupo “${s.nome || s.id}”`),
+        el('div', { class: 'small muted' }, `${s.imagem || '—'} · ${esperando ? `${n} de ${esperadas} ${esperadas === 1 ? 'conectada' : 'conectadas'}` : plural(Math.max(n, g.iniciadas), 'máquina', 'máquinas')}`)),
+      el('div', { class: 'acoes-t' }, direita,
+        detalhado ? el('button', { class: 'btn p perigo', type: 'button', onclick: () => cancelarSessao(s) }, 'Cancelar') : null)),
+    esperando ? barra(esperadas ? (n / esperadas) * 100 : 0, pronta ? 'ok' : '', 'grupo') : barra(g.pct, '', 'grupo'),
+    el('div', { class: 'fase' }, el('span', { class: 'ponto-vivo' }), el('span', {}, texto)),
+    enviando && g.fase !== 'iniciando' ? el('div', { class: 'dados' },
+      el('span', {}, el('b', {}, gb(g.enviado)), ' de ', el('b', {}, gb(g.total))),
+      g.velocidade ? el('span', {}, el('b', {}, mbs(g.velocidade))) : null,
+      g.restante ? el('span', {}, 'faltam ', el('b', {}, duracao(g.restante))) : null) : null,
+    pronta ? el('div', { class: 'faixa ok', style: 'margin-top:10px;align-items:center' }, icone('ok'), el('div', { style: 'flex:1' },
+      el('strong', {}, 'Todas as máquinas entraram'), 'A transmissão espera você. Máquinas que chegarem depois do início não entram mais.'), btIniciar)
+      : btIniciar ? el('div', { class: 'botoes', style: 'margin-top:10px' }, btIniciar) : null,
+    g.retiradas ? el('div', { class: 'faixa aviso', style: 'margin-top:10px' }, icone('alerta'), el('div', {},
+      el('strong', {}, `${plural(g.retiradas, 'máquina foi retirada', 'máquinas foram retiradas')} da transmissão`),
+      'Ela parou de responder (travou, desligou ou perdeu o cabo) e a sala seguiu sem ela. Restaure essa máquina de novo depois.')) : null,
+    n ? el('div', { class: 'sub-maquinas' + (esperando ? ' chips' : '') }, g.conectadas.map((c) => {
+      const t = c.nome ? porNome[c.nome] : null;
+      return el('div', { class: 'sub-maquina' },
+        el('strong', {}, c.nome || 'Máquina sem cadastro'),
+        el('span', { class: 'small muted mono' }, [c.ip, c.mac ? ` · ${c.mac}` : null]),
+        el('span', { class: 'pct-p' }, t && (t.fase === 'copiando' || t.fase === 'finalizando') ? `${t.pct}%` : ''),
+        esperando ? null : barra(t && t.pct ? t.pct : g.pct, '', 'grupo'));
+    })) : null);
+}
+
+async function iniciarSessao(s) {
+  const g = s.grupo;
+  const n = g.conectadas.length;
+  const esperadas = Number(s.esperadas) || 0;
+  const titulo = n >= esperadas ? 'Iniciar a transmissão?' : `Iniciar com ${n} de ${esperadas} máquinas?`;
+  const texto = `${plural(n, 'máquina vai', 'máquinas vão')} ter o disco apagado e receber a imagem ${s.imagem || ''}. `
+    + (n >= esperadas ? 'Depois do início, nenhuma outra máquina entra nesta sessão.' : `As ${esperadas - n} que faltam não poderão mais entrar nesta sessão (crie outra para elas).`);
+  if (!await confirmar(titulo, texto, 'Iniciar transmissão', true)) return;
+  try { aviso((await api('iniciar_multicast', { id: s.id })).msg); navegar(); } catch (e) { aviso(e.message, true); }
+}
+
+/** Cartão antigo (servidor sem o porteiro do envio): quantas entraram e o andamento de cada máquina cadastrada. */
+function cartaoSessaoBase(s, detalhado) {
   const maquinas = s.maquinas || [];
   const esperadas = Number(s.esperadas) || 0;
   const conectadas = Number(s.conectadas) || 0;
@@ -1227,8 +1308,13 @@ async function telaCapturar(alvo, p) {
         desenhar: (e) => el('div', {},
           resumo([['maquinas', 'maquinas', 'Copiar o disco da máquina', maq()?.nome], ['imagens', 'imagens', img()?.disco.bytes ? 'Substituindo a imagem' : 'Para a imagem', img()?.nome]]),
           el('div', { style: 'margin-top:14px' }, opcoesTarefa(e)),
-          el('div', { class: 'faixa info', style: 'margin-top:14px' }, icone('info'), el('div', {}, el('strong', {}, 'Capturando um Windows?'),
-            'Desligue pelo menu Iniciar segurando Shift (desliga de verdade, sem “inicialização rápida”) e desative o BitLocker se estiver ligado.'))) },
+          el('div', { class: 'faixa info', style: 'margin-top:14px' }, icone('info'), el('div', {}, el('strong', {}, 'Capturando um Windows? Imagem menor = clonagem mais rápida'),
+            el('ul', {},
+              el('li', {}, 'Desligue a hibernação: no Prompt de Comando como administrador, ', el('span', { class: 'mono' }, 'powercfg -h off'), ' (tira um arquivo do tamanho da memória).'),
+              el('li', {}, 'Limpe com a Limpeza de Disco (botão “Limpar arquivos do sistema”: inclui o cache do Windows Update) e apague pontos de restauração antigos.'),
+              el('li', {}, 'Desative o BitLocker, se estiver ligado.'),
+              el('li', {}, 'Desligue pelo menu Iniciar segurando Shift (desliga de verdade, sem “inicialização rápida”).')),
+            el('div', { class: 'small', style: 'margin-top:6px' }, 'Só o espaço ocupado é copiado: cada GB a menos é mais rápido na captura e em todas as restaurações.')))) },
     ],
     finalizar: async (e) => {
       if (img()?.disco.bytes && !await confirmar('Substituir a imagem?', `“${img().nome}” já tem uma captura. Ela será trocada pelo disco de “${maq().nome}”.`, 'Substituir', true)) return false;
@@ -1319,7 +1405,7 @@ async function telaGrupo(alvo, p) {
   if (!imagens.length) return semImagens(alvo, 'grupo');
   const agora = new Date();
   const est = { imagens, imagem: p.get('imagem') || (imagens.length === 1 ? String(imagens[0].id) : ''),
-    nome: `sala${String(agora.getHours()).padStart(2, '0')}${String(agora.getMinutes()).padStart(2, '0')}`, quantidade: 10, espera: 30 };
+    nome: `sala${String(agora.getHours()).padStart(2, '0')}${String(agora.getMinutes()).padStart(2, '0')}`, quantidade: 10 };
   const img = () => est.imagens.find((x) => String(x.id) === est.imagem);
   if (!img()) est.imagem = '';
   assistente(alvo, {
@@ -1337,28 +1423,23 @@ async function telaGrupo(alvo, p) {
         desenhar: (e) => {
           const nome = el('input', { type: 'text', maxlength: '20', value: e.nome, class: 'mono', autocomplete: 'off' });
           const qtd = el('input', { type: 'number', min: '1', max: '200', value: e.quantidade, inputmode: 'numeric' });
-          const esp = el('input', { type: 'number', min: '1', max: '60', value: e.espera, inputmode: 'numeric' });
           nome.addEventListener('input', () => { e.nome = nome.value.trim(); });
           qtd.addEventListener('input', () => { e.quantidade = Number(qtd.value); });
-          esp.addEventListener('input', () => { e.espera = Number(esp.value); });
           return el('div', {},
             campo('Nome da sessão', nome, 'Curto e sem espaços, por exemplo sala3 ou lab-a.'),
-            el('div', { class: 'grade', style: 'grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 16px' },
-              campo('Quantas máquinas?', qtd, 'A transmissão espera esse número de máquinas entrar.'),
-              campo('Prazo para entrar (minutos)', esp, 'Conta a partir de agora. Depois dele, máquinas novas não entram mais; dê folga para ligar a sala toda.')),
+            campo('Quantas máquinas?', qtd, 'Quando esse número de máquinas entrar, o painel avisa. A transmissão só começa quando você clicar em Iniciar (dá para iniciar antes, com menos máquinas).'),
             el('div', { class: 'faixa info' }, icone('info'), el('div', {}, 'Use um switch (não um roteador doméstico) e ligue todas as máquinas na rede de clonagem. Uma máquina bem mais lenta atrasa a sala inteira: na dúvida, teste com 2 ou 3 máquinas primeiro.')));
         },
         validar: (e) => (!/^[A-Za-z0-9-]{2,20}$/.test(e.nome) ? 'Nome da sessão: de 2 a 20 letras, números ou hífen, sem espaços.'
-          : !(e.quantidade >= 1 && e.quantidade <= 200) ? 'Quantidade de máquinas: de 1 a 200.'
-          : !(e.espera >= 1 && e.espera <= 60) ? 'Espera máxima: de 1 a 60 minutos.' : null) },
+          : !(e.quantidade >= 1 && e.quantidade <= 200) ? 'Quantidade de máquinas: de 1 a 200.' : null) },
       { nome: 'Revisar', titulo: 'Confirme a sessão', sub: 'O disco de todas as máquinas que entrarem será apagado.',
         desenhar: (e) => el('div', {},
           resumo([['imagens', 'imagens', 'Imagem', `${img().nome} (${gb(img().disco.bytes)})`], ['grupo', 'grupo', 'Nome da sessão', e.nome],
-            ['maquinas', 'maquinas', 'Máquinas', `${e.quantidade} · começa quando todas entrarem ou após ${e.espera} min`]]),
+            ['maquinas', 'maquinas', 'Máquinas', `${e.quantidade} · começa quando você clicar em Iniciar`]]),
           !img().redimensionavel ? el('div', { class: 'faixa aviso', style: 'margin-top:14px' }, icone('alerta'), el('div', {}, compat(img()).texto)) : null,
           el('div', { class: 'faixa ruim', style: 'margin-top:14px' }, icone('alerta'), el('div', {}, el('strong', {}, 'Isso não pode ser desfeito'), 'Toda máquina que entrar na sessão terá o disco apagado.'))) },
     ],
-    finalizar: (e) => api('multicast', { imagem_id: Number(e.imagem), nome: e.nome, quantidade: e.quantidade, espera_min: e.espera }),
+    finalizar: (e) => api('multicast', { imagem_id: Number(e.imagem), nome: e.nome, quantidade: e.quantidade }),
     sucesso: (e) => {
       const vivo = el('div');
       let vista = false; // só diz "terminou" depois de ter visto a sessão ativa pelo menos uma vez
@@ -1377,14 +1458,14 @@ async function telaGrupo(alvo, p) {
       pintar().catch(() => {});
       repetir(pintar, 4000);
       return el('div', { class: 'pilha' },
-        el('div', { class: 'heroi' }, ladrilho('ok', '', 'g'), el('div', { style: 'position:relative;z-index:1' }, el('h2', {}, 'Sessão criada!'), el('p', {}, `Ligue as ${e.quantidade} máquinas e faça o passo a passo abaixo em cada uma.`))),
+        el('div', { class: 'heroi' }, ladrilho('ok', '', 'g'), el('div', { style: 'position:relative;z-index:1' }, el('h2', {}, 'Sessão criada!'), el('p', {}, `Ligue as ${e.quantidade} máquinas e faça o passo a passo abaixo em cada uma. Você inicia a transmissão por aqui.`))),
         el('div', { class: 'cartao', 'data-cor': 'grupo', style: 'text-align:center' }, el('div', { class: 'small muted forte', style: 'margin-bottom:10px' }, 'Nome da sessão'), el('span', { class: 'nome-sessao' }, e.nome)),
         el('div', { class: 'cartao', 'data-cor': 'grupo' }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Em cada máquina')),
           el('ol', { class: 'passos-boot' },
             el('li', {}, el('div', {}, 'Ligue a máquina e aperte a tecla do menu de boot: ', teclasBoot(), '. Escolha a rede (PXE).')),
             el('li', {}, el('div', {}, 'No menu do LabFree ImageDeploy, escolha ', el('strong', {}, 'Entrar em sessao de grupo (multicast)'), '. Será pedido um usuário e senha do painel (teclado em inglês: cuidado com símbolos).')),
             el('li', {}, el('div', {}, 'Digite ', el('strong', { class: 'mono' }, e.nome), ' e aperte Enter.')),
-            el('li', {}, el('div', {}, `Espere: a transmissão começa quando as ${e.quantidade} máquinas entrarem. Máquinas que chegarem depois de ${e.espera} min não entram mais.`)))),
+            el('li', {}, el('div', {}, `A máquina fica esperando. Quando as ${e.quantidade} entrarem, o painel avisa aqui; confira a sala e clique em `, el('strong', {}, 'Iniciar transmissão'), '. Nada começa sozinho.')))),
         el('div', { class: 'cartao' }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Acompanhe aqui'), pilula('ao vivo', 'info', true)), vivo));
     },
   }, est);
@@ -1562,6 +1643,9 @@ async function abaCadastro(corpo) {
   const numero = el('input', { type: 'number', min: '1', max: '99999', value: c.numero, inputmode: 'numeric' });
   const imagem = el('select', {}, el('option', { value: '0' }, 'Nenhuma (escolher na hora)'), imagens.map((i) => el('option', { value: i.id, selected: String(i.id) === String(c.imagem_id) }, i.nome)));
   const restaurar = el('input', { type: 'checkbox', checked: c.restaurar });
+  const opcoesMenu = [[0, 'Esperar alguém escolher (recomendado)'], [10, 'Iniciar pelo disco depois de 10 segundos'], [30, 'Iniciar pelo disco depois de 30 segundos'], [60, 'Iniciar pelo disco depois de 1 minuto']];
+  if (!opcoesMenu.some(([v]) => v === c.menu_espera)) opcoesMenu.push([c.menu_espera, `Iniciar pelo disco depois de ${c.menu_espera} segundos (atual)`]);
+  const menuEspera = el('select', {}, opcoesMenu.map(([v, t]) => el('option', { value: v, selected: v === c.menu_espera }, t)));
   const previa = el('div', { class: 'previa-nomes' });
   const montarPrevia = () => {
     const pre = prefixo.value.trim().toUpperCase(); const suf = sufixo.value.trim().toUpperCase();
@@ -1580,7 +1664,7 @@ async function abaCadastro(corpo) {
     salvar.disabled = true;
     try {
       const r = await api('cadastro_salvar', { prefixo: prefixo.value, sufixo: sufixo.value, digitos: Number(digitos.value), numero: Number(numero.value),
-        imagem_id: Number(imagem.value), restaurar: restaurar.checked });
+        imagem_id: Number(imagem.value), restaurar: restaurar.checked, menu_espera: Number(menuEspera.value) });
       aviso(r.msg);
       await abaCadastro(corpo);
     } catch (err) { aviso(err.message, true); salvar.disabled = false; }
@@ -1604,6 +1688,10 @@ async function abaCadastro(corpo) {
       campo('Imagem já selecionada no cadastro', imagem, 'Aparece marcada na lista; dá para trocar na hora.'),
       el('label', { class: 'alternar' }, restaurar, el('div', {}, el('strong', {}, 'Cadastro automático já restaura a imagem padrão'),
         el('small', {}, 'Cuidado: a máquina cadastrada pelo modo automático tem o disco apagado e recebe a imagem logo em seguida.')))),
+    el('div', { class: 'cartao' }, el('h2', { style: 'margin-bottom:12px' }, 'Menu de boot da máquina'),
+      campo('Quando ninguém escolhe nada no menu', menuEspera, 'Com "Esperar", a máquina fica no menu até alguém escolher uma opção.'),
+      el('div', { class: 'faixa info' }, icone('info'), el('div', {}, el('strong', {}, 'Deixe a BIOS das máquinas iniciar pelo disco'),
+        'e use a tecla do menu de boot (F12 na maioria) para entrar na rede. Se a rede for a primeira opção da BIOS, com "Esperar" a máquina vai parar no menu toda vez que ligar.'))),
     el('div', { class: 'botoes', style: 'justify-content:flex-end' }, salvar)));
 }
 
