@@ -5,6 +5,11 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.6.1] - 2026-10-27
+
+### Documentação
+- AGENTS.md: estado da máquina de produção depois da 0.6.0 (painel e ajudante aplicados; tela da máquina depende do instalador).
+
 ## [0.6.0] - 2026-10-27
 
 ### Novo

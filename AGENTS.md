@@ -159,6 +159,9 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
 - 26/10 22:26: depois da varredura, foram copiados para a produção **só** o painel (`web/`) e o ajudante
   (`/usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root`), sem reiniciar nada (correção do "null" em Máquinas pedida
   pelo usuário). Backup do estado anterior: `/var/backups/LabFreeImageDeploy/manual-20261026-revisao/`.
+- 27/10 00:45: idem para a 0.6.0 (só `web/` e o ajudante; backup em `/var/backups/LabFreeImageDeploy/manual-20261027-v060/`).
+  A tela nova na máquina (FOS) e a tabela `labfreeEtapas` só chegam à produção com o instalador (reconstrói o FOS, ~7 min,
+  sem clonagem em andamento).
 - **Falta (ação do usuário, porque grava o sudoers)**: `cd /opt/LabFreeImageDeploy && sudo ./instalar.sh` para levar o resto da
   varredura: sudoers restrito, cadastro pelo boot novo (reconstrói o FOS), `LabFreeImageDeploy-cadastro.php`, scripts de
   backup/restauração/verificação, logrotate, marcador `base-instalada`. Depois: `sudo LabFreeImageDeploy verificar`.
