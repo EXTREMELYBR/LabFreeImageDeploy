@@ -97,6 +97,18 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
 - Na restauração o FOS usa `partclone.restore --ignore_crc`; a soma de verificação do zstd é o que detecta dado
   errado (a máquina mostra erro em vez de gravar lixo).
 
+## Ajustes do Windows e cópias
+- Windows: nome pelo FOS (`FOG_CHANGE_HOSTNAME_EARLY`); domínio e licença pelo agente da base (`FOGService.msi`, módulo
+  hostnamechanger) com os dados que `Painel::aplicarWindows()` grava em cada máquina.
+- Cópias: `lib/LabFreeImageDeploy-copias` (root, chamado pela ação `copias` do ajudante). Trabalho em unidade própria
+  do systemd; SHA-256 de cada arquivo no manifesto `labfree-imagem.json`; conferência lendo de volta do destino
+  (cache descartado com `posix_fadvise`). O painel cadastra as imagens importadas com as classes da base.
+
+## Visual nas máquinas
+- Menu de boot: `LabFreeImageDeploy-fundo.png` (gerado de `marca/fundo-boot.html`) + `CORES_IPXE`.
+- Sistema de clonagem: `labfree-cores.sh` troca a paleta do console para as cores da LabFree e define as cores do
+  whiptail; `labfree-tela` desenha com molduras e blocos da fonte do console.
+
 ## Rede de clonagem
 - Configuração central: `/etc/LabFreeImageDeploy/LabFreeImageDeploy.conf` (`FOG_IFACE`, `FOG_MAC`, `FOG_IP`,
   `FOG_PREFIXO`, `FOG_NM_UUID`). Todos os scripts leem daqui.

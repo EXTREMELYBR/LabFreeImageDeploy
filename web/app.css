@@ -628,3 +628,5 @@ a.escolha { color: var(--text); text-decoration: none; }
   .faixa > div { flex: 1 1 calc(100% - 40px) !important; }
   .faixa > .btn { margin-left: 32px; }
 }
+.passo-boot > div { min-width: 0; }
+.passo-boot a.mono { overflow-wrap: anywhere; }

@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 27/10/2026 (versão 0.9.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 27/10/2026 (versão 0.10.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -39,6 +39,10 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 15. (27/10, noite) Fazer a opção D (compressão + recomprimir no servidor); captura e restauração (única e em grupo)
     mais rápidas e com menos banda; **garantir a fidelidade dos dados**; sugerir funções novas; "Detectadas na rede"
     não pode ser lista infinita. Feito na 0.9.0 (sugestões na resposta ao usuário e na seção 9).
+16. (27/10, noite) Ajustes do Windows depois de restaurar (renomear, domínio, licença); cópia das imagens para HD
+    externo ou outro servidor com conferência bit a bit e opção de importar; visual das estações bonito, moderno e
+    com a identidade da LabFree (empresa do usuário, labfree.com.br: marinho #0d1b3e, azul #1a73e8, ciano da nuvem
+    #0ca8e8, fonte Jost, logo nuvem + LABFREE em itálico). Feito na 0.10.0.
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -57,6 +61,7 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 | `instalar.sh` | instalador (nova instalação e atualização/migração); `--ajuda` lista opções |
 | `web/` | painel (index.html, app.css, app.js, api.php, fontes/Inter) |
 | `lib/LabFreeImageDeploy-root` | ajudante root em Python (ações na seção 4) |
+| `lib/LabFreeImageDeploy-copias` | cópia/importação de imagens para HD externo ou pasta de rede, conferida bit a bit (seção 7g) |
 | `lib/LabFreeImageDeploy-otimizar` | recomprime (zstd 19 + janela longa) e confere as imagens com o servidor parado (seção 7f) |
 | `lib/LabFreeImageDeploy-udp-sender` | "porteiro" do envio em grupo, no lugar do udp-sender da base (seção 7e) |
 | `sbin/` | `LabFreeImageDeploy` (comando único) + `LabFreeImageDeploy-{verificar,backup,restaurar-backup,reaplicar,senha}` |
@@ -123,6 +128,18 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
     do zstd (erro = falha visível). O zstd do FOS é 1.5.7 e lê janela de até 128 MB (`--long=27`) sem opção extra.
 31. Medido (1 GB da imagem real, i7-1255U 12 threads): nível 3 = 438 MB em 1,2 s; 6 = 425 MB/4,3 s; 12 = 413 MB/18 s;
     19 = 384 MB/66 s; 19 + `--long=27` = 366 MB/73 s. Descomprimir: < 1 s/GB em qualquer nível.
+32. **Console do FOS** (corrige a lição 10 para o FOS; o iPXE continua só ASCII): é texto VGA 80x25 com a fonte cp437
+    e `vt.default_utf8=1`. Funcionam: troca de paleta (`ESC ] P n RRGGBB`), molduras, blocos (█ ░ ▄ ▀), √ ► • ○ ✕ e os
+    acentos á é í ó ú ç â ê ô à. NÃO existem ã õ Ú (viram a o U). Não há locale: o bash conta bytes, então textos
+    variáveis passam por `ascii()` antes de cortar; textos fixos medem a largura com `larg()`.
+33. Fotografar o FOS numa VM sem root: copiar o init descompactado, trocar arquivos com `debugfs -w` (write/rm/
+    set_inode_field mode), recompactar com `xz -C crc32` (o kernel recusa outro check), QEMU com `-nic user`
+    (o FOS para sem placa de rede) e `web=http://10.0.2.2:PORTA/fog/` respondendo HEAD/POST (o FOS confere o
+    servidor antes de seguir); `screendump` pelo monitor. O menu do iPXE: `RAIZ_TFTP=pasta testes/boot_vm.sh` com um
+    `default.ipxe` que encadeia um menu de teste por HTTP.
+34. Comando grande que mistura editar arquivo + matar processo + baixar pode ser barrado pelo modo automático de
+    permissões; em passos separados passa. `pkill -f`/`pgrep -f` com um padrão que aparece na própria linha de
+    comando mata o próprio shell (saída 144): filtre com `ps -eo pid,args | grep "[x]yz"`.
 22. Nunca escreva um heredoc de bash contendo outro `EOF` dentro (o bash fecha no primeiro e executa o resto): scripts de
     edição vão em arquivo (Write) e rodam com `python3 -I arquivo`.
 
@@ -133,6 +150,9 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
   gera `plano.json` (todas as telas, janelas e assistentes) e `python3 -I testes/fotos_painel.py SAIDA plano.json`
   fotografa em celular/tablet/computador, claro/escuro, e lista erros de JS, rolagem horizontal, elementos que vazam,
   textos cortados e alvos de toque pequenos. Ao mudar o formato de uma resposta da API, atualize o simulado.
+- **Cópias de imagens sem root**: `python3 -I testes/teste_copias.py` (exportar, importar, HD estragado, cópia
+  incompleta, cancelar) — deve terminar "Tudo certo."
+- **Tela da máquina sem servidor**: `labfreedemo=…` na linha do kernel (lição 33).
 - **Otimizador de imagens sem root**: `python3 -I testes/teste_otimizar.py` (imagens falsas + banco simulado: menor,
   bit a bit igual, pedaços, só conferir, corrompida, pausa no meio) — deve terminar "Tudo certo."
 - **Envio em grupo real sem root**: `testes/teste_grupo.sh` (ponte + 2 receptores em namespaces; confere que não começa
@@ -232,6 +252,24 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   (Rápida) e formato zstd.
 - Detectadas na rede: `Painel::recentes()` filtra concessões com `visto_ts` dos últimos 30 min.
 
+## 7g. Versão 0.10.0 (27/10) — Windows, cópias e visual das estações
+- Windows: renomear = `FOG_CHANGE_HOSTNAME_EARLY` (o FOS grava o nome no registro com `reged`, `changeHostname` do
+  funcs.sh). Domínio/licença = agente FOG (`/fog/client/FOGService.msi`, módulo `hostnamechanger`, que lê
+  `hosts.hostUseAD/ADDomain/ADOU/ADUser/ADPass/productKey`). `Painel::aplicarWindows()` grava isso em cada máquina
+  (ao salvar a aba, ao cadastrar/editar e antes de restaurar); senha do domínio = `FOG_AD_DEFAULT_PASSWORD` (`#`×32
+  no host = "usar a global"). Os outros módulos do agente (`FOG_CLIENT_*_ENABLED`) ficam desligados.
+  **Não testado com Windows/AD reais** (o código usa os caminhos da base).
+- Cópias: `lib/LabFreeImageDeploy-copias` (root, via ajudante `copias`): `ler`, `rede` (testa e guarda em
+  `/etc/LabFreeImageDeploy/copias.json`, 600), `listar`, `exportar`/`importar` (unidade `LabFreeImageDeploy-copia-*`,
+  trava `/run/LabFreeImageDeploy-copia.lock`, andamento `/run/LabFreeImageDeploy/copia.json`), `cancelar`. No destino:
+  `LabFreeImageDeploy-imagens/<pasta>/` + `labfree-imagem.json` (dados + SHA-256). O painel cadastra a importada
+  (`cadastrarImportadas`, uma vez por trabalho: `LABFREE_IMPORTACAO_FEITA`). Montagem: disco já montado pelo desktop
+  é usado onde está; senão `/run/LabFreeImageDeploy/destino` (ntfs3 → ntfs-3g). **Não testado com HD/NAS reais**
+  (teste com pastas).
+- Visual: `marca/fundo-boot.html` → PNG (Chrome headless, comando no próprio arquivo); `CORES_IPXE`; `labfree-tela`
+  redesenhada (`topo`, `trilha`, `cartao`, `barra`, `msg`, `tela_final`, `demo`); `fog.man.reg` e `BANNER_FOS` usam
+  `labfree-cores.sh`. Fotografados em VM: menu de boot, tela (preparando, gravando, grupo, sucesso, erro) e cadastro.
+
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,
   sudoers `LabFreeImageDeploy`, serviços `LabFreeImageDeploy-*` ativos, painel em `/var/www/html/LabFreeImageDeploy`,
@@ -259,7 +297,9 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   `LabFreeImageDeploy-multicast` reiniciado com ele, `boot.php` com `choose ... --timeout 0`, painel `?v=0.8.0`, FOS com
   a `labfree-tela` atual. **Falta**: teste real de sessão em grupo com 2–3 máquinas (seção 9, item 1) e mudar o
   adaptador USB para uma porta USB 3 (continua em 480 Mbit/s).
-- 0.9.0 publicada; **falta rodar o instalador** para levar o otimizador, a compressão por imagem e a correção das
+- 0.10.0 publicada (inclui a 0.9.0); **falta rodar o instalador** (também regrava o sudoers com a ação `copias`
+  e reconstrói o FOS com a tela nova).
+- 0.9.0: **falta rodar o instalador** para levar o otimizador, a compressão por imagem e a correção das
   Detectadas. A imagem "Laboratorio Fontes" (31 GB, nível 6) deve ficar ~14% menor na primeira noite parada (~1,5 h).
 
 ## 9. Próximos passos sugeridos

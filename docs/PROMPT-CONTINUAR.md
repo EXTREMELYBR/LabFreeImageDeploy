@@ -47,8 +47,9 @@ Fale comigo em português, de forma simples e direta.
 - Não existe `node` instalado; a sintaxe do JS é validada pelo Chrome.
 
 ## O que está pendente (detalhes em AGENTS.md seções 8 e 9)
-- 0.9.0 publicada (otimizador de imagens, compressão por imagem, Detectadas só dos últimos 30 min); falta rodar o
-  instalador. A 0.8.0 está instalada na produção (27/10). Falta testar com máquinas reais uma sessão em grupo pequena (lista de
+- 0.10.0 publicada (ajustes do Windows, cópias das imagens, visual LabFree nas máquinas) sobre a 0.9.0 (otimizador
+  de imagens, compressão por imagem, Detectadas só dos últimos 30 min); falta rodar o instalador. Testar com
+  Windows/AD, HD externo e NAS reais. A 0.8.0 está instalada na produção (27/10). Falta testar com máquinas reais uma sessão em grupo pequena (lista de
   conectadas, aviso de sala completa, Iniciar, progresso) e mudar o adaptador USB para uma porta USB 3.
 - Desempenho: compressão escolhida no painel + recomprimir no servidor quando ocioso (pedido; AGENTS.md seção 9).
 - Ideias e itens conhecidos: registro ao vivo no painel durante a clonagem; multicast para máquinas cadastradas sem

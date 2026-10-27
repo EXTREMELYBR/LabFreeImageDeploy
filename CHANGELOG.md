@@ -5,6 +5,42 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.10.0] - 2026-10-27
+
+Precisa do instalador para chegar ao servidor (`sudo ./instalar.sh`, sem clonagem em andamento; reconstrói o
+sistema de clonagem, ~10 min).
+
+### Novo
+- **Ajustes do Windows depois de restaurar** (Configurações → Windows):
+  - **Renomear o Windows com o nome cadastrado**: feito pelo próprio sistema de clonagem logo depois de gravar
+    o disco, sem instalar nada na máquina.
+  - **Entrar no domínio** (Active Directory: domínio, OU, usuário e senha) e **ativar a licença** (chave própria
+    da máquina em Máquinas → Editar, ou uma chave padrão/volume): feitos pelo agente para Windows no primeiro boot.
+    O agente é instalado uma vez na máquina modelo (o painel mostra o link e o passo a passo) e só faz isso: não
+    reinicia, não desliga e não desloga ninguém sozinho.
+  - Salvar pede a senha de quem está no painel; a senha do domínio nunca volta a aparecer.
+- **Cópias das imagens** (Configurações → Cópias): copiar para um **HD externo (USB)** ou uma **pasta de rede**
+  (NAS, Windows ou outro servidor, SMB) e **importar** de volta (inclusive em outro servidor LabFree). Cada arquivo
+  é **conferido bit a bit** (lido de volta do destino); na importação, também contra o que foi copiado na época
+  (HD que estragou na gaveta é detectado). Discos internos nunca aparecem; FAT32 é avisado (arquivos > 4 GB).
+  A cópia roda em segundo plano, com andamento ao vivo e botão Cancelar (nada pela metade fica no destino).
+- **Visual novo nas máquinas, com a identidade da LabFree** (labfree.com.br): menu de boot em marinho com a nuvem
+  e o logo LABFREE (fonte Jost) e opção selecionada no azul LabFree; tela da clonagem com as cores da LabFree,
+  nuvem, trilha das etapas (√ ► ○), barra de progresso, cartões e teclas destacadas; cadastro pelo boot e banner do
+  sistema de clonagem com as mesmas cores. Acentos na tela da máquina onde a fonte do console permite.
+
+### Para quem mantém
+- Novos: `lib/LabFreeImageDeploy-copias` (+ ação `copias` do ajudante, liberada ao painel no sudoers),
+  `marca/fos/usr/share/fog/lib/labfree-cores.sh` (paleta e cores do whiptail), `marca/fontes/Jost.ttf` (OFL),
+  `marca/labfree-logo.png`. O instalador instala `cifs-utils exfatprogs ntfs-3g zstd`.
+- `labfree-tela`: modo demonstração `labfreedemo=progresso|preparando|grupo|captura|sucesso|erro` na linha do kernel
+  (para fotografar a tela numa VM sem servidor). Cores do menu de boot em `CORES_IPXE` (ajudante).
+- API: `windows`, `windows_salvar`, `chave_windows` em cadastrar/editar máquina, `copias`, `copias_listar`,
+  `copias_rede`, `copias_exportar`, `copias_importar`, `copias_cancelar`. Configurações do LabFree em
+  `globalSettings` (categoria LabFree: `LABFREE_WIN_*`, `LABFREE_CHAVE_<id>`).
+- O otimizador de imagens pausa durante uma cópia (e a cópia espera ele pausar).
+- Testes: `testes/teste_copias.py`.
+
 ## [0.9.0] - 2026-10-27
 
 Precisa do instalador para chegar ao servidor (`sudo ./instalar.sh`, sem clonagem em andamento).

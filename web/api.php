@@ -436,6 +436,10 @@ final class Painel
             $ultimas[$l['hid']] = $l;
         }
         $leases = self::leases();
+        $chaves = [];
+        foreach (self::q("SELECT settingKey k, settingValue v FROM globalSettings WHERE settingKey LIKE 'LABFREE\\_CHAVE\\_%'") as $c) {
+            $chaves[(int)substr($c['k'], 14)] = $c['v'];
+        }
         $cadastrados = [];
         foreach ($rows as &$r) {
             $r['nome'] = self::txt($r['nome']);
@@ -450,6 +454,8 @@ final class Painel
             $u = $ultimas[$r['id']] ?? null;
             $r['ultima'] = $u ? ['tipo' => $u['tipo'] === 'up' ? 'Captura' : 'Restauração', 'quando' => self::data($u['fim']), 'imagem' => self::txt($u['img'])] : null;
             $r['rede'] = $leases[$r['mac']] ?? null;
+            $k = $chaves[(int)$r['id']] ?? '';
+            $r['chave_windows'] = $k ? substr($k, 0, 5) . '-•••••-•••••-•••••-' . substr($k, -5) : '';
             $cadastrados[$r['mac']] = true;
         }
         $outrasMacs = self::q("SELECT LOWER(hmMAC) mac FROM hostMAC");
@@ -943,6 +949,10 @@ final class Painel
         if (!$Host->save()) {
             self::erro('Não foi possível cadastrar a máquina.');
         }
+        if (!empty($d['chave_windows'])) {
+            self::lfConfig('LABFREE_CHAVE_' . (int)$Host->get('id'), self::normalizarChave($d['chave_windows']));
+        }
+        self::aplicarWindows($Host);
         return ['ok' => true, 'id' => (int)$Host->get('id'), 'msg' => "Máquina \"$nome\" cadastrada."];
     }
 
@@ -960,6 +970,9 @@ final class Painel
         if (isset($d['descricao'])) {
             $Host->set('description', trim((string)$d['descricao']));
         }
+        if (isset($d['chave_windows'])) {
+            self::lfConfig('LABFREE_CHAVE_' . (int)$Host->get('id'), self::normalizarChave($d['chave_windows']));
+        }
         if (isset($d['imagem_id'])) {
             $img = (int)$d['imagem_id'];
             if ($img) {
@@ -970,6 +983,7 @@ final class Painel
         if (!$Host->save()) {
             self::erro('Não foi possível salvar.');
         }
+        self::aplicarWindows($Host); // nome novo / chave nova chegam ao agente do Windows
         return ['ok' => true, 'msg' => 'Alterações salvas.'];
     }
 
@@ -980,9 +994,11 @@ final class Painel
             self::erro('Esta máquina tem uma tarefa em andamento. Cancele a tarefa antes de excluir.');
         }
         $nome = self::txt($Host->get('name'));
+        $id = (int)$Host->get('id');
         if (!$Host->destroy()) {
             self::erro('Não foi possível excluir.');
         }
+        self::db()->prepare('DELETE FROM globalSettings WHERE settingKey = ?')->execute(['LABFREE_CHAVE_' . $id]);
         return ['ok' => true, 'msg' => "Máquina \"$nome\" excluída. As imagens não foram afetadas."];
     }
 
@@ -1426,6 +1442,7 @@ final class Painel
                 continue;
             }
             $nome = self::txt($Host->get('name'));
+            self::aplicarWindows($Host); // nome, domínio e licença atuais (máquina cadastrada pelo boot depois de salvar)
             $antiga = (int)$Host->get('imageID');
             if ($antiga !== (int)$Image->get('id')) {
                 $Host->set('imageID', $Image->get('id'))->save();
@@ -1717,6 +1734,203 @@ final class Painel
         return ['ok' => true, 'msg' => 'Cadastro pelo boot configurado.', 'cadastro' => self::cadastroConfig()];
     }
 
+    // ------------------------------------------------------------ ajustes do Windows depois de restaurar
+    // Renomear: o sistema de clonagem grava o nome cadastrado no registro do Windows logo depois de restaurar
+    // (FOG_CHANGE_HOSTNAME_EARLY; não precisa instalar nada). Domínio e licença: o agente para Windows (FOGService.msi,
+    // instalado uma vez na máquina modelo) pega nome, domínio e chave do servidor no primeiro boot.
+
+    /** Módulos do agente que agiriam sozinhos na máquina (reiniciar, desligar, deslogar...): ficam desligados. */
+    const AGENTE_DESLIGADOS = ['FOG_CLIENT_AUTOLOGOFF_ENABLED', 'FOG_CLIENT_CLIENTUPDATER_ENABLED', 'FOG_CLIENT_DIRECTORYCLEANER_ENABLED',
+        'FOG_CLIENT_DISPLAYMANAGER_ENABLED', 'FOG_CLIENT_GREENFOG_ENABLED', 'FOG_CLIENT_HOSTREGISTER_ENABLED',
+        'FOG_CLIENT_POWERMANAGEMENT_ENABLED', 'FOG_CLIENT_PRINTERMANAGER_ENABLED', 'FOG_CLIENT_SNAPIN_ENABLED',
+        'FOG_CLIENT_TASKREBOOT_ENABLED', 'FOG_CLIENT_USERCLEANUP_ENABLED', 'FOG_CLIENT_USERTRACKER_ENABLED'];
+
+    /** Configuração do LabFree guardada em globalSettings (categoria LabFree; a base não usa estas chaves). */
+    public static function lfConfig($chave, $valor = null)
+    {
+        if ($valor === null) {
+            return (string)(self::q('SELECT settingValue FROM globalSettings WHERE settingKey = ?', [$chave])[0]['settingValue'] ?? '');
+        }
+        if (self::q('SELECT settingID FROM globalSettings WHERE settingKey = ?', [$chave])) {
+            self::db()->prepare('UPDATE globalSettings SET settingValue = ? WHERE settingKey = ?')->execute([(string)$valor, $chave]);
+        } else {
+            self::db()->prepare("INSERT INTO globalSettings (settingKey, settingDesc, settingValue, settingCategory) VALUES (?, 'LabFree ImageDeploy', ?, 'LabFree')")
+                ->execute([$chave, (string)$valor]);
+        }
+        return (string)$valor;
+    }
+
+    public static function normalizarChave($k)
+    {
+        $k = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)$k));
+        if ($k === '') {
+            return '';
+        }
+        if (!preg_match('/^[A-Z0-9]{25}$/', $k)) {
+            self::erro('Chave do Windows inválida: são 25 letras e números (XXXXX-XXXXX-XXXXX-XXXXX-XXXXX).');
+        }
+        return implode('-', str_split($k, 5));
+    }
+
+    public static function windowsConfig()
+    {
+        $chave = self::lfConfig('LABFREE_WIN_CHAVE_PADRAO');
+        return [
+            'renomear' => (bool)(int)FOGCore::getSetting('FOG_CHANGE_HOSTNAME_EARLY'),
+            'dominio' => [
+                'ligado' => self::lfConfig('LABFREE_WIN_DOMINIO') === '1',
+                'nome' => (string)FOGCore::getSetting('FOG_AD_DEFAULT_DOMAINNAME'),
+                'ou' => (string)FOGCore::getSetting('FOG_AD_DEFAULT_OU'),
+                'usuario' => (string)FOGCore::getSetting('FOG_AD_DEFAULT_USER'),
+                'tem_senha' => (string)FOGCore::getSetting('FOG_AD_DEFAULT_PASSWORD') !== '',
+            ],
+            'licenca' => self::lfConfig('LABFREE_WIN_LICENCA') === '1',
+            'chave_padrao' => $chave ? substr($chave, 0, 5) . '-•••••-•••••-•••••-' . substr($chave, -5) : '',
+            'agente' => '/fog/client/FOGService.msi',
+            'servidor' => self::rede()['ip'] ?? '',
+            'maquinas' => (int)self::q('SELECT COUNT(*) n FROM hosts')[0]['n'],
+        ];
+    }
+
+    public static function windowsSalvar($d)
+    {
+        self::confirmarMinhaSenha($d);
+        $dom = $d['dominio'] ?? [];
+        $ligarDominio = !empty($dom['ligado']);
+        if ($ligarDominio) {
+            $nome = trim((string)($dom['nome'] ?? ''));
+            $usuario = trim((string)($dom['usuario'] ?? ''));
+            $ou = trim((string)($dom['ou'] ?? ''));
+            if (!preg_match('/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/', $nome)) {
+                self::erro('Domínio: use o nome completo, por exemplo escola.local.');
+            }
+            if ($usuario === '' || strlen($usuario) > 100 || preg_match('/[\x00-\x1f"]/', $usuario)) {
+                self::erro('Informe o usuário com permissão para colocar máquinas no domínio.');
+            }
+            if ($ou !== '' && !preg_match('/^(OU|CN|DC)=/i', $ou)) {
+                self::erro('Unidade organizacional: no formato OU=Laboratorio,DC=escola,DC=local (ou deixe vazio).');
+            }
+            FOGCore::setSetting('FOG_AD_DEFAULT_DOMAINNAME', $nome);
+            FOGCore::setSetting('FOG_AD_DEFAULT_OU', $ou);
+            FOGCore::setSetting('FOG_AD_DEFAULT_USER', $usuario);
+            if (isset($dom['senha']) && $dom['senha'] !== '') {
+                FOGCore::setSetting('FOG_AD_DEFAULT_PASSWORD', (string)$dom['senha']);
+            }
+            if ((string)FOGCore::getSetting('FOG_AD_DEFAULT_PASSWORD') === '') {
+                self::erro('Informe a senha do usuário do domínio.');
+            }
+        }
+        if (isset($d['chave_padrao'])) {
+            self::lfConfig('LABFREE_WIN_CHAVE_PADRAO', self::normalizarChave($d['chave_padrao']));
+        }
+        FOGCore::setSetting('FOG_CHANGE_HOSTNAME_EARLY', !empty($d['renomear']) ? 1 : 0);
+        self::lfConfig('LABFREE_WIN_DOMINIO', $ligarDominio ? '1' : '0');
+        self::lfConfig('LABFREE_WIN_LICENCA', !empty($d['licenca']) ? '1' : '0');
+        // o agente só faz o que foi pedido aqui: nome, domínio e licença (nada de reiniciar ou deslogar sozinho)
+        FOGCore::setSetting('FOG_CLIENT_HOSTNAMECHANGER_ENABLED', 1);
+        foreach (self::AGENTE_DESLIGADOS as $k) {
+            FOGCore::setSetting($k, 0);
+        }
+        @set_time_limit(300);
+        $n = 0;
+        foreach (FOGCore::getSubObjectIDs('Host') as $id) {
+            $Host = new Host((int)$id);
+            if ($Host->isValid() && self::aplicarWindows($Host)) {
+                $n++;
+            }
+        }
+        return ['ok' => true, 'msg' => 'Ajustes do Windows salvos e aplicados a ' . ($n === 1 ? '1 máquina.' : "$n máquinas."), 'windows' => self::windowsConfig()];
+    }
+
+    /** Leva a configuração de domínio/licença para uma máquina (o agente lê da máquina). Chamado ao salvar, ao
+     *  cadastrar/editar e antes de restaurar (máquinas cadastradas pelo boot depois de salvar também recebem). */
+    public static function aplicarWindows($Host)
+    {
+        $dominio = self::lfConfig('LABFREE_WIN_DOMINIO') === '1';
+        $licenca = self::lfConfig('LABFREE_WIN_LICENCA') === '1';
+        $propria = self::lfConfig('LABFREE_CHAVE_' . (int)$Host->get('id'));
+        $chave = $licenca ? ($propria ?: self::lfConfig('LABFREE_WIN_CHAVE_PADRAO')) : '';
+        if ($dominio) {
+            $Host->setAD(1, (string)FOGCore::getSetting('FOG_AD_DEFAULT_DOMAINNAME'), (string)FOGCore::getSetting('FOG_AD_DEFAULT_OU'),
+                (string)FOGCore::getSetting('FOG_AD_DEFAULT_USER'), str_repeat('#', 32), true, true, '', $chave, 0);
+        } else {
+            $Host->set('useAD', 0)->set('productKey', $chave);
+        }
+        $mods = FOGCore::getSubObjectIDs('Module', ['shortName' => 'hostnamechanger']);
+        if ($mods) {
+            $Host->addModule($mods);
+        }
+        return $Host->save();
+    }
+
+    // ------------------------------------------------------------ cópias para HD externo / pasta de rede
+
+    /** Discos USB, pasta de rede e o trabalho atual. Uma importação concluída é cadastrada aqui (uma vez). */
+    public static function copias()
+    {
+        $r = self::root('copias', ['op' => 'ler']);
+        $t = $r['trabalho'] ?? null;
+        if ($t && ($t['op'] ?? '') === 'importar' && ($t['fase'] ?? '') === 'concluido' && !empty($t['importadas'])
+            && self::lfConfig('LABFREE_IMPORTACAO_FEITA') !== (string)$t['id']) {
+            self::lfConfig('LABFREE_IMPORTACAO_FEITA', (string)$t['id']);
+            $r['cadastradas'] = self::cadastrarImportadas($t['importadas']);
+        }
+        if (is_array($r['trabalho'] ?? null)) {
+            unset($r['trabalho']['importadas']);
+        }
+        return $r;
+    }
+
+    /** Cria no banco as imagens que a cópia trouxe para /images (mesmos dados da imagem de origem). */
+    public static function cadastrarImportadas($lista)
+    {
+        $nomes = [];
+        $grupo = (int)(self::q("SELECT ngID FROM nfsGroups ORDER BY ngID LIMIT 1")[0]['ngID'] ?? 1);
+        foreach ($lista as $m) {
+            $caminho = (string)($m['caminho'] ?? '');
+            if (!preg_match('/^[A-Za-z0-9_-]{1,60}$/', $caminho) || !is_dir("/images/$caminho")
+                || FOGCore::getClass('ImageManager')->exists($caminho, '', 'path')) {
+                continue;
+            }
+            $nome = mb_substr(trim((string)($m['nome'] ?? $caminho)), 0, 40) ?: $caminho;
+            for ($n = 2; FOGCore::getClass('ImageManager')->exists($nome); $n++) {
+                $nome = mb_substr(trim((string)($m['nome'] ?? $caminho)), 0, 33) . " ($n)";
+            }
+            $tipo = in_array((int)($m['tipo'] ?? 1), [1, 2, 3, 4], true) ? (int)$m['tipo'] : 1;
+            $Image = FOGCore::getClass('Image')
+                ->set('name', $nome)
+                ->set('description', trim((string)($m['descricao'] ?? '')) . ' (importada em ' . date('d/m/Y') . ')')
+                ->set('osID', (int)($m['os_id'] ?? 9))
+                ->set('path', $caminho)
+                ->set('imageTypeID', $tipo)
+                ->set('imagePartitionTypeID', (int)($m['tipo_particao'] ?? 1) ?: 1)
+                ->set('compress', (int)($m['compressao'] ?? 6))
+                ->set('format', (int)($m['formato'] ?? 5))
+                ->set('isEnabled', 1)
+                ->set('toReplicate', 1)
+                ->addGroup($grupo);
+            if ($Image->save()) {
+                $Image->setPrimaryGroup($grupo);
+                $nomes[] = $nome;
+            }
+        }
+        return $nomes;
+    }
+
+    /** Exportar: os dados de cada imagem vêm do banco (o manifesto no destino permite cadastrar de novo). */
+    public static function copiasExportar($d)
+    {
+        $imgs = [];
+        foreach (array_unique(array_map('intval', (array)($d['imagens'] ?? []))) as $id) {
+            $Image = self::imagem($id);
+            $os = self::q('SELECT osName FROM os WHERE osID = ?', [(int)$Image->get('osID')])[0]['osName'] ?? '';
+            $imgs[] = ['caminho' => (string)$Image->get('path'), 'nome' => self::txt($Image->get('name')), 'descricao' => self::txt($Image->get('description')),
+                'os' => self::txt($os), 'os_id' => (int)$Image->get('osID'), 'tipo' => (int)$Image->get('imageTypeID'),
+                'tipo_particao' => (int)$Image->get('imagePartitionTypeID'), 'formato' => (int)$Image->get('format'), 'compressao' => (int)$Image->get('compress')];
+        }
+        return self::root('copias', ['op' => 'exportar', 'destino' => $d['destino'] ?? [], 'imagens' => $imgs]);
+    }
+
     public static function sistemas()
     {
         return self::q("SELECT osID id, osName nome FROM os ORDER BY osName");
@@ -1811,6 +2025,10 @@ try {
                 Painel::responder(Painel::limpezaContagem());
             case 'cadastro':
                 Painel::responder(Painel::cadastroConfig());
+            case 'windows':
+                Painel::responder(Painel::windowsConfig());
+            case 'copias':
+                Painel::responder(Painel::copias());
         }
         Painel::erro('Ação desconhecida.', 404);
     }
@@ -1851,6 +2069,8 @@ try {
             Painel::responder(Painel::cancelarMulticast($d));
         case 'iniciar_multicast':
             Painel::responder(Painel::iniciarMulticast($d));
+        case 'windows_salvar':
+            Painel::responder(Painel::windowsSalvar($d));
         case 'cadastro_salvar':
             Painel::responder(Painel::cadastroSalvar($d));
         case 'excluir_imagem':
@@ -1869,6 +2089,17 @@ try {
             Painel::responder(Painel::root('rede-simular', ['cliente_ip' => $_SERVER['REMOTE_ADDR'] ?? ''] + $d));
         case 'rede_aplicar':
             Painel::responder(Painel::root('rede-aplicar', ['cliente_ip' => $_SERVER['REMOTE_ADDR'] ?? ''] + $d));
+        case 'copias_listar':
+            Painel::responder(Painel::root('copias', ['op' => 'listar', 'destino' => $d['destino'] ?? []]));
+        case 'copias_rede':
+            Painel::confirmarMinhaSenha($d);
+            Painel::responder(Painel::root('copias', ['op' => 'rede'] + array_intersect_key($d, array_flip(['endereco', 'usuario', 'senha', 'dominio']))));
+        case 'copias_exportar':
+            Painel::responder(Painel::copiasExportar($d));
+        case 'copias_importar':
+            Painel::responder(Painel::root('copias', ['op' => 'importar', 'destino' => $d['destino'] ?? [], 'pastas' => $d['pastas'] ?? []]));
+        case 'copias_cancelar':
+            Painel::responder(Painel::root('copias', ['op' => 'cancelar']));
     }
     Painel::erro('Ação desconhecida.', 404);
 } catch (PainelErro $e) {

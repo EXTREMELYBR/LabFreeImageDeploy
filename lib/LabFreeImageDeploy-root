@@ -14,6 +14,7 @@ Ações:
   rede-aplicar    troca a placa e/ou o IP do FOG em todos os lugares (desfaz se falhar)
   reaplicar       reaplica todas as customizações (usar depois de rodar o installfog.sh do FOG)
   imagem-apagar   apaga a pasta de uma imagem em /images (só se nenhuma imagem cadastrada a usa)
+  copias          cópias de imagens para HD externo / pasta de rede (lib/LabFreeImageDeploy-copias)
   marca-aplicar   aplica a marca LabFree ImageDeploy (menu de boot, sistema de clonagem), bloqueia a
                   interface antiga /fog e desliga tudo que buscava atualizações do FOG (idempotente)
 
@@ -1196,7 +1197,17 @@ TABELA_IMAGENS = """CREATE TABLE IF NOT EXISTS labfreeImagens (
   depois BIGINT NOT NULL DEFAULT 0, verificada DATETIME NULL, atualizado DATETIME NULL) ENGINE=InnoDB"""
 BOOTMENU_PHP = '/var/www/html/fog/lib/fog/bootmenu.class.php'
 APACHE_LABFREE = '/etc/apache2/conf-available/LabFreeImageDeploy.conf'
-COR_FOG, COR_LABFREE = '0x00567a', '0x4338ca'
+# cores do menu de boot (identidade LabFree, labfree.com.br): texto claro sobre o fundo marinho, opção selecionada
+# no azul LabFree, cabeçalho em âmbar (máquina não cadastrada) ou verde (cadastrada). Pares do iPXE: 1 = item,
+# 2 = selecionado, 3 = separador/cabeçalho, 4 = edição. Testado em VM (BIOS) contra um servidor de teste.
+CORES_IPXE = {
+    'FOG_IPXE_MAIN_COLOURS': 'colour --rgb 0xc9d4e8 1 ||\ncolour --rgb 0x1a73e8 2 ||\ncolour --rgb 0x5fd0ff 4 ||\n'
+                             'cpair --foreground 7 --background 2 2 ||',
+    'FOG_IPXE_INVALID_HOST_COLOURS': 'colour --rgb 0xf5a524 0 ||\ncpair --foreground 1 1 ||\ncpair --foreground 0 3 ||\n'
+                                     'cpair --foreground 4 4 ||',
+    'FOG_IPXE_VALID_HOST_COLOURS': 'colour --rgb 0x4ade80 0 ||\ncpair --foreground 1 1 ||\ncpair --foreground 0 3 ||\n'
+                                   'cpair --foreground 4 4 ||',
+}
 # A fonte do iPXE e do console do FOS só tem ASCII: nada de acentos no que aparece no boot.
 MENU_BOOT = {
     'fog.local': 'Iniciar pelo disco rigido', 'fog.memtest': 'Testar memoria (Memtest86+)',
@@ -1227,18 +1238,21 @@ BOOTMENU_TROCAS = [
 ]
 BANNER_FOS = """displayBanner() {
     # LabFree ImageDeploy (banner trocado pelo LabFreeImageDeploy-root; o original fica em init.xz.fog-original)
+    if [[ -r /usr/share/fog/lib/labfree-cores.sh ]]; then
+        . /usr/share/fog/lib/labfree-cores.sh
+        labfree_paleta
+        printf '\\e[0m\\e[2J\\e[H'
+    fi
     callServer "${web}service/getversion.php"
     version="$serverBody"
-    echo "   =============================================="
-    echo "   ||                                          ||"
-    echo "   ||  L A B F R E E   I m a g e D e p l o y   ||"
-    echo "   ||      Clonagem de maquinas pela rede      ||"
-    echo "   ||                                          ||"
-    echo "   =============================================="
-    echo "   Baseado no FOG Project - licenca GNU GPL v3"
-    echo "   Versao da base (FOG): $version"
-    echo "   Versao do init: $initversion"
-    echo "   Kernel: $(uname -r)"
+    echo
+    echo -e "     \\e[1;36m   ▄\\e[1;34m▄██▄▄\\e[0m"
+    echo -e "     \\e[1;36m ▄███\\e[1;34m██████▄\\e[0m    \\e[1;37mLABFREE\\e[0m ImageDeploy"
+    echo -e "     \\e[1;36m▀████\\e[0;34m███████▀\\e[0m   \\e[1;36mClonagem de maquinas pela rede\\e[0m"
+    echo
+    echo -e "   \\e[1;30mlabfree.com.br  |  baseado no FOG Project (GNU GPL v3)\\e[0m"
+    echo -e "   \\e[1;30mBase (FOG): $version  |  init: $initversion  |  kernel: $(uname -r)\\e[0m"
+    echo
 }
 """
 APACHE_CONF = """# LabFree ImageDeploy (gerado pelo LabFreeImageDeploy-root): a interface original do FOG fica desligada.
@@ -1417,8 +1431,8 @@ def marca_aplicar(_entrada=None):
         st = os.stat(ref) if os.path.exists(ref) else os.stat(IPXE_WEB)
         copiar_seguro(fundo, f'{IPXE_WEB}/LabFreeImageDeploy-fundo.png', 0o644, (st.st_uid, st.st_gid))
         mysql("UPDATE globalSettings SET settingValue='LabFreeImageDeploy-fundo.png' WHERE settingKey='FOG_IPXE_BG_FILE';")
-    mysql(f"UPDATE globalSettings SET settingValue=REPLACE(settingValue,'{COR_FOG}','{COR_LABFREE}') "
-          "WHERE settingKey IN ('FOG_IPXE_MAIN_COLOURS','FOG_IPXE_VALID_HOST_COLOURS');")
+    for chave, valor in CORES_IPXE.items():
+        mysql(f"UPDATE globalSettings SET settingValue='{valor}' WHERE settingKey='{chave}';")
     for chave, texto in MENU_BOOT.items():
         mysql(f"UPDATE pxeMenu SET pxeDesc='{texto}' WHERE pxeName='{chave}';")
     # menos itens na tela: troca de chave de produto e exclusão pelo boot ficam escondidos (o painel faz isso)
@@ -1500,15 +1514,33 @@ def status(_entrada=None):
             'dhcp_escutando': socket_dhcp_aberto(conf.get('FOG_IP', '')), 'kea_habilitado': servico_habilitado(KEA_SERVICO)}
 
 
+COPIAS = '/usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-copias'
+
+
+def copias(e):
+    """Cópias de imagens para HD externo / pasta de rede (o programa próprio valida a entrada e tem sua trava)."""
+    if not os.path.exists(COPIAS):
+        raise Erro('Cópias de imagens não instaladas. Rode o instalador de novo.')
+    r = subprocess.run([sys.executable, '-I', COPIAS], input=json.dumps(e), capture_output=True, text=True, timeout=300)
+    try:
+        saida = json.loads(r.stdout)
+    except ValueError:
+        raise Erro('Falha nas cópias: ' + (r.stderr.strip()[-300:] or 'sem resposta'))
+    if 'erro' in saida:
+        raise Erro(saida['erro'])
+    return saida
+
+
 ACOES = {'status': status, 'dhcp-ler': dhcp_ler, 'dhcp-aplicar': dhcp_aplicar,
          'rede-listar': rede_listar, 'rede-simular': rede_simular, 'rede-aplicar': rede_aplicar, 'reaplicar': reaplicar,
          'imagem-apagar': imagem_apagar, 'marca-aplicar': marca_aplicar,
-         'servicos-aplicar': lambda e=None: {'ok': True, 'criados': servicos_aplicar()}, 'recuperar': recuperar}
+         'servicos-aplicar': lambda e=None: {'ok': True, 'criados': servicos_aplicar()}, 'recuperar': recuperar,
+         'copias': copias}
 
 
 # o painel (www-data via sudo) só pode pedir estas ações; o resto é para o administrador e o instalador
-ACOES_PAINEL = {'status', 'dhcp-ler', 'dhcp-aplicar', 'rede-listar', 'rede-simular', 'rede-aplicar', 'imagem-apagar'}
-ACOES_LEITURA = {'status', 'dhcp-ler', 'rede-listar', 'rede-simular'}  # (recuperar trava como as alterações)
+ACOES_PAINEL = {'status', 'dhcp-ler', 'dhcp-aplicar', 'rede-listar', 'rede-simular', 'rede-aplicar', 'imagem-apagar', 'copias'}
+ACOES_LEITURA = {'status', 'dhcp-ler', 'rede-listar', 'rede-simular', 'copias'}  # copias tem trava própria  # (recuperar trava como as alterações)
 TRAVA = '/run/LabFreeImageDeploy.lock'
 
 

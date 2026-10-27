@@ -6,26 +6,10 @@
 . /usr/share/fog/lib/funcs.sh
 . /usr/share/fog/lib/secureboot-funcs.sh
 
-export NEWT_COLORS='root=white,blue
-window=black,lightgray
-border=blue,lightgray
-shadow=black,black
-title=blue,lightgray
-textbox=black,lightgray
-button=white,blue
-actbutton=white,magenta
-compactbutton=black,lightgray
-entry=black,white
-disentry=gray,lightgray
-label=black,lightgray
-listbox=black,white
-actlistbox=white,blue
-sellistbox=white,blue
-actsellistbox=white,magenta
-roottext=white,blue
-helpline=white,blue'
-TITULO="LabFree ImageDeploy - Cadastro"
-RODAPE="LabFree ImageDeploy  |  Use as setas, Tab e Enter"
+. /usr/share/fog/lib/labfree-cores.sh   # cores da LabFree (paleta do console + cores do whiptail)
+labfree_paleta
+TITULO=" Cadastro da maquina "
+RODAPE="LABFREE ImageDeploy   |   setas, Tab e Enter   |   labfree.com.br"
 b64() { printf '%s' "$1" | base64; }
 tela() { whiptail --backtitle "$RODAPE" --title "$TITULO" "$@" 3>&1 1>&2 2>&3; }
 

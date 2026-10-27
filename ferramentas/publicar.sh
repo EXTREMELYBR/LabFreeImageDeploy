@@ -30,7 +30,7 @@ echo "== Conferindo sintaxe"
 for f in instalar.sh sbin/* ferramentas/*.sh ferramentas/LabFreeImageDeploy-recompilar-ipxe sistema/networkmanager/* marca/fos/bin/*; do
     bash -n "$f" || erro "erro de sintaxe em $f"
 done
-python3 -m py_compile lib/LabFreeImageDeploy-root lib/LabFreeImageDeploy-udp-sender lib/LabFreeImageDeploy-otimizar lib/*.py testes/*.py || erro "erro de sintaxe em Python"
+python3 -m py_compile lib/LabFreeImageDeploy-root lib/LabFreeImageDeploy-udp-sender lib/LabFreeImageDeploy-otimizar lib/LabFreeImageDeploy-copias lib/*.py testes/*.py || erro "erro de sintaxe em Python"
 find "$RAIZ" -name __pycache__ -prune -exec rm -rf {} +
 if command -v php >/dev/null; then
     for f in web/*.php marca/servidor/*.php sistema/*.php; do php -l "$f" >/dev/null || erro "erro de sintaxe em $f"; done

@@ -82,8 +82,28 @@ def registrar(img_id, **campos):
           f"UPDATE labfreeImagens SET {pares}, atualizado=UTC_TIMESTAMP() WHERE imageID={int(img_id)};")
 
 
+TRAVA_COPIA = '/run/LabFreeImageDeploy-copia.lock'
+
+
+def copia_rodando():
+    """Cópia para HD externo/rede em andamento (lib/LabFreeImageDeploy-copias): não trocar arquivos no meio dela."""
+    try:
+        fd = os.open(TRAVA_COPIA, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError:
+        return False
+    try:
+        fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        return False
+    except BlockingIOError:
+        return True
+    finally:
+        os.close(fd)
+
+
 def parado():
-    """Nenhuma captura/restauração (fila ou em andamento) e nenhuma sessão em grupo aberta."""
+    """Nenhuma captura/restauração (fila ou em andamento), nenhuma sessão em grupo aberta e nenhuma cópia."""
+    if copia_rodando():
+        return False
     n = mysql("SELECT (SELECT COUNT(*) FROM tasks WHERE taskStateID IN (1,2,3)) + "
               "(SELECT COUNT(*) FROM multicastSessions WHERE msState IN (0,1,2,3))").strip()
     return n == '0'

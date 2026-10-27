@@ -118,7 +118,7 @@ function rotuloDisco(dev) {
 const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
 
 // ações que reconfiguram o servidor podem levar alguns minutos (testam e desfazem se falhar)
-const PRAZOS = { rede_aplicar: 300000, dhcp_salvar: 120000, excluir_imagem: 120000, rede_simular: 60000, restaurar: 600000, capturar: 120000, multicast: 120000, limpar_historico: 120000 };
+const PRAZOS = { rede_aplicar: 300000, dhcp_salvar: 120000, excluir_imagem: 120000, rede_simular: 60000, restaurar: 600000, capturar: 120000, multicast: 120000, limpar_historico: 120000, copias_listar: 120000, copias_rede: 90000, copias_exportar: 60000, copias_importar: 60000, windows_salvar: 300000 };
 
 async function api(acao, dados, repetida = false) {
   const op = { credentials: 'same-origin', headers: {} };
@@ -858,6 +858,9 @@ async function formMaquina(maquina, imagens, padrao = {}) {
   const mac = el('input', { type: 'text', class: 'mono', value: maquina ? maquina.mac : (padrao.mac || ''), placeholder: '00:11:22:33:44:55', disabled: !!maquina, autocomplete: 'off' });
   const imagem = el('select', {}, el('option', { value: '0' }, 'Nenhuma por enquanto'), imagens.map((i) => el('option', { value: i.id, selected: maquina ? String(maquina.imagem_id) === String(i.id) : false }, i.nome)));
   const desc = el('textarea', { placeholder: 'Opcional: sala, patrimônio, observações' }, maquina && !maquina.descricao.startsWith('Cadastrada pelo') ? maquina.descricao : '');
+  const chave = el('input', { type: 'text', class: 'mono', maxlength: '29', autocomplete: 'off', spellcheck: 'false',
+    placeholder: maquina && maquina.chave_windows ? maquina.chave_windows : 'opcional: XXXXX-XXXXX-XXXXX-XXXXX-XXXXX' });
+  const apagarChave = el('input', { type: 'checkbox' });
   return modal({
     titulo: maquina ? `Editar ${maquina.nome}` : 'Cadastrar máquina', icone: 'maquinas', cor: 'maquinas',
     texto: maquina ? null : 'O MAC identifica a máquina na rede. Ele aparece na tela de boot pela rede ou na lista de máquinas detectadas.',
@@ -865,9 +868,14 @@ async function formMaquina(maquina, imagens, padrao = {}) {
       campo('Nome da máquina', nome, 'Até 15 caracteres: letras, números e hífen.'),
       campo('Endereço MAC', mac, maquina ? 'O MAC não pode ser alterado.' : null),
       campo('Imagem padrão', imagem, 'A imagem que esta máquina costuma receber.'),
-      campo('Descrição', desc)),
+      campo('Descrição', desc),
+      campo('Chave do Windows desta máquina', chave, maquina && maquina.chave_windows ? 'Já tem uma chave (escondida). Digite outra para trocar.'
+        : 'Vazio = usa a chave padrão de Configurações → Windows (se houver).'),
+      maquina && maquina.chave_windows ? el('label', { class: 'alternar' }, apagarChave, el('div', {}, el('strong', {}, 'Remover a chave desta máquina'), el('small', {}, 'Passa a usar a chave padrão.'))) : null),
     botoes: [{ texto: 'Cancelar', classe: 'fantasma' }, { texto: maquina ? 'Salvar alterações' : 'Cadastrar máquina', classe: 'primario', acao: async () => {
       const dados = { nome: nome.value.trim(), imagem_id: Number(imagem.value), descricao: desc.value };
+      if (chave.value.trim()) dados.chave_windows = chave.value.trim();
+      else if (apagarChave.checked) dados.chave_windows = '';
       const r = maquina ? await api('editar_maquina', { id: maquina.id, ...dados }) : await api('cadastrar_maquina', { ...dados, mac: mac.value.trim() });
       aviso(r.msg);
       return r;
@@ -1662,15 +1670,185 @@ const MASCARAS = [[24, '255.255.255.0 (/24) — até 253 máquinas'], [23, '255.
   [21, '255.255.248.0 (/21) — até 2045'], [16, '255.255.0.0 (/16) — até 65 mil'], [25, '255.255.255.128 (/25) — até 125'], [26, '255.255.255.192 (/26) — até 61']];
 
 async function telaConfiguracoes(alvo, p) {
-  const aba = ['rede', 'cadastro'].includes(p.get('aba')) ? p.get('aba') : 'dhcp';
+  const aba = ['rede', 'cadastro', 'windows', 'copias'].includes(p.get('aba')) ? p.get('aba') : 'dhcp';
   const abas = el('div', { class: 'abas', role: 'tablist' },
-    [['dhcp', 'DHCP', 'rede'], ['rede', 'Placa de rede', 'maquinas'], ['cadastro', 'Cadastro pelo boot', 'mais']].map(([id, nome, ic]) => el('a', {
+    [['dhcp', 'DHCP', 'rede'], ['rede', 'Placa de rede', 'maquinas'], ['cadastro', 'Cadastro pelo boot', 'mais'], ['windows', 'Windows', 'config'],
+      ['copias', 'Cópias', 'disco']].map(([id, nome, ic]) => el('a', {
       role: 'tab', href: `#/configuracoes?aba=${id}`, 'aria-selected': String(aba === id), class: aba === id ? 'ativa' : null,
     }, icone(ic), nome)));
   const corpo = el('div');
   alvo.replaceChildren(cabPagina('configuracoes', 'Rede de clonagem e servidor DHCP. As mudanças são testadas e, se algo falhar, desfeitas sozinhas.'), abas, corpo);
   corpo.append(esqueleto());
-  if (aba === 'rede') await abaRede(corpo); else if (aba === 'cadastro') await abaCadastro(corpo); else await abaDhcp(corpo);
+  if (aba === 'rede') await abaRede(corpo); else if (aba === 'cadastro') await abaCadastro(corpo);
+  else if (aba === 'windows') await abaWindows(corpo); else if (aba === 'copias') await abaCopias(corpo); else await abaDhcp(corpo);
+}
+
+/** Cópias das imagens para HD externo (USB) ou pasta de rede, e importação de volta, com conferência bit a bit. */
+async function abaCopias(corpo) {
+  const [c, img] = await Promise.all([api('copias'), api('imagens')]);
+  if (c.cadastradas && c.cadastradas.length) aviso(`Importada(s) e cadastrada(s): ${c.cadastradas.join(', ')}.`);
+  const est = { destino: null };
+  const vivo = el('div');
+  const conteudoDestino = el('div');
+  const destinos = [...c.discos.map((d) => ({ chave: d.dispositivo, valor: { tipo: 'disco', dispositivo: d.dispositivo }, d })),
+    ...(c.rede ? [{ chave: 'rede', valor: { tipo: 'rede' }, rede: c.rede }] : [])];
+  const rotuloDestino = (x) => (x.d ? `${x.d.modelo || 'Disco externo'}${x.d.rotulo ? ` “${x.d.rotulo}”` : ''}` : 'Pasta de rede');
+  const metaDestino = (x) => (x.d ? `${gb(x.d.tamanho)} · ${x.d.fs.toUpperCase()}${x.d.livre !== null ? ` · ${gb(x.d.livre)} livres` : ''}` : x.rede.endereco);
+
+  const pintarTrabalho = (t, rodando) => {
+    if (!t) { vivo.replaceChildren(); return; }
+    const pct = t.total ? Math.floor((t.feito / t.total) * 100) : 0;
+    const andando = ['preparando', 'copiando', 'conferindo'].includes(t.fase);
+    const titulo = `${t.op === 'importar' ? 'Importando de' : 'Copiando para'} ${t.destino || 'destino'}`;
+    vivo.replaceChildren(el('div', { class: 'cartao', 'data-cor': 'imagens' },
+      el('div', { class: 'tarefa-viva' }, el('div', { class: 'topo-t' }, ladrilho('disco', 'imagens', 'p'),
+        el('div', { class: 'quem' }, el('strong', {}, titulo), el('div', { class: 'small muted' }, t.atual || '')),
+        el('div', { class: 'acoes-t' }, andando ? el('span', { class: 'pct' }, `${pct}%`)
+          : pilula(t.fase === 'concluido' ? 'Concluída e conferida' : t.fase === 'cancelado' ? 'Cancelada' : 'Falhou', t.fase === 'concluido' ? 'ok' : t.fase === 'cancelado' ? '' : 'ruim'),
+          andando && rodando ? el('button', { class: 'btn p perigo', type: 'button', onclick: async () => {
+            if (await confirmar('Cancelar a cópia?', 'O que já foi copiado desta imagem é descartado.', 'Cancelar cópia', true)) {
+              try { aviso((await api('copias_cancelar', {})).msg); } catch (e) { aviso(e.message, true); }
+            }
+          } }, 'Cancelar') : null)),
+      andando ? barra(pct, '', 'imagens') : null,
+      el('div', { class: 'fase' }, el('span', { class: 'ponto-vivo' }), el('span', {},
+        t.fase === 'preparando' ? 'Preparando…' : t.fase === 'copiando' ? `Copiando · ${gb(t.feito)} de ${gb(t.total)}`
+          : t.fase === 'conferindo' ? 'Conferindo bit a bit o que foi gravado…'
+            : t.fase === 'concluido' ? `Tudo conferido bit a bit${t.op === 'importar' ? '. As imagens já aparecem em Imagens.' : '.'}`
+              : t.fase === 'cancelado' ? 'Cancelada: nada pela metade ficou no destino.' : (t.erro || 'A cópia falhou.'))))));
+  };
+  let anterior = '';
+  const atualizar = async () => {
+    const r = await api('copias');
+    if (r.cadastradas && r.cadastradas.length) aviso(`Importada(s) e cadastrada(s): ${r.cadastradas.join(', ')}.`);
+    const chave = JSON.stringify([r.trabalho, r.rodando]);
+    if (chave !== anterior) { anterior = chave; pintarTrabalho(r.trabalho, r.rodando); }
+  };
+  pintarTrabalho(c.trabalho, c.rodando);
+  repetir(atualizar, 3000);
+
+  const abrirDestino = async () => {
+    conteudoDestino.replaceChildren(el('div', { class: 'fase' }, el('span', { class: 'ponto-vivo' }), el('span', {}, 'Abrindo o destino…')));
+    let lista;
+    try { lista = await api('copias_listar', { destino: est.destino.valor }); } catch (e) {
+      conteudoDestino.replaceChildren(el('div', { class: 'faixa ruim' }, icone('alerta'), el('div', {}, e.message))); return;
+    }
+    const comArquivos = img.imagens.filter((i) => i.disco.bytes);
+    const marcar = new Set();
+    const exportar = el('button', { class: 'btn primario', type: 'button', disabled: true }, icone('capturar'), 'Copiar para o destino');
+    const caixas = comArquivos.map((i) => {
+      const cb = el('input', { type: 'checkbox' });
+      cb.addEventListener('change', () => { if (cb.checked) marcar.add(i.id); else marcar.delete(i.id); exportar.disabled = !marcar.size; });
+      const ja = lista.imagens.find((x) => x.pasta === i.caminho);
+      return el('label', { class: 'alternar' }, cb, el('div', {}, el('strong', {}, i.nome),
+        el('small', {}, `${gb(i.disco.bytes)}${ja ? ` · já existe uma cópia de ${dataHora(ja.exportada)} (será substituída)` : ''}`)));
+    });
+    exportar.addEventListener('click', async () => {
+      const total = comArquivos.filter((i) => marcar.has(i.id)).reduce((a, i) => a + i.disco.bytes, 0);
+      if (total > lista.livre) { aviso(`Falta espaço no destino: precisa de ${gb(total)} e tem ${gb(lista.livre)}.`, true); return; }
+      try { aviso((await api('copias_exportar', { destino: est.destino.valor, imagens: [...marcar] })).msg); atualizar(); } catch (e) { aviso(e.message, true); }
+    });
+    const linhasDestino = lista.imagens.map((x) => el('div', { class: 'linha' }, ladrilho('imagens', 'imagens', 'p'),
+      el('div', { class: 'corpo' }, el('strong', {}, x.nome), el('div', { class: 'meta' }, el('span', {}, gb(x.tamanho)),
+        el('span', {}, `copiada ${dataHora(x.exportada)}`), x.servidor ? el('span', {}, `de ${x.servidor}`) : null)),
+      el('div', { class: 'lado' }, el('button', { class: 'btn p', type: 'button', onclick: async () => {
+        if (!await confirmar(`Importar “${x.nome}”?`, `${gb(x.tamanho)} serão copiados para este servidor e conferidos bit a bit. Se já existir uma imagem com o mesmo nome, a importada recebe outro nome.`, 'Importar')) return;
+        try { aviso((await api('copias_importar', { destino: est.destino.valor, pastas: [x.pasta] })).msg); atualizar(); } catch (e) { aviso(e.message, true); }
+      } }, icone('restaurar'), 'Importar'))));
+    conteudoDestino.replaceChildren(el('div', { class: 'pilha' },
+      el('div', { class: 'cartao' }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Copiar imagens deste servidor'), el('span', { class: 'small muted' }, `${gb(lista.livre)} livres no destino`)),
+        comArquivos.length ? el('div', { class: 'pilha', style: 'gap:10px' }, caixas) : vazio('imagens', 'Nenhuma imagem com captura ainda', ''),
+        el('div', { class: 'botoes', style: 'margin-top:14px' }, exportar)),
+      el('div', { class: 'cartao' }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Imagens no destino')),
+        lista.imagens.length ? el('div', { class: 'lista' }, linhasDestino) : vazio('disco', 'Nenhuma cópia neste destino', 'As imagens copiadas aparecem aqui e podem ser importadas em qualquer servidor LabFree.'))));
+  };
+
+  const escolhaDestinos = destinos.length ? escolhas({ nome: 'destino', cor: 'imagens', icone: 'disco', itens: destinos.map((x) => ({ ...x, id: x.chave })), umaColuna: true,
+    selecionado: '', desabilitado: (x) => !!x.d && !x.d.aceito,
+    titulo: (x) => rotuloDestino(x), meta: (x) => (x.d && x.d.aviso ? `${metaDestino(x)} · ${x.d.aviso}` : metaDestino(x)),
+    aoMudar: (id) => { est.destino = destinos.find((x) => x.chave === id); abrirDestino(); } })
+    : vazio('disco', 'Nenhum HD externo ligado', 'Ligue um HD externo (USB) no servidor e clique em Procurar de novo, ou configure uma pasta de rede.');
+  const endereco = el('input', { type: 'text', class: 'mono', value: c.rede ? c.rede.endereco : '', placeholder: '//nas/backup ou \\\\servidor\\pasta', autocomplete: 'off', spellcheck: 'false' });
+  const usuario = el('input', { type: 'text', value: c.rede ? c.rede.usuario : '', autocomplete: 'off' });
+  const senha = el('input', { type: 'password', placeholder: c.rede ? '•••••••• (guardada)' : '', autocomplete: 'new-password' });
+  const dominio = el('input', { type: 'text', value: c.rede ? c.rede.dominio : '', placeholder: 'opcional', autocomplete: 'off' });
+  const salvarRede = el('button', { class: 'btn', type: 'button' }, icone('rede'), c.rede ? 'Salvar pasta de rede' : 'Conectar pasta de rede');
+  salvarRede.addEventListener('click', async () => {
+    const minha = el('input', { type: 'password', autocomplete: 'current-password' });
+    const ok = await modal({ titulo: 'Conectar pasta de rede', icone: 'rede', cor: 'inicio', texto: 'O servidor testa a conexão antes de guardar.',
+      conteudo: campo(`Sua senha (${sessao.usuario})`, minha, 'Para confirmar que é você.'),
+      botoes: [{ texto: 'Voltar', classe: 'fantasma' }, { texto: 'Conectar', classe: 'primario', acao: async () => {
+        aviso((await api('copias_rede', { minha_senha: minha.value, endereco: endereco.value.trim(), usuario: usuario.value.trim(), senha: senha.value, dominio: dominio.value.trim() })).msg);
+      } }] });
+    if (ok) navegar();
+  });
+  corpo.replaceChildren(el('div', { class: 'pilha' }, vivo,
+    el('div', { class: 'cartao' }, el('div', { class: 'cartao-cab' }, el('h2', {}, 'Onde guardar as cópias'),
+      el('button', { class: 'btn p fantasma', type: 'button', onclick: () => navegar() }, icone('buscar'), 'Procurar de novo')),
+      escolhaDestinos,
+      el('div', { class: 'faixa info', style: 'margin-top:14px' }, icone('escudo'), el('div', {}, el('strong', {}, 'Cada arquivo é conferido bit a bit'),
+        'Depois de gravar, o servidor lê de volta do destino e compara. Na importação, confere também com o que foi copiado na época: um HD que estragou na gaveta é detectado.'))),
+    conteudoDestino,
+    el('details', { class: 'cartao' }, el('summary', {}, el('strong', {}, 'Pasta de rede (NAS, Windows ou outro servidor)')),
+      el('div', { class: 'grade', style: 'grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px;margin-top:12px' },
+        campo('Endereço', endereco, 'Pasta compartilhada (SMB).'), campo('Usuário', usuario), campo('Senha', senha), campo('Domínio', dominio)),
+      el('div', { class: 'botoes' }, salvarRede))));
+}
+
+/** Ajustes do Windows depois de restaurar: nome (sem instalar nada), domínio e licença (agente na máquina modelo). */
+async function abaWindows(corpo) {
+  const w = await api('windows');
+  const renomear = el('input', { type: 'checkbox', checked: w.renomear });
+  const dom = el('input', { type: 'checkbox', checked: w.dominio.ligado });
+  const nome = el('input', { type: 'text', value: w.dominio.nome, placeholder: 'escola.local', autocomplete: 'off', spellcheck: 'false' });
+  const ou = el('input', { type: 'text', value: w.dominio.ou, placeholder: 'opcional: OU=Laboratorio,DC=escola,DC=local', class: 'mono', autocomplete: 'off', spellcheck: 'false' });
+  const usuario = el('input', { type: 'text', value: w.dominio.usuario, placeholder: 'ex.: ingresso', autocomplete: 'off', spellcheck: 'false' });
+  const senha = el('input', { type: 'password', placeholder: w.dominio.tem_senha ? '•••••••• (guardada; digite para trocar)' : 'senha desse usuário', autocomplete: 'new-password' });
+  const lic = el('input', { type: 'checkbox', checked: w.licenca });
+  const chave = el('input', { type: 'text', class: 'mono', maxlength: '29', placeholder: w.chave_padrao || 'XXXXX-XXXXX-XXXXX-XXXXX-XXXXX', autocomplete: 'off', spellcheck: 'false' });
+  const caixaDom = el('div', { class: 'grade', style: 'grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px;margin-top:12px' },
+    campo('Domínio', nome, 'Nome completo do domínio do Active Directory.'), campo('Unidade organizacional (OU)', ou, 'Onde as máquinas entram. Vazio = padrão do domínio.'),
+    campo('Usuário com permissão', usuario, 'Pode colocar máquinas no domínio.'), campo('Senha', senha, 'Guardada no servidor; nunca aparece de novo no painel.'));
+  const caixaLic = el('div', { style: 'margin-top:12px' }, campo('Chave padrão (opcional)', chave,
+    w.chave_padrao ? 'Já existe uma chave padrão (escondida). Digite outra para trocar.' : 'Usada nas máquinas sem chave própria. Licença por volume (KMS/MAK) também serve. Chave própria: Máquinas → Editar.'));
+  const mostrar = () => { caixaDom.hidden = !dom.checked; caixaLic.hidden = !lic.checked; };
+  dom.addEventListener('change', mostrar); lic.addEventListener('change', mostrar); mostrar();
+  const salvar = el('button', { class: 'btn primario g', type: 'button' }, icone('check'), 'Salvar e aplicar');
+  salvar.addEventListener('click', async () => {
+    const minha = el('input', { type: 'password', autocomplete: 'current-password' });
+    const ok = await modal({ titulo: 'Confirmar ajustes do Windows', icone: 'escudo', cor: 'inicio',
+      texto: `Vale para as ${w.maquinas} máquinas cadastradas e para as próximas restaurações.`,
+      conteudo: campo(`Sua senha (${sessao.usuario})`, minha, 'Para confirmar que é você.'),
+      botoes: [{ texto: 'Voltar', classe: 'fantasma' }, { texto: 'Salvar e aplicar', classe: 'primario', acao: async () => {
+        const dados = { minha_senha: minha.value, renomear: renomear.checked, licenca: lic.checked,
+          dominio: { ligado: dom.checked, nome: nome.value.trim(), ou: ou.value.trim(), usuario: usuario.value.trim(), senha: senha.value } };
+        if (chave.value.trim()) dados.chave_padrao = chave.value.trim();
+        aviso((await api('windows_salvar', dados)).msg);
+      } }] });
+    if (ok) await abaWindows(corpo);
+  });
+  const passo = (n, titulo, texto) => el('div', { class: 'passo-boot' }, el('span', { class: 'n' }, String(n)), el('div', {}, el('strong', {}, titulo), el('div', { class: 'small muted' }, texto)));
+  const agente = el('div', { class: 'cartao', 'data-cor': 'capturar' },
+    el('div', { class: 'cartao-cab' }, el('div', { class: 'titulo' }, ladrilho('capturar', 'capturar', 'p'), el('h2', {}, 'Agente para Windows (uma vez, na máquina modelo)'))),
+    el('p', { class: 'small muted', style: 'margin-bottom:12px' }, 'Domínio e licença são feitos pelo agente, no primeiro boot depois de restaurar. Ele só faz isso: não reinicia, não desliga e não desloga ninguém sozinho.'),
+    el('div', { class: 'passos-cadastro' },
+      passo(1, 'Baixe o agente na máquina modelo', el('span', {}, 'Pelo navegador dela: ', el('a', { href: w.agente, class: 'mono' }, `https://${w.servidor || 'IP-do-servidor'}${w.agente}`))),
+      passo(2, 'Instale', `Quando pedir o endereço do servidor, use ${w.servidor || 'o IP do servidor'}. Deixe as outras opções como estão.`),
+      passo(3, 'Capture a imagem', 'Toda máquina restaurada com essa imagem recebe nome, domínio e licença sozinha.')));
+  corpo.replaceChildren(el('div', { class: 'pilha' },
+    el('div', { class: 'cartao' }, el('h2', { style: 'margin-bottom:12px' }, 'Depois de restaurar, em cada máquina'),
+      el('label', { class: 'alternar' }, renomear, el('div', {}, el('strong', {}, 'Renomear o Windows com o nome cadastrado'),
+        el('small', {}, 'Feito pelo próprio sistema de clonagem, logo depois de gravar o disco. Não precisa instalar nada. Só máquinas cadastradas (têm nome).'))),
+      el('label', { class: 'alternar', style: 'margin-top:14px' }, dom, el('div', {}, el('strong', {}, 'Entrar no domínio'),
+        el('small', {}, 'A máquina entra no domínio do Active Directory no primeiro boot (precisa do agente e de acesso ao servidor do domínio).'))),
+      caixaDom,
+      el('label', { class: 'alternar', style: 'margin-top:14px' }, lic, el('div', {}, el('strong', {}, 'Ativar a licença do Windows'),
+        el('small', {}, 'Instala a chave (própria da máquina ou a padrão) e ativa (precisa do agente e de internet ou do servidor KMS).'))),
+      caixaLic),
+    agente,
+    el('div', { class: 'faixa info' }, icone('info'), el('div', {}, el('strong', {}, 'Sem o agente instalado na imagem'),
+      'o nome continua sendo trocado; domínio e licença ficam para fazer à mão.')),
+    el('div', { class: 'botoes', style: 'justify-content:flex-end' }, salvar)));
 }
 
 function aviso503(err) {

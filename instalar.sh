@@ -212,7 +212,7 @@ instalar_arquivos() {
     passo "pacotes necessários"
     rodar apt-get update || aviso "o apt-get update reclamou de algum repositório (veja $LOG); continuando com o que já está disponível"
     rodar env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        python3 curl rsync chrony whiptail git xz-utils sbsigntool sudo
+        python3 curl rsync chrony whiptail git xz-utils sbsigntool sudo cifs-utils exfatprogs ntfs-3g zstd
     feito "pacotes necessários"
     if [ "$ORIGEM" != "$DESTINO" ]; then
         if [ -e "$DESTINO/.git" ]; then
@@ -228,6 +228,7 @@ instalar_arquivos() {
     install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-root" "$AJUDANTE"
     install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-udp-sender" /usr/local/lib/LabFreeImageDeploy/udp-sender  # porteiro do envio em grupo
     install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-otimizar" /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-otimizar
+    install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-copias" /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-copias
     rsync -a --delete "$ORIGEM/marca/" /usr/local/share/LabFreeImageDeploy/
     echo "$VERSAO" > /etc/LabFreeImageDeploy/versao
     for f in "$ORIGEM"/sbin/LabFreeImageDeploy*; do install -m 750 "$f" /usr/local/sbin/; done

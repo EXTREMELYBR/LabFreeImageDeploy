@@ -16,6 +16,9 @@ FOG 1.5.10 embutida e travada nessa versão (não recebe atualizações do FOG) 
   sala está completa e só começa quando alguém clica em Iniciar. Nada começa sozinho na máquina.
 - **Imagens menores e conferidas**: com o servidor parado, as imagens são recomprimidas e conferidas bit a bit
   (restaurações mais rápidas, arquivo corrompido detectado antes de estragar uma sala).
+- **Windows pronto depois de restaurar**: nome cadastrado, entrada no domínio e ativação da licença.
+- **Cópias das imagens** para HD externo ou pasta de rede (e importação), conferidas bit a bit.
+- **Telas da máquina com a identidade da LabFree**: menu de boot, cadastro e acompanhamento da clonagem.
 - **Cadastro de máquinas em 2 passos** direto na tela da máquina, pelo boot da rede: nome sugerido e imagem.
 - **Rede e DHCP configuráveis pelo painel**, com teste e desfazer automático se algo der errado.
 - **Funciona com adaptador USB-Ethernet** e não mexe na internet do servidor.

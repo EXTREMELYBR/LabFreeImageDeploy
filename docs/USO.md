@@ -31,6 +31,24 @@ Depois ligue a máquina com boot pela rede. Acompanhe em Tarefas.
 **Tipo de imagem**: prefira *Redimensionável* — restaura em discos de tamanhos diferentes, inclusive menores.
 Imagens de *tamanho fixo* só restauram em discos iguais ou maiores que o original (o painel mostra o mínimo).
 
+## Ajustes do Windows depois de restaurar (Configurações → Windows)
+- **Renomear o Windows com o nome cadastrado**: liga e pronto. O sistema de clonagem troca o nome logo depois de
+  gravar o disco (só máquinas cadastradas).
+- **Entrar no domínio** e **ativar a licença**: precisam do *agente para Windows* instalado **uma vez na máquina
+  modelo**, antes de capturar (o painel mostra o link e os 3 passos). No primeiro boot depois de restaurar, o agente
+  coloca a máquina no domínio e ativa a licença. Chave própria de uma máquina: Máquinas → Editar → *Chave do
+  Windows*; sem chave própria, vale a chave padrão.
+- O agente não reinicia, não desliga e não desloga ninguém sozinho.
+
+## Cópias das imagens (Configurações → Cópias)
+- Ligue um **HD externo** no servidor (exFAT ou NTFS; FAT32 não guarda arquivos maiores que 4 GB) ou configure uma
+  **pasta de rede** (NAS, Windows ou outro servidor: `//servidor/pasta`, usuário e senha).
+- Escolha o destino, marque as imagens e clique em *Copiar para o destino*. Cada arquivo é lido de volta e conferido
+  bit a bit. No destino as imagens ficam em `LabFreeImageDeploy-imagens/`.
+- **Importar**: escolha o destino e clique em *Importar* na imagem. Ela é copiada para o servidor, conferida (também
+  contra a cópia original: um HD estragado é detectado) e aparece em Imagens. Serve para levar imagens de um
+  servidor LabFree para outro.
+
 ## Compressão e otimização das imagens
 - Ao criar ou editar uma imagem: **Compressão na captura** — *Rápida* (padrão: a captura termina antes),
   *Normal* ou *Menor arquivo*. Vale para a próxima captura.

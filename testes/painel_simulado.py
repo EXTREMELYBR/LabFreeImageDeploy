@@ -177,6 +177,23 @@ def resposta(acao, c, q, corpo):
         return 200, {'historico': 13, 'fila': 2, 'em_andamento': 3, 'clonagens': 154, 'registros': 0}
     if acao == 'cadastro':
         return 200, {'prefixo': 'LAB-', 'sufixo': '', 'digitos': 3, 'numero': 1, 'imagem_id': 1, 'restaurar': False, 'sugestao': 'LAB-009', 'menu_espera': 0}
+    if acao == 'windows':
+        return 200, {'renomear': True, 'dominio': {'ligado': c == 'cheio', 'nome': 'escola.local', 'ou': 'OU=Laboratorio,DC=escola,DC=local', 'usuario': 'ingresso',
+                                                    'tem_senha': True}, 'licenca': True, 'chave_padrao': 'NPPR9-•••••-•••••-•••••-29W2D',
+                     'agente': '/fog/client/FOGService.msi', 'servidor': '192.168.31.1', 'maquinas': 12}
+    if acao == 'copias':
+        trab = None if c == 'vazio' else {'op': 'exportar', 'fase': 'erro' if c == 'problema' else 'copiando', 'total': 41_200_000_000, 'feito': 17_300_000_000,
+                                          'destino': 'Seagate Expansion “BACKUP”', 'atual': 'Laboratorio Fontes', 'id': '1793136000',
+                                          'erro': 'Falta espaço no destino: precisa de 41,2 GB e tem 12,0 GB livres.' if c == 'problema' else ''}
+        return 200, {'discos': [] if c == 'vazio' else [
+            {'dispositivo': '/dev/sdb1', 'rotulo': 'BACKUP', 'fs': 'exfat', 'tamanho': 2_000_000_000_000, 'livre': 1_210_000_000_000, 'montado_em': '', 'modelo': 'Seagate Expansion', 'aceito': True, 'aviso': ''},
+            {'dispositivo': '/dev/sdc1', 'rotulo': 'PENDRIVE', 'fs': 'vfat', 'tamanho': 32_000_000_000, 'livre': 30_000_000_000, 'montado_em': '/media/labfree/PENDRIVE', 'modelo': 'SanDisk Ultra', 'aceito': True,
+             'aviso': 'FAT32 não guarda arquivos maiores que 4 GB: formate em exFAT ou NTFS.'}],
+            'rede': {'endereco': '//nas/backup-imagens', 'usuario': 'backup', 'dominio': ''} if c == 'cheio' else None,
+            'trabalho': trab, 'rodando': c == 'cheio'}
+    if acao == 'copias_listar':
+        return 200, {'livre': 1_210_000_000_000, 'imagens': [{'pasta': 'LaboratorioFontes', 'nome': 'Laboratorio Fontes', 'descricao': '', 'os': 'Windows 10',
+                     'tamanho': 41_200_000_000, 'exportada': iso(60 * 24 * 6), 'servidor': 'lab-sabara', 'tipo': 2}]}
     if acao == 'dhcp':
         return 200, {'ativo': True, 'escutando': c != 'problema', 'interface': 'enx00e04c690b37', 'inicio': '192.168.31.100', 'fim': '192.168.31.250', 'gateway': '',
                      'dns': [], 'dominio': '', 'concessao_horas': 6, 'rede': '192.168.31.0/24', 'mascara': '255.255.255.0', 'servidor_ip': '192.168.31.1',

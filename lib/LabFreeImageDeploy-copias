@@ -1,0 +1,542 @@
+#!/usr/bin/python3 -I
+"""LabFreeImageDeploy-copias — copia imagens para um HD externo (USB) ou pasta de rede (NAS, Windows, outro
+servidor) e importa de volta, sempre conferindo BIT A BIT (SHA-256 lido de volta do destino).
+
+Chamado como root pelo ajudante (ação "copias" do painel) e pelo comando `LabFreeImageDeploy copias`.
+Entrada: JSON no stdin com "op":
+  ler                         discos USB detectados, pasta de rede configurada, trabalho atual
+  rede     {endereco,usuario,senha,dominio}   testa e guarda a pasta de rede (//servidor/pasta)
+  listar   {destino}          imagens que já estão no destino
+  exportar {destino, imagens:[{id,caminho,nome,...}]}   copia do servidor para o destino (em segundo plano)
+  importar {destino, pastas:[...]}                      copia do destino para o servidor (em segundo plano)
+  cancelar                    para o trabalho em andamento
+  trabalho {json}             (interno) executa o trabalho; roda numa unidade própria do systemd
+destino = {"tipo": "disco", "dispositivo": "/dev/sdb1"} | {"tipo": "rede"}
+
+No destino, cada imagem fica em LabFreeImageDeploy-imagens/<pasta>/ com os arquivos da imagem e
+labfree-imagem.json (dados da imagem + SHA-256 de cada arquivo). Na importação, os arquivos são conferidos contra
+esse SHA-256 (detecta HD que estragou depois da cópia) e lidos de volta do servidor; o painel cadastra a imagem.
+Andamento em /run/LabFreeImageDeploy/copia.json (o painel lê).
+"""
+import fcntl
+import hashlib
+import json
+import os
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+CONF = '/etc/LabFreeImageDeploy/copias.json'          # pasta de rede (inclui a senha: só root lê)
+ESTADO = '/run/LabFreeImageDeploy/copia.json'          # andamento (o painel lê)
+TRAVA = '/run/LabFreeImageDeploy-copia.lock'
+TRAVA_OTIMIZAR = '/run/LabFreeImageDeploy-otimizar.lock'
+MONTAGEM = '/run/LabFreeImageDeploy/destino'
+PASTA_DESTINO = 'LabFreeImageDeploy-imagens'
+MANIFESTO = 'labfree-imagem.json'
+IMAGENS = '/images'
+BLOCO = 4 * 1024 * 1024
+FS_OK = {'exfat', 'ntfs', 'ntfs3', 'ext4', 'ext3', 'ext2', 'xfs', 'btrfs', 'vfat'}
+RE_PASTA = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
+RE_REDE = re.compile(r'^//[A-Za-z0-9._-]+/[^\x00-\x1f"\\]+$')
+RE_DEV = re.compile(r'^/dev/[A-Za-z0-9]+$')
+
+
+class Erro(Exception):
+    """Mensagem pronta para o usuário."""
+
+
+class Cancelado(Exception):
+    pass
+
+
+def sh(cmd, tempo=120):
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=tempo)
+
+
+# ------------------------------------------------------------------ destinos
+
+def discos_usb():
+    """Partições (ou discos sem partição) ligados por USB / removíveis. Discos internos nunca aparecem."""
+    r = sh(['lsblk', '-J', '-b', '-o', 'NAME,PATH,TYPE,SIZE,FSTYPE,LABEL,MOUNTPOINT,RM,HOTPLUG,TRAN,MODEL,VENDOR,FSAVAIL'])
+    if r.returncode != 0:
+        return []
+    saida = []
+
+    def visitar(dev, pai):
+        externo = (pai or dev).get('tran') == 'usb' or bool((pai or dev).get('hotplug')) or bool((pai or dev).get('rm'))
+        filhos = dev.get('children') or []
+        if dev.get('type') in ('part', 'disk') and not (dev.get('type') == 'disk' and filhos) and externo and dev.get('fstype'):
+            modelo = ' '.join(x for x in ((pai or dev).get('vendor') or '', (pai or dev).get('model') or '') if x).strip()
+            saida.append({'dispositivo': dev['path'], 'rotulo': dev.get('label') or '', 'fs': dev.get('fstype') or '',
+                          'tamanho': int(dev.get('size') or 0), 'livre': int(dev['fsavail']) if dev.get('fsavail') else None,
+                          'montado_em': dev.get('mountpoint') or '', 'modelo': modelo,
+                          'aceito': (dev.get('fstype') or '') in FS_OK,
+                          'aviso': 'FAT32 não guarda arquivos maiores que 4 GB: formate em exFAT ou NTFS.' if dev.get('fstype') == 'vfat' else ''})
+        for f in filhos:
+            visitar(f, pai or dev)
+
+    for d in json.loads(r.stdout).get('blockdevices', []):
+        visitar(d, None)
+    return saida
+
+
+def ler_conf():
+    try:
+        with open(CONF) as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def gravar_conf(d):
+    os.makedirs(os.path.dirname(CONF), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(CONF), prefix='.copias-')
+    with os.fdopen(fd, 'w') as f:
+        os.fchmod(f.fileno(), 0o600)
+        json.dump(d, f)
+    os.replace(tmp, CONF)
+
+
+def montar(destino):
+    """Devolve (pasta_raiz_no_destino, montado_por_nos)."""
+    tipo = destino.get('tipo')
+    if tipo == 'disco':
+        dev = str(destino.get('dispositivo', ''))
+        if not RE_DEV.match(dev):
+            raise Erro('Disco inválido.')
+        d = next((x for x in discos_usb() if x['dispositivo'] == dev), None)
+        if not d:
+            raise Erro('Esse disco não está mais ligado (ou não é um disco externo).')
+        if not d['aceito']:
+            raise Erro(f"O disco está formatado como {d['fs'] or 'desconhecido'}, que o servidor não usa. Formate em exFAT ou NTFS.")
+        if d['montado_em']:
+            return d['montado_em'], False
+        os.makedirs(MONTAGEM, exist_ok=True)
+        fs = {'ntfs': 'ntfs3'}.get(d['fs'], d['fs'])
+        r = sh(['mount', '-t', fs, '-o', 'noatime', dev, MONTAGEM])
+        if r.returncode != 0 and d['fs'] == 'ntfs':
+            r = sh(['mount', '-t', 'ntfs-3g', '-o', 'noatime', dev, MONTAGEM])
+        if r.returncode != 0:
+            raise Erro(f'Não foi possível abrir o disco: {r.stderr.strip()[-200:]}')
+        return MONTAGEM, True
+    if tipo == 'rede':
+        c = ler_conf().get('rede')
+        if not c:
+            raise Erro('Configure a pasta de rede primeiro.')
+        return montar_rede(c), True
+    raise Erro('Destino inválido.')
+
+
+def montar_rede(c):
+    if not shutil.which('mount.cifs'):
+        raise Erro('Falta o suporte a pasta de rede (pacote cifs-utils). Rode o instalador de novo.')
+    os.makedirs(MONTAGEM, exist_ok=True)
+    fd, cred = tempfile.mkstemp(prefix='.cred-', dir='/run/LabFreeImageDeploy')
+    try:
+        with os.fdopen(fd, 'w') as f:
+            os.fchmod(f.fileno(), 0o600)
+            f.write(f"username={c.get('usuario', '')}\npassword={c.get('senha', '')}\n")
+            if c.get('dominio'):
+                f.write(f"domain={c['dominio']}\n")
+        r = sh(['mount', '-t', 'cifs', c['endereco'], MONTAGEM, '-o', f'credentials={cred},uid=0,gid=0,file_mode=0640,dir_mode=0750,noserverino'], 60)
+    finally:
+        os.remove(cred)
+    if r.returncode != 0:
+        msg = r.stderr.strip()
+        if 'Permission denied' in msg or 'error(13)' in msg:
+            raise Erro('A pasta de rede recusou o usuário ou a senha.')
+        if 'No route' in msg or 'Host is down' in msg or 'error(112)' in msg or 'error(115)' in msg:
+            raise Erro('O servidor da pasta de rede não respondeu (confira o endereço e se ele está ligado).')
+        raise Erro(f'Não foi possível abrir a pasta de rede: {msg[-200:]}')
+    return MONTAGEM
+
+
+def desmontar(montado):
+    if montado:
+        sh(['sync'])
+        sh(['umount', MONTAGEM])
+
+
+def listar_destino(raiz):
+    base = os.path.join(raiz, PASTA_DESTINO)
+    out = []
+    if not os.path.isdir(base):
+        return out
+    for n in sorted(os.listdir(base)):
+        m = os.path.join(base, n, MANIFESTO)
+        if n.startswith('.') or not os.path.isfile(m):
+            continue
+        try:
+            with open(m) as f:
+                man = json.load(f)
+            out.append({'pasta': n, 'nome': man.get('nome', n), 'descricao': man.get('descricao', ''), 'os': man.get('os', ''),
+                        'tamanho': sum(int(a.get('tamanho', 0)) for a in man.get('arquivos', {}).values()),
+                        'exportada': man.get('exportada'), 'servidor': man.get('servidor', ''), 'tipo': man.get('tipo')})
+        except (OSError, ValueError, AttributeError):
+            continue
+    return out
+
+
+# ------------------------------------------------------------------ andamento
+
+class Andamento:
+    def __init__(self, d):
+        self.d = d
+        self.ultimo = 0
+
+    def gravar(self, forcar=False):
+        if not forcar and time.time() - self.ultimo < 1:
+            return
+        self.d['atualizado'] = int(time.time())
+        os.makedirs(os.path.dirname(ESTADO), exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(ESTADO), prefix='.copia-')
+        with os.fdopen(fd, 'w') as f:
+            json.dump(self.d, f, ensure_ascii=False)
+            os.fchmod(f.fileno(), 0o644)
+        os.replace(tmp, ESTADO)
+        self.ultimo = time.time()
+
+
+def ler_estado():
+    try:
+        with open(ESTADO) as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if d.get('fase') in ('copiando', 'conferindo', 'preparando') and not trabalho_rodando():
+        d['fase'] = 'erro'
+        d['erro'] = 'O trabalho parou no meio (servidor reiniciado?). Os arquivos incompletos não valem; comece de novo.'
+    return d
+
+
+def trabalho_rodando():
+    try:
+        fd = os.open(TRAVA, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    except OSError:
+        return False
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return False
+    except BlockingIOError:
+        return True
+    finally:
+        os.close(fd)
+
+
+# ------------------------------------------------------------------ cópia conferida
+
+def copiar_conferido(origem, destino, est, esperado=None):
+    """Copia calculando o SHA-256, grava no disco (fsync), descarta o cache e lê de volta do destino.
+    Devolve o SHA-256. Levanta Erro se o lido de volta (ou o esperado) não bater."""
+    h = hashlib.sha256()
+    with open(origem, 'rb') as fo, open(destino, 'wb') as fd:
+        while True:
+            if est.d.get('cancelar'):
+                raise Cancelado()
+            b = fo.read(BLOCO)
+            if not b:
+                break
+            h.update(b)
+            fd.write(b)
+            est.d['feito'] += len(b)
+            est.gravar()
+        fd.flush()
+        os.fsync(fd.fileno())
+    sha = h.hexdigest()
+    if esperado and sha != esperado:
+        raise Erro(f'{os.path.basename(origem)} está diferente do que foi copiado originalmente (o disco de origem pode estar com defeito).')
+    est.d['fase'] = 'conferindo'
+    est.gravar(True)
+    h2 = hashlib.sha256()
+    with open(destino, 'rb') as f:
+        try:
+            os.posix_fadvise(f.fileno(), 0, 0, os.POSIX_FADV_DONTNEED)  # ler do disco, não da memória
+        except OSError:
+            pass
+        while True:
+            if est.d.get('cancelar'):
+                raise Cancelado()
+            b = f.read(BLOCO)
+            if not b:
+                break
+            h2.update(b)
+    if h2.hexdigest() != sha:
+        raise Erro(f'A conferência de {os.path.basename(destino)} falhou: o que foi gravado não é igual ao original. Troque o disco/cabo e tente de novo.')
+    est.d['fase'] = 'copiando'
+    return sha
+
+
+def arquivos_da_imagem(pasta):
+    return sorted(n for n in os.listdir(pasta) if not n.startswith('.') and os.path.isfile(os.path.join(pasta, n))
+                  and not os.path.islink(os.path.join(pasta, n)))
+
+
+def espaco_livre(pasta):
+    st = os.statvfs(pasta)
+    return st.f_bavail * st.f_frsize
+
+
+def exportar(raiz, imagens, est):
+    base = os.path.join(raiz, PASTA_DESTINO)
+    os.makedirs(base, exist_ok=True)
+    total = 0
+    planos = []
+    for img in imagens:
+        caminho = img['caminho']
+        origem = os.path.join(IMAGENS, caminho)
+        if not RE_PASTA.match(caminho) or not os.path.isdir(origem):
+            raise Erro(f"A imagem {img.get('nome', caminho)} não tem arquivos no servidor.")
+        arqs = arquivos_da_imagem(origem)
+        tam = sum(os.path.getsize(os.path.join(origem, a)) for a in arqs)
+        planos.append((img, origem, arqs, tam))
+        total += tam
+    if total > espaco_livre(base) - 200 * 1024 * 1024:
+        raise Erro(f'Falta espaço no destino: precisa de {total / 1e9:.1f} GB e tem {espaco_livre(base) / 1e9:.1f} GB livres.')
+    est.d.update({'total': total, 'feito': 0})
+    for img, origem, arqs, tam in planos:
+        est.d['atual'] = img.get('nome', img['caminho'])
+        parcial = os.path.join(base, f".{img['caminho']}.parcial")
+        shutil.rmtree(parcial, ignore_errors=True)
+        os.makedirs(parcial)
+        man = {k: img.get(k) for k in ('nome', 'descricao', 'os', 'os_id', 'tipo', 'tipo_particao', 'formato', 'compressao', 'caminho')}
+        man.update({'arquivos': {}, 'exportada': time.strftime('%Y-%m-%dT%H:%M:%S%z'), 'servidor': os.uname().nodename,
+                    'versao_labfree': open('/etc/LabFreeImageDeploy/versao').read().strip() if os.path.exists('/etc/LabFreeImageDeploy/versao') else ''})
+        for a in arqs:
+            sha = copiar_conferido(os.path.join(origem, a), os.path.join(parcial, a), est)
+            man['arquivos'][a] = {'tamanho': os.path.getsize(os.path.join(origem, a)), 'sha256': sha}
+        with open(os.path.join(parcial, MANIFESTO), 'w') as f:
+            json.dump(man, f, ensure_ascii=False, indent=1)
+            f.flush()
+            os.fsync(f.fileno())
+        final = os.path.join(base, img['caminho'])
+        if os.path.exists(final):
+            velha = os.path.join(base, f".{img['caminho']}.anterior")
+            shutil.rmtree(velha, ignore_errors=True)
+            os.rename(final, velha)
+            os.rename(parcial, final)
+            shutil.rmtree(velha, ignore_errors=True)
+        else:
+            os.rename(parcial, final)
+        est.d.setdefault('concluidas', []).append(img.get('nome', img['caminho']))
+        est.gravar(True)
+
+
+def importar(raiz, pastas, est):
+    base = os.path.join(raiz, PASTA_DESTINO)
+    planos = []
+    total = 0
+    for p in pastas:
+        if not RE_PASTA.match(p):
+            raise Erro('Pasta inválida.')
+        pasta = os.path.join(base, p)
+        try:
+            with open(os.path.join(pasta, MANIFESTO)) as f:
+                man = json.load(f)
+        except (OSError, ValueError):
+            raise Erro(f'{p}: falta o arquivo de dados da imagem ({MANIFESTO}); não é uma cópia do LabFree.')
+        arqs = man.get('arquivos') or {}
+        for a, info in arqs.items():
+            c = os.path.join(pasta, a)
+            if '/' in a or a.startswith('.') or not os.path.isfile(c):
+                raise Erro(f'{p}: falta o arquivo {a}. A cópia está incompleta.')
+            if os.path.getsize(c) != int(info.get('tamanho', -1)):
+                raise Erro(f'{p}: o arquivo {a} está com tamanho diferente do original. A cópia está estragada.')
+        tam = sum(int(i['tamanho']) for i in arqs.values())
+        planos.append((p, pasta, man, tam))
+        total += tam
+    if total > espaco_livre(IMAGENS) - 2 * 1024 ** 3:
+        raise Erro(f'Falta espaço no servidor: precisa de {total / 1e9:.1f} GB e tem {espaco_livre(IMAGENS) / 1e9:.1f} GB livres.')
+    st = os.stat(IMAGENS)
+    est.d.update({'total': total, 'feito': 0, 'importadas': []})
+    for p, pasta, man, tam in planos:
+        est.d['atual'] = man.get('nome', p)
+        nova = p
+        n = 2
+        while os.path.exists(os.path.join(IMAGENS, nova)):
+            nova = f'{p}-{n}'
+            n += 1
+        parcial = os.path.join(IMAGENS, f'.{nova}.importando')
+        shutil.rmtree(parcial, ignore_errors=True)
+        os.makedirs(parcial)
+        for a, info in sorted(man['arquivos'].items()):
+            dst = os.path.join(parcial, a)
+            copiar_conferido(os.path.join(pasta, a), dst, est, esperado=info.get('sha256'))
+            os.chown(dst, st.st_uid, st.st_gid)
+            os.chmod(dst, 0o775)
+        os.chown(parcial, st.st_uid, st.st_gid)
+        os.chmod(parcial, 0o775)
+        os.rename(parcial, os.path.join(IMAGENS, nova))
+        man['caminho'] = nova
+        est.d['importadas'].append(man)
+        est.gravar(True)
+
+
+def trabalho(pedido):
+    fd = os.open(TRAVA, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    est = Andamento({'op': pedido['op_trabalho'], 'fase': 'preparando', 'inicio': int(time.time()), 'total': 0, 'feito': 0,
+                     'destino': pedido.get('destino_nome', ''), 'id': pedido.get('id', '')})
+    est.gravar(True)
+    signal.signal(signal.SIGTERM, lambda *_: est.d.update(cancelar=True))
+    # a otimização das imagens não pode trocar arquivos no meio da cópia: ela vê esta trava e pausa
+    fo = os.open(TRAVA_OTIMIZAR, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    fim = time.time() + 120
+    while True:
+        try:
+            fcntl.flock(fo, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except BlockingIOError:
+            if time.time() > fim:
+                est.d.update(fase='erro', erro='A otimização das imagens não parou a tempo. Tente de novo em alguns minutos.')
+                est.gravar(True)
+                return 1
+            time.sleep(2)
+    montado = False
+    raiz = None
+    try:
+        raiz, montado = montar(pedido['destino'])
+        est.d['fase'] = 'copiando'
+        if pedido['op_trabalho'] == 'exportar':
+            exportar(raiz, pedido['imagens'], est)
+        else:
+            importar(raiz, pedido['pastas'], est)
+        est.d.update(fase='concluido', fim=int(time.time()))
+        rc = 0
+    except Cancelado:
+        est.d.update(fase='cancelado', fim=int(time.time()))
+        rc = 1
+    except Erro as ex:
+        est.d.update(fase='erro', erro=str(ex), fim=int(time.time()))
+        rc = 1
+    except OSError as ex:
+        est.d.update(fase='erro', erro=f'Falha ao ler ou gravar ({ex.strerror or ex}). Confira o disco/cabo e o espaço livre.', fim=int(time.time()))
+        rc = 1
+    finally:
+        # restos de cópia incompleta não podem parecer imagem
+        for base in ([os.path.join(raiz, PASTA_DESTINO)] if raiz else []) + [IMAGENS]:
+            try:
+                for n in os.listdir(base):
+                    if n.startswith('.') and (n.endswith('.parcial') or n.endswith('.importando')) and est.d.get('fase') != 'concluido':
+                        shutil.rmtree(os.path.join(base, n), ignore_errors=True)
+            except OSError:
+                pass
+        try:
+            desmontar(montado)
+        except Exception:
+            pass
+        est.gravar(True)
+    return rc
+
+
+# ------------------------------------------------------------------ entrada
+
+def descrever(destino):
+    if destino.get('tipo') == 'rede':
+        return ler_conf().get('rede', {}).get('endereco', 'pasta de rede')
+    d = next((x for x in discos_usb() if x['dispositivo'] == destino.get('dispositivo')), None)
+    return f"{d['modelo'] or 'Disco externo'} {d['rotulo']}".strip() if d else 'disco externo'
+
+
+def executar(e):
+    op = e.get('op')
+    if op == 'ler':
+        rede = ler_conf().get('rede') or {}
+        return {'discos': discos_usb(), 'rede': {'endereco': rede.get('endereco', ''), 'usuario': rede.get('usuario', ''),
+                                                 'dominio': rede.get('dominio', '')} if rede else None,
+                'trabalho': ler_estado(), 'rodando': trabalho_rodando()}
+    if op == 'rede':
+        end = str(e.get('endereco', '')).strip().replace('\\', '/')
+        if not RE_REDE.match(end):
+            raise Erro('Endereço da pasta de rede: no formato //servidor/pasta (ou \\\\servidor\\pasta).')
+        c = {'endereco': end, 'usuario': str(e.get('usuario', '')).strip()[:100], 'dominio': str(e.get('dominio', '')).strip()[:100]}
+        antiga = ler_conf().get('rede') or {}
+        c['senha'] = str(e.get('senha', '')) if e.get('senha') else antiga.get('senha', '')
+        if any(ch in c['usuario'] + c['dominio'] + c['senha'] for ch in '\n\r'):
+            raise Erro('Usuário, domínio e senha não podem ter quebra de linha.')
+        if trabalho_rodando():
+            raise Erro('Há uma cópia em andamento.')
+        montar_rede(c)  # testa de verdade
+        livre = espaco_livre(MONTAGEM)
+        desmontar(True)
+        conf = ler_conf()
+        conf['rede'] = c
+        gravar_conf(conf)
+        return {'ok': True, 'msg': f'Pasta de rede conectada ({livre / 1e9:.0f} GB livres).'}
+    if op == 'listar':
+        if trabalho_rodando():
+            raise Erro('Há uma cópia em andamento: espere terminar.')
+        raiz, montado = montar(e.get('destino') or {})
+        try:
+            return {'imagens': listar_destino(raiz), 'livre': espaco_livre(raiz)}
+        finally:
+            desmontar(montado)
+    if op in ('exportar', 'importar'):
+        if trabalho_rodando():
+            raise Erro('Já há uma cópia em andamento.')
+        destino = e.get('destino') or {}
+        if destino.get('tipo') not in ('disco', 'rede'):
+            raise Erro('Escolha o destino.')
+        pedido = {'op_trabalho': op, 'destino': destino, 'destino_nome': descrever(destino), 'id': str(int(time.time()))}
+        if op == 'exportar':
+            imgs = [i for i in (e.get('imagens') or []) if isinstance(i, dict) and RE_PASTA.match(str(i.get('caminho', '')))]
+            if not imgs:
+                raise Erro('Escolha pelo menos uma imagem.')
+            pedido['imagens'] = imgs
+        else:
+            pastas = [str(p) for p in (e.get('pastas') or []) if RE_PASTA.match(str(p))]
+            if not pastas:
+                raise Erro('Escolha pelo menos uma imagem.')
+            pedido['pastas'] = pastas
+        os.makedirs('/run/LabFreeImageDeploy', exist_ok=True)
+        fd, arq = tempfile.mkstemp(prefix='.pedido-', dir='/run/LabFreeImageDeploy')
+        with os.fdopen(fd, 'w') as f:
+            os.fchmod(f.fileno(), 0o600)
+            json.dump(pedido, f)
+        Andamento({'op': op, 'fase': 'preparando', 'inicio': int(time.time()), 'total': 0, 'feito': 0,
+                   'destino': pedido['destino_nome'], 'id': pedido['id']}).gravar(True)
+        # unidade própria: a cópia continua mesmo que o painel (PHP) seja reiniciado
+        r = sh(['systemd-run', '--quiet', '--collect', f"--unit=LabFreeImageDeploy-copia-{pedido['id']}",
+                '--property=Nice=10', '--property=IOSchedulingClass=best-effort',
+                sys.executable, '-I', os.path.realpath(__file__), '--trabalho', arq])
+        if r.returncode != 0:
+            os.remove(arq)
+            raise Erro(f'Não foi possível iniciar a cópia: {r.stderr.strip()[-200:]}')
+        return {'ok': True, 'msg': 'Cópia iniciada. Acompanhe aqui.', 'id': pedido['id']}
+    if op == 'cancelar':
+        r = sh(['systemctl', 'kill', '--signal=SIGTERM', 'LabFreeImageDeploy-copia-*.service'])
+        return {'ok': True, 'msg': 'Cancelando a cópia…' if r.returncode == 0 else 'Nenhuma cópia em andamento.'}
+    raise Erro('Operação desconhecida.')
+
+
+def main():
+    if os.geteuid() != 0:
+        print(json.dumps({'erro': 'Precisa ser executado como root.'}, ensure_ascii=False))
+        return 1
+    if len(sys.argv) == 3 and sys.argv[1] == '--trabalho':
+        with open(sys.argv[2]) as f:
+            pedido = json.load(f)
+        os.remove(sys.argv[2])
+        return trabalho(pedido)
+    try:
+        bruto = '' if sys.stdin.isatty() else sys.stdin.read(65536)
+        e = json.loads(bruto) if bruto.strip() else {'op': 'ler'}
+        if not isinstance(e, dict):
+            raise Erro('Entrada inválida.')
+        print(json.dumps(executar(e), ensure_ascii=False))
+        return 0
+    except Erro as ex:
+        print(json.dumps({'erro': str(ex)}, ensure_ascii=False))
+        return 1
+    except Exception as ex:
+        print(json.dumps({'erro': f'Erro inesperado: {type(ex).__name__}: {ex}'}, ensure_ascii=False))
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
