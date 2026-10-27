@@ -6,6 +6,8 @@
 #         ferramentas/publicar.sh --pacote   o mesmo e ainda anexa o pacote de instalação (dist/) a uma
 #                                            "release" privada no GitHub
 #
+#  PUBLICAR_RODAPE="linhas"   acrescenta essas linhas no fim da mensagem do commit (ex.: coautoria).
+#
 #  Regras (o script recusa publicar se não forem cumpridas):
 #    1. VERSION mudou desde a última versão publicada;
 #    2. CHANGELOG.md tem a seção "## [VERSÃO]" com o que mudou;
@@ -59,6 +61,8 @@ else
     git commit -q -F - <<MSG
 LabFree ImageDeploy $VERSAO
 $NOTAS
+${PUBLICAR_RODAPE:+
+$PUBLICAR_RODAPE}
 MSG
 fi
 git push -q origin HEAD

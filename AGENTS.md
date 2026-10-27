@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 26/10/2026 (noite). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 27/10/2026 (versão 0.7.1). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -21,11 +21,16 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 6. Renomear para **LabFree ImageDeploy**, remover o painel avançado `/fog`, sistema **autônomo** (sem atualizações do FOG),
    nome trocado **até nas telas de boot PXE** — feito.
 7. Cadastro de máquinas pelo boot **simples, rápido, poucos passos, bonito** — feito (whiptail, 2 passos).
+8. Pastas, diretórios, serviços "e cia" com o nome **LabFreeImageDeploy** — feito no repositório e no instalador;
+   na produção, migrado quando o usuário rodou o instalador em 26/10 (seção 8).
 9. Usuário/senha padrão **admin/admin** com **troca obrigatória no primeiro acesso** — feito (exigida no servidor: HTTP 428 em
    qualquer ação até `primeira_senha`; `LabFreeImageDeploy senha USUARIO --redefinir` volta para admin/admin).
-10. Objetivo comercial: "software que dê para vender" para escolas e empresas (ver seção 9).
-8. Pastas, diretórios, serviços "e cia" com o nome **LabFreeImageDeploy** — feito no repositório e no instalador;
-   **na máquina de produção a migração depende do usuário rodar o instalador** (seção 8).
+10. Objetivo comercial: "software que dê para vender" para escolas e empresas (ver seção 10).
+11. Varreduras completas de segurança e funcionamento (0.5.0) e publicação no GitHub privado com documentação de toda
+    mudança (regra no topo deste arquivo) — feito.
+12. Porcentagem, etapas e mensagens na tela da máquina e no painel; a máquina **não reinicia sozinha** no fim (mostra o
+    resultado e o registro); limpar o histórico pelo painel — feito na 0.6.0 (tela da máquina depende do instalador, seção 8).
+13. Varredura do painel tela a tela: mais bonito, moderno, fácil de entender, sem falhas de layout — feito na 0.7.0.
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -46,11 +51,11 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 | `lib/LabFreeImageDeploy-root` | ajudante root em Python (ações na seção 4) |
 | `sbin/` | `LabFreeImageDeploy` (comando único) + `LabFreeImageDeploy-{verificar,backup,restaurar-backup,reaplicar,senha}` |
 | `sistema/` | sudoers, dispatcher NM, timer de backup, regras apt, energia, `raiz-index.php` |
-| `marca/` | `LabFreeImageDeploy-fundo.png` (+ `fundo-boot.html` que o gera), `fos/bin/fog.man.reg` (cadastro guiado), `servidor/LabFreeImageDeploy-cadastro.php` |
+| `marca/` | `LabFreeImageDeploy-fundo.png` (+ `fundo-boot.html` que o gera); `fos/` (arquivos que entram no FOS: `bin/fog.man.reg` cadastro guiado, `bin/labfree-tela` tela da clonagem, `etc/init.d/S99fog`, `usr/share/fog/lib/labfree-tela.sh`); `servidor/` (`LabFreeImageDeploy-cadastro.php`, `LabFreeImageDeploy-etapa.php`) |
 | `ferramentas/` | `empacotar.sh` (gera `dist/LabFreeImageDeploy-<versão>.tar.gz`), `publicar.sh` (envia versão ao GitHub), `LabFreeImageDeploy-recompilar-ipxe` |
 | `CHANGELOG.md` | o que mudou em cada versão (obrigatório antes de publicar) |
-| `testes/` | `cdp_teste.py`, `boot_vm.sh`, testes de rollback e de certificado (não vão no pacote) |
-| `docs/` | `INSTALACAO.md`, `USO.md`, `ARQUITETURA.md` (leia este para entender o funcionamento), `CUSTOMIZACOES-MAQUINA-ATUAL.md` (histórico do dia 1, nomes antigos) |
+| `testes/` | `painel_simulado.py`, `plano_fotos.py`, `fotos_painel.py` (painel com API simulada e fotos), `cdp_teste.py`, `boot_vm.sh`, testes de rollback e de certificado (não vão no pacote) |
+| `docs/` | `INSTALACAO.md`, `USO.md`, `ARQUITETURA.md` (leia este para entender o funcionamento), `PROMPT-CONTINUAR.md` (texto para passar o projeto a outra IA), `CUSTOMIZACOES-MAQUINA-ATUAL.md` (histórico do dia 1, nomes antigos) |
 
 ## 4. Ajudante root (`LabFreeImageDeploy-root`) — ações
 `status`, `dhcp-ler`, `dhcp-aplicar`, `rede-listar`, `rede-simular`, `rede-aplicar`, `reaplicar`, `imagem-apagar`,
@@ -158,6 +163,11 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   órfãos; testar Ubuntu 22.04/Debian 12 (Kea 2.0/2.2); fuso FOG_TZ_INFO (UTC) diferente do sistema.
 
 ## 7d. Versão 0.7.0 (27/10) — varredura do painel
+- Estrutura do `app.js`: `el()` monta o DOM; cada tela é uma função `tela*` com `repetir()` (atualização ao vivo) e
+  `geracao` (tela antiga não desenha sobre a nova); `chaveVivo` evita redesenhar sem mudança e `interagindo()` evita
+  redesenhar no meio de um clique; `modal()`, `menuSuspenso`, `escolhas` (cartões de escolha) e `assistente` (passos).
+  Novas na 0.7.0: `trilha()`/`etapaDe()` (5 etapas, estimadas pela fase quando a máquina não informa), `filtros()`
+  (botões com contagem), `rotuloDia()`.
 - 47 situações fotografadas (telas, janelas, assistentes, menus) × celular/tablet/computador × claro/escuro com a API
   simulada; verificação automática de layout sem achados no fim (só reticências esperadas em nomes de placa) e sem erros de JS.
 - Os cartões (`.cartao`) são `container-type: inline-size`: regras `@container` ajustam histórico e tarefas pela
@@ -176,12 +186,22 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
 - **Falta (ação do usuário, porque grava o sudoers)**: `cd /opt/LabFreeImageDeploy && sudo ./instalar.sh` para levar o resto da
   varredura: sudoers restrito, cadastro pelo boot novo (reconstrói o FOS), `LabFreeImageDeploy-cadastro.php`, scripts de
   backup/restauração/verificação, logrotate, marcador `base-instalada`. Depois: `sudo LabFreeImageDeploy verificar`.
+- 27/10: 0.7.0 aplicada **só** nos arquivos visuais do painel (`app.js`, `app.css`, `index.html` em
+  `/var/www/html/LabFreeImageDeploy/`, dono e permissões preservados), sem reiniciar nada e sem clonagem em andamento.
+  `api.php` e o ajudante não mudaram. Backup: `/var/backups/LabFreeImageDeploy/manual-20261027-v070/`. Tela de login
+  conferida no Chrome sem erros. Enquanto o instalador não rodar, a trilha de etapas do painel é **estimada pela fase**
+  (a máquina ainda usa a tela antiga do FOS e não envia `labfreeEtapas`).
 
 ## 9. Próximos passos sugeridos
 1. Depois que o usuário rodar o instalador em produção: conferir `LabFreeImageDeploy verificar`, testar o painel e um cadastro real.
 2. Traduzir as telas restantes do FOS (menus de inventário/sysinfo, mensagens do Partclone) — hoje em inglês.
 3. Confirmação com tempo na troca de IP (desfaz se o usuário não confirmar em 2 min).
 4. CI no GitHub Actions com `bash -n`, `shellcheck`, `php -l`, `py_compile` (o `publicar.sh` já faz essas conferências localmente).
+5. Registro ao vivo no painel: hoje o painel mostra fase, etapa, porcentagem e velocidade ao vivo, mas as linhas do
+   registro só chegam no fim (`LabFreeImageDeploy-etapa.php` recebe o registro com o resultado). Oferecido ao usuário.
+6. Pendências da 0.6.0 (seção 7c): multicast de máquinas cadastradas sem login em cada uma; expirar tarefas esquecidas;
+   limpar `/images/dev` órfãos; testar Ubuntu 22.04/Debian 12; fuso `FOG_TZ_INFO` diferente do sistema.
+7. Para passar o projeto a outra IA, use o texto de `docs/PROMPT-CONTINUAR.md`.
 
 ## 10. Objetivo comercial (pedido do usuário: vender para escolas e empresas)
 - A base é GPL v3: pode vender, mas quem compra recebe o código-fonte e o direito de redistribuir; não dá para impor

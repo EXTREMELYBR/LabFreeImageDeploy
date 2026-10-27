@@ -29,6 +29,14 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
 | Marca | `marca/` | fundo do menu de boot, cadastro guiado (`fos/bin/fog.man.reg`), endpoint do cadastro (`servidor/`) |
 | Ferramentas | `ferramentas/` | `empacotar.sh` (gera o pacote), `LabFreeImageDeploy-recompilar-ipxe` |
 
+## Painel (`web/`)
+- `index.html` carrega `app.css` e `app.js` com `?v=VERSÃO` (o `publicar.sh` atualiza; o navegador nunca mistura
+  arquivo velho com API nova). Fonte Inter local, sem CDN.
+- `app.js`: roteamento por `#/tela`; cada tela atualiza sozinha (`repetir()`) sem redesenhar quando nada mudou e sem
+  redesenhar no meio de um clique. Assistentes (Capturar, Restaurar, Restaurar em grupo) em passos com revisão.
+- `app.css`: cores em variáveis com tema escuro automático; os cartões usam *container queries* (o layout se ajusta à
+  largura do cartão, não só da tela), com `@media` de reserva para navegadores antigos.
+
 ## Painel ↔ servidor
 - `api.php` carrega `/var/www/html/fog/commons/base.inc.php` e usa as classes do FOG para **escrever**
   (mesmas regras do FOG); usa SQL direto só para **ler**. Login = sessão do FOG (cookie `path=/`).
@@ -101,6 +109,7 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
   `apt` e verificação depois (`/etc/apt/apt.conf.d/99-LabFreeImageDeploy-protecao`).
 
 ## Testes
-`testes/` (fora do pacote): `cdp_teste.py` (painel no Chrome headless, com MOCKS), `boot_vm.sh` (boot PXE real numa
+`testes/` (fora do pacote): `painel_simulado.py` + `plano_fotos.py` + `fotos_painel.py` (painel com API simulada,
+fotos de todas as telas e verificação automática de layout), `cdp_teste.py` (painel no Chrome headless, com MOCKS), `boot_vm.sh` (boot PXE real numa
 VM QEMU/KVM via slirp, BIOS e UEFI), testes de desfazer do DHCP e da rede, reemissão de certificado em cópia.
 Veja `AGENTS.md` para os comandos.

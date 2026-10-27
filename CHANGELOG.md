@@ -5,6 +5,18 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.7.1] - 2026-10-27
+
+### Documentação
+- AGENTS.md: pedidos 11 a 13 do usuário, estado da produção depois da 0.7.0 (só os arquivos visuais do painel
+  aplicados), estrutura do `app.js`, próximos passos (registro ao vivo no painel e pendências da 0.6.0).
+- README: tela da máquina e acompanhamento/histórico na lista de funções.
+- ARQUITETURA: seção do painel (`web/`) e os testes com API simulada.
+- Novo `docs/PROMPT-CONTINUAR.md`: texto pronto para passar o projeto a outra IA (o que é o sistema, regras e pendências).
+
+### Para quem mantém
+- `ferramentas/publicar.sh`: `PUBLICAR_RODAPE` acrescenta linhas no fim da mensagem do commit.
+
 ## [0.7.0] - 2026-10-27
 
 Varredura do painel tela a tela (todas as telas, janelas e assistentes, em celular, tablet e computador, tema claro
