@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 28/10/2026 (versão 0.13.5). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 28/10/2026 (versão 0.13.6). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -61,9 +61,14 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     que deixar de usar ele e fazer um nosso do zero" — decisão permanente: o Engine reescreve só o servidor; as
     máquinas continuam no FOS + camada LabFree (plano, seção 6). Feito no plano na 0.13.4.
 22. (28/10) "Pode colocar o código fonte [do FOS] no pacote" — feito na 0.13.5 (`terceiros/fos-fonte/`: FOS na tag
-    dos binários, Buildroot, kernel em partes). Falta o código dos pacotes do Buildroot: rodar o `build.sh` do FOS
-    (`--fs-download-only`) foi bloqueado pela permissão automática (código externo); precisa do usuário rodar ou
-    autorizar. Ao trocar a versão do FOS, troque binários e código-fonte juntos.
+    dos binários, Buildroot, kernel em partes). Ao trocar a versão do FOS, troque binários e código-fonte juntos.
+23. (28/10) Código dos pacotes do Buildroot **dentro do pacote** (escolha do usuário, em vez de arquivo separado na
+    release) — feito na 0.13.6: `terceiros/fos-fonte/pacotes-buildroot/` (126 pacotes), `toolchain-bootlin/` (gcc
+    15.1.0 + glibc 2.41 das bibliotecas do FOS de 64 bits) e `firmware/` (linux-firmware 20261019, conferido byte a
+    byte dentro dos kernels), com `conteudo.sha256` conferido pelo `empacotar.sh`. Pacote ~1 GB. **Falta**
+    `pacotes-buildroot/fog/fog_1.tar.gz` (sem código; só existe em www.fogproject.org, bloqueado no servidor; baixar
+    contornando o bloqueio foi negado pela permissão automática → o usuário roda o comando; SHA-512 em
+    `Buildroot/package/fog/fog.hash`, começa com `35ee72a6dba2`). Depois: acrescentar ao `conteudo.sha256`.
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -174,6 +179,12 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
     o LabFree tira essa linha (instalação nova e recompilação).
 40. Ao publicar, rode a edição da documentação ANTES do `publicar.sh` e confira que ela terminou (na 0.13.0 a edição
     parou no meio e o publicar seguiu).
+41. O `build.sh` do FOS sai com "Untested OS: linuxmint" e exige as ferramentas de compilação até para
+    `--fs-download-only`: numa cópia temporária, troque `checkDependencies` e `installDependencies` por `:`. Use
+    `/var/tmp` (o `/tmp` é apagado no boot) e `HOME=<pasta>` (o Buildroot grava em `$HOME/.buildroot-dl`).
+    O pacote `fog` do Buildroot baixa de www.fogproject.org, que o próprio LabFree bloqueia em `/etc/hosts`.
+42. O FOS de 64 bits usa o compilador pronto da Bootlin: a glibc/libstdc++ dentro do `init.xz` são as dele (versões
+    no `summary.csv` do tarball), não as do `gcc`/`glibc` que o Buildroot baixa (essas são do de 32 bits).
 22. Nunca escreva um heredoc de bash contendo outro `EOF` dentro (o bash fecha no primeiro e executa o resto): scripts de
     edição vão em arquivo (Write) e rodam com `python3 -I arquivo`.
 
@@ -333,7 +344,7 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
 - Como repetir: VM servidor em `scratchpad/vm` (cloud image + cloud-init, `ssh -p 2223`), `testes/api_cli.py` dentro
   dela (`entrar`, `get`, `post`), clientes com `-boot n` na mesma rede `-netdev socket,mcast=230.0.0.1:12346`, teclas
   e fotos pelo monitor do QEMU (`sendkey`, `screendump`).
-- **Produção**: 0.13.x ainda não instalada (versão instalada em 28/10: 0.12.0).
+- **Produção**: 0.13.2 instalada (seção 8).
 
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,
@@ -366,6 +377,10 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   e reconstrói o FOS com a tela nova).
 - 0.9.0: **falta rodar o instalador** para levar o otimizador, a compressão por imagem e a correção das
   Detectadas. A imagem "Laboratorio Fontes" (31 GB, nível 6) deve ficar ~14% menor na primeira noite parada (~1,5 h).
+- **28/10 (conferido)**: `/etc/LabFreeImageDeploy/versao` = **0.13.2** — o instalador foi rodado com a 0.13.2, então
+  tudo até a 0.13.0 (otimizador, Windows, cópias, visual, autonomia, NAT, correções do teste intenso) está na
+  produção. As versões 0.13.3 a 0.13.6 só mudam documentação, publicação e o código-fonte no pacote: não há
+  necessidade de rodar o instalador por causa delas. A máquina reiniciou em 28/10 08:34 (o `/tmp` é limpo no boot).
 
 ## 9. Próximos passos sugeridos
 1. Depois que o usuário rodar o instalador em produção: conferir `LabFreeImageDeploy verificar`, testar o painel, um

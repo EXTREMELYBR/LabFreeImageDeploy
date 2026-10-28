@@ -272,7 +272,7 @@ parte mais arriscada).
 
 | # | Etapa | Entrega | Semanas |
 |---|---|---|---|
-| 0 | **Preparação** | Linguagem decidida; repositório novo (`labfree-engine`); CI; especificação da API do painel e do **contrato do FOS** (gravando as chamadas reais do FOS ao servidor atual numa VM); código dos pacotes do Buildroot no pacote | 1–2 |
+| 0 | **Preparação** | Linguagem decidida; repositório novo (`labfree-engine`); CI; especificação da API do painel e do **contrato do FOS** (gravando as chamadas reais do FOS ao servidor atual numa VM) | 1–2 |
 | 1 | **Fundação** | Serviço, SQLite, usuários e todas as regras de acesso (3.1), painel atual servido, `verificar`, logs, backup | 3–4 |
 | 2 | **Boot** | DHCP completo e proxy, TFTP, iPXE compilado, menu gerado com fundo/cores/textos, relógio, login e sessão no boot | 3–4 |
 | 3 | **FOS personalizado no Engine** | Camada LabFree separada (6.1), impressão digital, `fos conferir`, versões lado a lado e voltar atrás; cadastro em 2 passos e automático | 2–3 |
@@ -303,10 +303,11 @@ parte mais arriscada).
     `fog.man.reg`, `labfree-*.sh`, `S99fog` — esses arquivos passam a ser publicados como GPL);
   - iPXE (GPL v2/UBDL) com os patches de português; udpcast (udp-sender no servidor).
 - **Código-fonte do FOS no pacote** (feito na 0.13.5, `terceiros/fos-fonte/`): scripts e configurações do FOS na
-  mesma versão dos binários, Buildroot e kernel. **Falta** guardar também o código dos pacotes que o Buildroot
-  compila dentro do `init.xz` (busybox, partclone, util-linux…) — obtido com `build.sh --fs-download-only` numa
-  máquina de desenvolvimento (`terceiros/fos-fonte/LEIAME.md`). Toda atualização do FOS (seção 6.3) troca binários e
-  código-fonte juntos.
+  mesma versão dos binários, Buildroot e kernel. Na 0.13.6 entraram o código dos 126 pacotes que o Buildroot
+  compila dentro do `init.xz`/`init_32.xz` (busybox, partclone, util-linux…), o código do compilador da Bootlin
+  (gcc e glibc das bibliotecas do sistema de 64 bits) e o firmware embutido no kernel, tudo conferido
+  (`terceiros/fos-fonte/LEIAME.md`). Falta só o `fog_1.tar.gz` (arquivo sem código exigido pelo Buildroot, que só
+  existe no site do FOG). Toda atualização do FOS (seção 6.3) troca binários e código-fonte juntos.
 - Os avisos de licença e autoria do FOS continuam nos arquivos dele e na tela "Sobre"; as telas do produto são
   LabFree.
 - Revisão com advogado antes de vender (fronteira "programa separado", avisos e oferta de código-fonte).

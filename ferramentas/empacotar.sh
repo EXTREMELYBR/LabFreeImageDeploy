@@ -22,6 +22,12 @@ for h in "$F"/linux-*.tar.xz.sha256; do
     k=$(basename "$h" .sha256)
     [ "$(cat "$F/$k".parte-* | sha256sum | cut -d' ' -f1)" = "$(cut -d' ' -f1 "$h")" ] || { echo "terceiros/fos-fonte: $k corrompido"; exit 1; }
 done
+# pacotes do Buildroot, código do compilador da Bootlin e firmware embutido no kernel (conteudo.sha256; > 45 MB em partes)
+[ -f "$F/conteudo.sha256" ] || { echo "terceiros/fos-fonte: falta conteudo.sha256"; exit 1; }
+while read -r soma arq; do
+    if [ -f "$F/$arq" ]; then s=$(sha256sum < "$F/$arq"); else s=$(cat "$F/$arq".parte-* 2>/dev/null | sha256sum); fi
+    [ "${s%% *}" = "$soma" ] || { echo "terceiros/fos-fonte: $arq ausente ou corrompido"; exit 1; }
+done < "$F/conteudo.sha256"
 
 tmp=$(mktemp -d)
 trap 'rm -rf -- "$tmp"' EXIT

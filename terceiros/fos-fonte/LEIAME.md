@@ -28,13 +28,41 @@ cd fos && ./build.sh -n -a x64        # e -a x86 para os arquivos de 32 bits
 O `build.sh` usa os arquivos já colocados ao lado dele em vez de baixá-los. Os pacotes que o Buildroot compila
 dentro do `init.xz` (busybox, partclone, util-linux etc.) são baixados por ele na primeira construção; veja abaixo.
 
-## Pendente: código dos pacotes do Buildroot
-Para o pacote ficar completo também nesse ponto, falta guardar aqui os códigos dos pacotes que o Buildroot usa
-(pasta `pacotes-buildroot/`). Eles são obtidos, numa máquina de desenvolvimento com internet, com:
+## Código dos pacotes, do compilador e firmware (desde a 0.13.6)
+| Pasta | O que é | Origem |
+|---|---|---|
+| `pacotes-buildroot/` | Código de todos os pacotes que o Buildroot compila dentro do `init.xz` e do `init_32.xz` (busybox, partclone, e2fsprogs, ntfs-3g, util-linux, zstd, gcc/glibc do sistema de 32 bits…) e o compilador pronto da Bootlin usado no de 64 bits: 126 pacotes, a pasta de downloads do Buildroot (`BR2_DL_DIR`) | `build.sh --fs-download-only -a x64` e `-a x86` em 28/10/2026; cada arquivo conferido pelo Buildroot com o `.hash` do próprio pacote |
+| `toolchain-bootlin/` | Código do gcc 15.1.0 (com os patches e a `series`) e da glibc 2.41-70 do compilador da Bootlin `x86-64--glibc--bleeding-edge-2025.08-1`: as bibliotecas de execução (glibc, libgcc, libstdc++) do sistema de 64 bits vêm dele | toolchains.bootlin.com/downloads/releases/sources/ (gcc conferido com o `sha512.sum` do gcc.gnu.org) |
+| `firmware/` | Os arquivos de firmware embutidos nos kernels (`CONFIG_EXTRA_FIRMWARE`: placas de rede Broadcom bnx2/bnx2x/tg3 e Realtek r8169/r8152), o `WHENCE` e as licenças deles (`LICENSES/`). Firmware não é código-fonte: vem como foi distribuído, com licença "Redistributable" | linux-firmware, tag `20261019` (a última antes do FOS de 21/10/2026). Conferido byte a byte dentro dos kernels: 39 de 39 (`bzImage`) e 31 de 31 (`bzImage32`) |
+
+`conteudo.sha256` tem o SHA-256 de cada arquivo inteiro dessas três pastas. Arquivos maiores que 45 MB estão em
+partes (`.parte-00`, `-01`…), como o kernel. O `ferramentas/empacotar.sh` confere tudo antes de gerar o pacote.
+Para conferir à mão e juntar as partes:
 ```
-./build.sh --fs-download-only -a x64 && ./build.sh --fs-download-only -a x86   # grava em ~/.buildroot-dl
+while read -r soma arq; do
+  if [ -f "$arq" ]; then s=$(sha256sum < "$arq"); else s=$(cat "$arq".parte-* | sha256sum); fi
+  [ "${s%% *}" = "$soma" ] || echo "ERRO: $arq"
+done < conteudo.sha256
+for p in $(find . -name '*.parte-00'); do a=${p%.parte-00}; cat "$a".parte-* > "$a"; done
 ```
-(é o script do projeto FOS; rodar só com a autorização do responsável pelo sistema.)
+
+Para reconstruir sem internet: junte as partes, copie `pacotes-buildroot/*` para `~/.buildroot-dl/` (a pasta de
+downloads do Buildroot) e o `linux-6.18.38.tar.xz` juntado também para `~/.buildroot-dl/linux/` (o sistema de 32 bits
+compila os cabeçalhos do kernel; o arquivo não foi repetido aqui). O firmware vai na pasta `linux-firmware/` ao lado
+do `build.sh` (o script tenta clonar o repositório inteiro se ela não existir).
+
+**Falta um arquivo**: `pacotes-buildroot/fog/fog_1.tar.gz`. Não tem código (o programa desse pacote, `fogmbrfix`,
+está no código do FOS, em `Buildroot/package/fog/src`), mas o Buildroot exige o arquivo, com o SHA-512 de
+`Buildroot/package/fog/fog.hash`. Ele só existe em www.fogproject.org, que o LabFree bloqueia no servidor (sem
+atualizações do FOG); precisa ser baixado à parte e acrescentado aqui.
+
+Como foi obtido (o script do FOS só aceita Debian/Ubuntu e exige as ferramentas de compilação até para baixar; numa
+cópia temporária, as duas conferências foram puladas, sem instalar nada):
+```
+sed -i -e 's/^checkDependencies$/:/' -e 's/^installDependencies "\$installDep"/:/' build.sh
+HOME=$PWD ./build.sh --fs-download-only -a x64; HOME=$PWD ./build.sh --fs-download-only -a x86
+(cd fssourcex64 && make -k source); (cd fssourcex86 && make -k source)   # segue apesar do fog_1.tar.gz
+```
 
 ## Atualizar para uma versão nova do FOS
 Trocar os binários em `../fos/` e, **junto**, os arquivos desta pasta pela mesma versão (tag do FOS, Buildroot e kernel

@@ -5,6 +5,27 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.13.6] - 2026-10-28
+
+### Licença / pacote
+- **Código completo do sistema de clonagem no pacote** (`terceiros/fos-fonte/`), para cumprir a GPL ao vender:
+  - `pacotes-buildroot/`: código dos 126 pacotes que vão dentro do sistema das máquinas (busybox, partclone,
+    e2fsprogs, ntfs-3g, util-linux, zstd, compilador e bibliotecas do sistema de 32 bits…), conferidos pelo
+    Buildroot com as somas de cada pacote;
+  - `toolchain-bootlin/`: código do gcc 15.1.0 e da glibc 2.41 do compilador pronto usado no sistema de 64 bits
+    (as bibliotecas dele vão dentro do sistema; o gcc conferido com a soma oficial do GNU);
+  - `firmware/`: o firmware das placas de rede embutido nos kernels (linux-firmware 20261019) com as licenças,
+    conferido byte a byte dentro dos dois kernels.
+  - Arquivos maiores que 45 MB em partes (limite do GitHub); `conteudo.sha256` com a soma de cada arquivo inteiro.
+    O pacote de instalação fica ~700 MB maior (escolha: tudo num pacote só).
+- `ferramentas/empacotar.sh` confere também essas três pastas antes de gerar o pacote.
+- Falta um arquivo sem código (`fog_1.tar.gz`, exigido pelo Buildroot e disponível só no site do FOG, que o
+  sistema bloqueia): registrado em `terceiros/fos-fonte/LEIAME.md`.
+
+### Documentação
+- AGENTS.md: produção confirmada na 0.13.2; lições sobre baixar o código do FOS e o compilador da Bootlin.
+- `docs/PROMPT-CONTINUAR.md`: pendências atualizadas (as antigas já estavam feitas). Plano e `terceiros/LEIAME.md`.
+
 ## [0.13.5] - 2026-10-28
 
 ### Licença / pacote
