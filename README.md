@@ -72,6 +72,7 @@ sudo LabFreeImageDeploy                  # lista todas as ações
 - [CHANGELOG.md](CHANGELOG.md) — o que mudou em cada versão
 - [AGENTS.md](AGENTS.md) — estado do projeto e guia para continuar o desenvolvimento (inclui a regra de publicação)
 - [docs/PROMPT-CONTINUAR.md](docs/PROMPT-CONTINUAR.md) — texto pronto para passar o projeto a outra IA
+- [docs/PROMPT-INSTALAR.md](docs/PROMPT-INSTALAR.md) — texto pronto para o Claude instalar o sistema em outro computador
 - [docs/PLANO-LABFREE-ENGINE.md](docs/PLANO-LABFREE-ENGINE.md) — plano de migração para um servidor próprio escrito do zero, mantendo o FOS personalizado nas máquinas; início só por decisão do usuário
 - [terceiros/LEIAME.md](terceiros/LEIAME.md) — componentes de terceiros embutidos (origem, versão, licença)
 

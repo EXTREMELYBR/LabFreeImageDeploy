@@ -5,6 +5,16 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.14.1] - 2026-10-28
+
+Só documentação: não precisa rodar o instalador em quem já tem a 0.14.0.
+
+### Novo
+- `docs/PROMPT-INSTALAR.md`: texto pronto para colar no Claude (Claude Code) de um computador novo e instalar o
+  sistema passo a passo: confere o computador e as placas, baixa a release mais recente (repositório privado: pelo
+  navegador ou `gh`), confere o SHA-256, instala, roda o `verificar` e faz o primeiro acesso, seguindo as mesmas
+  regras de segurança do projeto (não mexer na internet nem na rota padrão, o instalador quem roda é a pessoa).
+
 ## [0.14.0] - 2026-10-28
 
 Precisa do instalador para chegar ao servidor (`sudo ./instalar.sh`, sem clonagem em andamento; faz backup antes e

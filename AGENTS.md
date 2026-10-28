@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 28/10/2026 (versão 0.14.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 28/10/2026 (versão 0.14.1). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -70,6 +70,8 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     pelo usuário (a permissão automática negou contornar o bloqueio) e entrou na 0.13.7: **código do FOS completo**.
 24. (28/10) "Os 3": expirar tarefas esquecidas, registro ao vivo no painel, limpar sobras em `/images/dev` — feito
     na 0.14.0 (seção 7j). Precisa do instalador na produção.
+25. (28/10) "Crie um MD para eu rodar em outra Claude e instalar o sistema em outro computador" + "suba com um novo
+    release" — `docs/PROMPT-INSTALAR.md` na 0.14.1 (só documentação).
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -99,7 +101,7 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 | `ferramentas/` | `empacotar.sh` (gera `dist/LabFreeImageDeploy-<versão>.tar.gz`), `publicar.sh` (envia versão ao GitHub e lança a release com o pacote), `LabFreeImageDeploy-recompilar-ipxe` |
 | `CHANGELOG.md` | o que mudou em cada versão (obrigatório antes de publicar) |
 | `testes/` | `painel_simulado.py`, `plano_fotos.py`, `fotos_painel.py` (painel com API simulada e fotos), `cdp_teste.py`, `boot_vm.sh`, testes de rollback e de certificado (não vão no pacote) |
-| `docs/` | `INSTALACAO.md`, `USO.md`, `ARQUITETURA.md` (leia este para entender o funcionamento), `PROMPT-CONTINUAR.md` (texto para passar o projeto a outra IA), `CUSTOMIZACOES-MAQUINA-ATUAL.md` (histórico do dia 1, nomes antigos) |
+| `docs/` | `INSTALACAO.md`, `USO.md`, `ARQUITETURA.md` (leia este para entender o funcionamento), `PROMPT-CONTINUAR.md` (texto para passar o projeto a outra IA), `PROMPT-INSTALAR.md` (texto para o Claude de outro computador instalar o sistema; genérico, sempre a release mais recente), `CUSTOMIZACOES-MAQUINA-ATUAL.md` (histórico do dia 1, nomes antigos) |
 
 ## 4. Ajudante root (`LabFreeImageDeploy-root`) — ações
 `status`, `dhcp-ler`, `dhcp-aplicar`, `rede-listar`, `rede-simular`, `rede-aplicar`, `reaplicar`, `imagem-apagar`,
