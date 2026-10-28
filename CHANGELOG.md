@@ -5,6 +5,21 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.13.5] - 2026-10-28
+
+### Licença / pacote
+- **Código-fonte do FOS no pacote** (`terceiros/fos-fonte/`), exigido pela GPL para vender: o repositório do FOS na
+  mesma versão dos binários usados (tag `EXP_20261021-160109`, conferida pelo SHA-256 da release), o Buildroot
+  2026.02.1 e o kernel Linux 6.18.38 (em 4 partes de 45 MB, limite do GitHub), todos conferidos com os SHA-256
+  oficiais. `LEIAME.md` explica como juntar, conferir e reconstruir o FOS. O pacote de instalação fica ~155 MB maior.
+- `ferramentas/empacotar.sh` recusa gerar o pacote se o código do FOS faltar ou estiver corrompido.
+- Ainda falta o código dos pacotes que o Buildroot compila dentro do `init.xz` (busybox, partclone…): registrado
+  como pendência em `terceiros/fos-fonte/LEIAME.md` e no plano.
+
+### Documentação
+- `docs/PLANO-LABFREE-ENGINE.md`: licenças (código do FOS no pacote, o que falta) e atualização do FOS trocando
+  binários e código-fonte juntos. `terceiros/LEIAME.md` com a pasta nova.
+
 ## [0.13.4] - 2026-10-28
 
 ### Documentação

@@ -12,6 +12,16 @@ NOME="LabFreeImageDeploy-$VERSAO"
 for h in "$RAIZ"/terceiros/fos/*.sha256 "$RAIZ"/terceiros/fog-client/*.sha256 "$RAIZ"/terceiros/fog-ipxe/*.sha256; do
     (cd "$(dirname "$h")" && sha256sum --quiet -c "$(basename "$h")") || { echo "terceiros/: $(basename "$h" .sha256) corrompido"; exit 1; }
 done
+# código-fonte do FOS (GPL): precisa ir junto com os binários; o kernel está em partes (limite do GitHub)
+F="$RAIZ/terceiros/fos-fonte"
+for h in "$F"/fos-*-fonte.tar.gz.sha256 "$F"/buildroot-*.tar.xz.sha256; do
+    [ -f "$h" ] && (cd "$F" && sha256sum --quiet -c "$(basename "$h")") || { echo "terceiros/fos-fonte: $(basename "$h" .sha256) ausente ou corrompido"; exit 1; }
+done
+for h in "$F"/linux-*.tar.xz.sha256; do
+    [ -f "$h" ] || { echo "terceiros/fos-fonte: falta o código do kernel"; exit 1; }
+    k=$(basename "$h" .sha256)
+    [ "$(cat "$F/$k".parte-* | sha256sum | cut -d' ' -f1)" = "$(cut -d' ' -f1 "$h")" ] || { echo "terceiros/fos-fonte: $k corrompido"; exit 1; }
+done
 
 tmp=$(mktemp -d)
 trap 'rm -rf -- "$tmp"' EXIT

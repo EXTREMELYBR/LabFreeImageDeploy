@@ -198,7 +198,7 @@ por cima na instalação (como o `marca_fos` já faz hoje):
 
 | Regra | Como |
 |---|---|
-| Original intacto | `terceiros/fos/<versão>/` com `bzImage`, `bzImage32`, `init.xz`, `init_32.xz` e `.sha256` |
+| Original intacto | `terceiros/fos/<versão>/` com `bzImage`, `bzImage32`, `init.xz`, `init_32.xz` e `.sha256`, e o código-fonte em `terceiros/fos-fonte/<versão>/` |
 | Camada LabFree em **arquivos próprios** | `labfree-tela`, `fog.man.reg`, `labfree-cores.sh`, `labfree-tela.sh`, `S99fog`, banner, `/etc/issue` |
 | Mudar comportamento **sem editar** os scripts do FOS | `labfree-tela.sh` é carregado no fim do `funcs.sh` e **redefine** as funções (`handleError`, `handleWarning`, `displayBanner`…). Uma única linha é acrescentada ao `funcs.sh` |
 | Cada ponto de encaixe tem uma **impressão digital** | Lista do que a camada espera do FOS: funções que redefine, arquivos que substitui, mensagens que a tela traduz, formato do `/tmp/status.fog`, parâmetros de boot, endpoints chamados. Conferida automaticamente contra cada FOS novo |
@@ -224,8 +224,9 @@ O Engine responde **nos mesmos caminhos** (`/fog/service/...`) para o FOS funcio
 resto do produto não mostram esses nomes.
 
 ### 6.3 Como atualizar o FOS quando sair versão nova
-1. Baixar a versão nova do FOS (kernel + init + **código-fonte**) e colocar em `terceiros/fos/<versão nova>/`
-   com SHA-256. A versão em uso continua lá.
+1. Baixar a versão nova do FOS (kernel + init) e **o código-fonte da mesma versão** (repositório do FOS na tag,
+   Buildroot, kernel e pacotes do Buildroot — como em `terceiros/fos-fonte/`), com SHA-256. A versão em uso continua
+   no pacote.
 2. `labfree fos conferir <versão>`: aplica a camada LabFree numa cópia e confere a impressão digital (6.1). Se algo
    que a camada usa mudou, mostra exatamente o quê e **não deixa usar** até a camada ser ajustada.
 3. **Kit de compatibilidade** (automático, em VMs como os testes de hoje): com a versão nova, contra o Engine —
@@ -271,7 +272,7 @@ parte mais arriscada).
 
 | # | Etapa | Entrega | Semanas |
 |---|---|---|---|
-| 0 | **Preparação** | Linguagem decidida; repositório novo (`labfree-engine`); CI; especificação da API do painel e do **contrato do FOS** (gravando as chamadas reais do FOS ao servidor atual numa VM); código-fonte do FOS no pacote | 1–2 |
+| 0 | **Preparação** | Linguagem decidida; repositório novo (`labfree-engine`); CI; especificação da API do painel e do **contrato do FOS** (gravando as chamadas reais do FOS ao servidor atual numa VM); código dos pacotes do Buildroot no pacote | 1–2 |
 | 1 | **Fundação** | Serviço, SQLite, usuários e todas as regras de acesso (3.1), painel atual servido, `verificar`, logs, backup | 3–4 |
 | 2 | **Boot** | DHCP completo e proxy, TFTP, iPXE compilado, menu gerado com fundo/cores/textos, relógio, login e sessão no boot | 3–4 |
 | 3 | **FOS personalizado no Engine** | Camada LabFree separada (6.1), impressão digital, `fos conferir`, versões lado a lado e voltar atrás; cadastro em 2 passos e automático | 2–3 |
@@ -301,9 +302,11 @@ parte mais arriscada).
   - FOS (kernel Linux + Buildroot do projeto FOG) e **a camada LabFree aplicada nele** (`labfree-tela`,
     `fog.man.reg`, `labfree-*.sh`, `S99fog` — esses arquivos passam a ser publicados como GPL);
   - iPXE (GPL v2/UBDL) com os patches de português; udpcast (udp-sender no servidor).
-- **Pendência de hoje que já vale para a versão atual**: `terceiros/fos/` traz só os binários do FOS. Para vender,
-  o pacote precisa trazer **o código-fonte correspondente** (repositório `FOGProject/fos` na mesma versão: Buildroot,
-  configurações e kernel) ou uma oferta escrita de fornecê-lo.
+- **Código-fonte do FOS no pacote** (feito na 0.13.5, `terceiros/fos-fonte/`): scripts e configurações do FOS na
+  mesma versão dos binários, Buildroot e kernel. **Falta** guardar também o código dos pacotes que o Buildroot
+  compila dentro do `init.xz` (busybox, partclone, util-linux…) — obtido com `build.sh --fs-download-only` numa
+  máquina de desenvolvimento (`terceiros/fos-fonte/LEIAME.md`). Toda atualização do FOS (seção 6.3) troca binários e
+  código-fonte juntos.
 - Os avisos de licença e autoria do FOS continuam nos arquivos dele e na tela "Sobre"; as telas do produto são
   LabFree.
 - Revisão com advogado antes de vender (fronteira "programa separado", avisos e oferta de código-fonte).
