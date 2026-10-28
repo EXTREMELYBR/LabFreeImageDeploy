@@ -5,6 +5,16 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.13.2] - 2026-10-28
+
+### Documentação
+- `docs/PLANO-LABFREE-ENGINE.md` reescrito como **plano de migração completo** para um sistema próprio, escrito do
+  zero e sem o FOG, a partir de uma varredura de todo o sistema: como o sistema atual está montado, matriz de
+  paridade com todas as funções (painel, máquinas, imagens, capturar/restaurar, grupo, tarefas, rede/boot, NAT,
+  Windows, cópias, backup), comparação C# × Go (decisão pendente; recomendado C#), arquitetura, substituição de cada
+  componente do FOG, 13 etapas com estimativas, migração das instalações atuais com volta atrás, licenças e riscos.
+  O desenvolvimento só começa quando o usuário decidir. Nenhuma mudança no sistema instalado.
+
 ## [0.13.1] - 2026-10-28
 
 ### Documentação

@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 28/10/2026 (versão 0.13.1). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 28/10/2026 (versão 0.13.2). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -48,10 +48,13 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     ela precisa, sem baixar nada do projeto FOG (se os links do FOG sumirem, ninguém mais instalaria). Pedido também
     um NAT opcional (rede de clonagem com internet pelo Wi-Fi do servidor): avaliado como viável (aguardando a vez).
     Autonomia feita na 0.12.0 (`base-fog/` + `terceiros/` no repositório). A ideia de um **sistema próprio sem o FOG**
-    (Go, licença fechada, porte para Windows) ficou **só como ideia arquivada** em `docs/PLANO-LABFREE-ENGINE.md`
-    (decisão do usuário): não trabalhar nela nem sugerir começar, a menos que ele peça.
+    (licença fechada, porte para Windows) ficou como ideia arquivada em `docs/PLANO-LABFREE-ENGINE.md`.
 19. (28/10) NAT opcional feito; "teste intenso de todo o sistema, procurar bugs, falhas e otimizações" — feito na
     0.13.0 (seção 7i).
+20. (28/10) "Varredura completa e plano de migração do sistema completo, com todas as funções atuais, escrito do zero"
+    — feito na 0.13.2: `docs/PLANO-LABFREE-ENGINE.md` (inventário, matriz de paridade, arquitetura, etapas,
+    migração, licenças, riscos). **Desenvolvimento só começa quando o usuário mandar**; linguagem (C# ou Go)
+    ainda é decisão dele (recomendado C#).
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.

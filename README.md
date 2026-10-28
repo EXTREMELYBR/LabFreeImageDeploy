@@ -70,7 +70,7 @@ sudo LabFreeImageDeploy                  # lista todas as ações
 - [CHANGELOG.md](CHANGELOG.md) — o que mudou em cada versão
 - [AGENTS.md](AGENTS.md) — estado do projeto e guia para continuar o desenvolvimento (inclui a regra de publicação)
 - [docs/PROMPT-CONTINUAR.md](docs/PROMPT-CONTINUAR.md) — texto pronto para passar o projeto a outra IA
-- [docs/PLANO-LABFREE-ENGINE.md](docs/PLANO-LABFREE-ENGINE.md) — ideia arquivada de um sistema próprio (sem o FOG); não é plano em andamento
+- [docs/PLANO-LABFREE-ENGINE.md](docs/PLANO-LABFREE-ENGINE.md) — plano de migração para um sistema próprio escrito do zero (sem o FOG); início só por decisão do usuário
 - [terceiros/LEIAME.md](terceiros/LEIAME.md) — componentes de terceiros embutidos (origem, versão, licença)
 
 ## Licença
