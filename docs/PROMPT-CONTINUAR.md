@@ -54,14 +54,13 @@ Fale comigo em português, de forma simples e direta.
 - Não existe `node` instalado; a sintaxe do JS é validada pelo Chrome.
 
 ## O que está pendente (detalhes em AGENTS.md seções 8 e 9)
-- Produção: a 0.13.2 está instalada (tudo até o NAT e o teste intenso). As versões seguintes só mudaram documentação,
-  publicação e o código-fonte no pacote; não precisam do instalador.
+- Produção: a 0.13.2 está instalada (tudo até o NAT e o teste intenso). Falta o instalador para a 0.14.0
+  (tarefas esquecidas canceladas sozinhas, registro ao vivo no painel, sobras de captura em Imagens).
 - Testes com máquinas reais: sessão em grupo pequena (2–3 máquinas: lista de conectadas, aviso de sala completa,
   Iniciar, progresso), Windows com domínio, HD externo e NAS. Mudar o adaptador USB da rede de clonagem para uma
   porta USB 3 (é o maior ganho de velocidade).
-- Ideias e itens conhecidos: registro ao vivo no painel durante a clonagem; multicast para máquinas cadastradas sem
-  login em cada uma; expirar tarefas esquecidas; limpar órfãos em `/images/dev`; testar em Ubuntu 22.04 e Debian 12;
-  fuso do `FOG_TZ_INFO`.
+- Ideias e itens conhecidos: multicast para máquinas cadastradas sem login em cada uma; testar em Ubuntu 22.04 e
+  Debian 12; fuso do `FOG_TZ_INFO`.
 
 Comece lendo os arquivos indicados e me apresente um resumo curto. Não altere nada antes disso.
 ````

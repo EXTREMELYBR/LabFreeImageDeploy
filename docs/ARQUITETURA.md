@@ -43,8 +43,9 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
   (mesmas regras do FOG); usa SQL direto só para **ler**. Login = sessão do FOG (cookie `path=/`).
 - POST exige o cabeçalho `X-Painel-Token` (token da sessão) contra CSRF.
 - Ações de root: `api.php` → `sudo -n /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root AÇÃO` com JSON
-  no stdin (`proc_open` com array, nada passa por shell). O sudoers permite **só** esse arquivo e **só** as 7 ações
-  do painel (`status`, `dhcp-ler`, `dhcp-aplicar`, `rede-listar`, `rede-simular`, `rede-aplicar`, `imagem-apagar`);
+  no stdin (`proc_open` com array, nada passa por shell). O sudoers permite **só** esse arquivo e **só** as 11 ações
+  do painel (`status`, `dhcp-ler`, `dhcp-aplicar`, `rede-listar`, `rede-simular`, `rede-aplicar`, `imagem-apagar`,
+  `copias`, `nat-ler`, `nat-aplicar`, `dev-orfas`);
   o ajudante repete essa lista quando chamado pelo www-data, valida tudo (IPs, MACs, nomes de interface) e nunca
   monta comandos com texto livre.
 - `rede-aplicar` grava um diário (`/var/lib/LabFreeImageDeploy/rede-pendente.json` + `manifesto.json` da cópia): se o
@@ -66,8 +67,9 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
   - `etc/init.d/S99fog`: captura/restauração (`type=up|down`) rodam por `/bin/labfree-tela`; o resto como no FOG.
   - `bin/labfree-tela`: roda `/bin/fog` no terminal 2 dentro de `script` (tudo gravado em `/tmp/labfree.bruto`),
     desenha no terminal 1 as etapas (deduzidas das mensagens do FOS), a barra (de `/tmp/status.fog`, do partclone)
-    e o registro traduzido; envia a etapa a `service/LabFreeImageDeploy-etapa.php`; no fim não reinicia
-    (tela de resultado com Reiniciar/Desligar/Registro/Técnico) e envia o resultado e o registro.
+    e o registro traduzido; envia a etapa a `service/LabFreeImageDeploy-etapa.php` (com as últimas 40 linhas do
+    registro sempre que entra linha nova: registro ao vivo no painel); no fim não reinicia (tela de resultado com
+    Reiniciar/Desligar/Registro/Técnico) e envia o resultado e o registro completo.
   - `usr/share/fog/lib/labfree-tela.sh`: carregado no fim do `funcs.sh`; com `LABFREE_TELA=1`, `handleError` grava o
     motivo em `/tmp/labfree.resultado` e sai (sem a espera de 1 min e o reboot), `handleWarning` espera 10 s.
 - `service/LabFreeImageDeploy-etapa.php` grava na tabela `labfreeEtapas` (uma linha por tarefa: etapa, texto, parte,
@@ -75,6 +77,17 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
   `fase()`), mostra o motivo das falhas (`motivo()`, também de `taskLog`) e o registro (`?a=registro&id=`).
 - `api.php` também guarda, por tarefa, quando o andamento mudou pela última vez (arquivo em `/opt/fog/sessions`) para
   avisar "sem notícia há X min".
+
+## Tarefas esquecidas e sobras de captura
+- `LabFreeImageDeploy-expirar.timer` (10 min) roda `lib/LabFreeImageDeploy-expirar` (PHP de linha de comando, como
+  www-data, com as classes da base): tarefas no estado 1 (esperando a máquina), fora de sessão em grupo, criadas há
+  mais que `LABFREE_EXPIRAR_HORAS` (globalSettings; padrão 24, 0 = nunca) são canceladas com `TaskManager::cancel`
+  (o mesmo do painel), conferindo o estado logo antes; o motivo vai para `labfreeEtapas` (`resultado = 'expirada'`).
+  `--simular` só mostra. O painel mostra `expira_em` em cada tarefa que espera.
+- Sobras em `/images/dev/<mac sem separadores>` (a base só move a pasta para a imagem quando a captura termina bem):
+  ajudante `dev-orfas` (`listar`/`apagar`; liberado ao painel no sudoers) lista as pastas com nome de MAC, sem link,
+  sem tarefa ativa da máquina e sem gravação há 1 hora, e apaga só as pedidas conferindo tudo de novo. Painel:
+  `orfas` e `orfas_limpar` (com a senha). Teste sem root: `python3 -I testes/teste_orfas.py`.
 
 ## Envio em grupo (multicast)
 - A base (serviço `LabFreeImageDeploy-multicast`) roda, por sessão, `sh -c "udp-sender … --file d1p1.img; udp-sender …

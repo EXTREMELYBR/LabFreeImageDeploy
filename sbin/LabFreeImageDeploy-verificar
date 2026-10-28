@@ -80,6 +80,14 @@ if grep -q "^ntp $FOG_IP" /tftpboot/default.ipxe 2>/dev/null; then ok "Boot PXE 
 for s in apache2 "$PHP_FPM" mariadb vsftpd nfs-server tftpd-hpa LabFreeImageDeploy-multicast LabFreeImageDeploy-agendador LabFreeImageDeploy-replicacao-imagens LabFreeImageDeploy-replicacao-snapins LabFreeImageDeploy-ping chrony; do
     if systemctl is-active --quiet "$s"; then ok "serviço $s ativo"; else falha "serviço $s parado (sudo systemctl restart $s)"; fi
 done
+# a placa da rede de clonagem precisa existir e ter o IP do servidor (sem ele, nenhuma máquina recebe IP)
+if [ -n "$FOG_IFACE" ] && [ ! -e "/sys/class/net/$FOG_IFACE" ]; then
+    falha "Placa da rede de clonagem $FOG_IFACE não encontrada (adaptador USB desconectado?)"
+elif [ -n "$FOG_IP" ] && ! ip -4 -o addr show dev "$FOG_IFACE" 2>/dev/null | grep -q " $FOG_IP/"; then
+    falha "Placa da rede de clonagem $FOG_IFACE sem o IP $FOG_IP: as máquinas não recebem IP (rode: sudo nmcli con up uuid ${FOG_NM_UUID:-?})"
+elif [ -n "$FOG_IP" ]; then
+    ok "Placa da rede de clonagem $FOG_IFACE com o IP $FOG_IP"
+fi
 # o Kea só precisa rodar se a placa da rede FOG existir e o DHCP do FOG estiver ligado
 if [ -e "/sys/class/net/$FOG_IFACE" ] && systemctl is-enabled --quiet kea-dhcp4-server; then
     systemctl is-active --quiet kea-dhcp4-server && ok "serviço kea-dhcp4-server ativo" || falha "serviço kea-dhcp4-server parado (sudo systemctl restart kea-dhcp4-server)"
@@ -108,6 +116,18 @@ if systemctl is-enabled --quiet LabFreeImageDeploy-otimizar.timer 2>/dev/null; t
     fi
 else
     falha "Otimização/conferência das imagens desligada (rode: sudo systemctl enable --now LabFreeImageDeploy-otimizar.timer)"
+fi
+
+# 6d2) tarefas esquecidas canceladas sozinhas; sobras de capturas interrompidas em /images/dev
+if systemctl is-enabled --quiet LabFreeImageDeploy-expirar.timer 2>/dev/null; then
+    ok "Tarefas esquecidas são canceladas sozinhas (prazo em Configurações → Cadastro pelo boot)"
+else
+    falha "Cancelamento de tarefas esquecidas desligado (rode: sudo systemctl enable --now LabFreeImageDeploy-expirar.timer)"
+fi
+if orfas=$(echo '{"acao":"listar"}' | /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root dev-orfas 2>/dev/null) \
+        && n=$(printf '%s' "$orfas" | python3 -c 'import json,sys; o=json.load(sys.stdin)["orfas"]; print(len(o), round(sum(x["bytes"] for x in o)/1e9, 1)) if o else None' 2>/dev/null) \
+        && [ -n "$n" ] && [ "$n" != None ]; then
+    ok "Há sobras de capturas interrompidas em /images/dev: ${n% *} pasta(s), ${n#* } GB (apague em Imagens no painel)"
 fi
 
 # 6e) internet para a rede de clonagem (NAT), se ligada no painel

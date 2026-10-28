@@ -5,6 +5,39 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.14.0] - 2026-10-28
+
+Precisa do instalador para chegar ao servidor (`sudo ./instalar.sh`, sem clonagem em andamento; faz backup antes e
+reconstrói o sistema de clonagem: ~25 min). Ele também grava a regra de sudo nova (ação `dev-orfas`).
+
+### Novo
+- **Tarefas esquecidas são canceladas sozinhas**: uma captura ou restauração que espera a máquina ligar pela rede
+  por mais de 1 dia (padrão) é cancelada, porque um boot pela rede dias depois apagaria o disco sem aviso. O
+  histórico mostra "Cancelada sozinha: a máquina não ligou pela rede em 1 dia", e o cartão de cada tarefa que espera
+  mostra até quando ela vale. Prazo em Configurações → Cadastro pelo boot → Tarefas esquecidas (6 horas a 7 dias, ou
+  nunca). Uma máquina que já começou nunca é interrompida; sessões em grupo não entram.
+- **Registro ao vivo no painel**: o botão **Registro** de cada máquina em andamento (Tarefas) mostra as últimas linhas
+  que ela escreveu, as mesmas da tela da máquina, atualizadas a cada 3 segundos. O completo continua chegando no fim.
+- **Sobras de capturas interrompidas**: uma captura que falha ou é cancelada deixa no servidor o que já tinha
+  copiado. Imagens agora avisa ("Capturas interrompidas deixaram X GB no servidor") e deixa escolher o que apagar,
+  com a sua senha. Só aparecem sobras paradas há mais de 1 hora, de máquinas sem tarefa em andamento.
+
+### Correções
+- `LabFreeImageDeploy verificar` dizia "Tudo certo." com a placa da rede de clonagem sem IP (nenhuma máquina
+  receberia IP); agora confere a placa e o IP e diz como religar. Também avisa das sobras de captura.
+- Salvar Cadastro pelo boot sem imagem padrão podia dar "Imagem não encontrada" (a base guarda -1 para "nenhuma").
+
+### Para quem mantém
+- `lib/LabFreeImageDeploy-expirar` (PHP de linha de comando, classes da base, `--simular`) +
+  `LabFreeImageDeploy-expirar.{service,timer}` (a cada 10 min, como www-data); configuração `LABFREE_EXPIRAR_HORAS`.
+- Ajudante: ação `dev-orfas` (`listar`/`apagar`), liberada ao painel no sudoers. API: `orfas`, `orfas_limpar`;
+  `cadastro`/`resumo` com `expirar_horas`; tarefas com `expira_em` e `tem_registro`; `registro` com `ativa`.
+- `labfree-tela` manda as últimas 40 linhas do registro quando entra linha nova; `LabFreeImageDeploy-etapa.php`
+  grava esse registro parcial (8 KB) até chegar o completo.
+- Testes: `testes/teste_orfas.py` (sem root); API simulada e plano de fotos com as telas novas. Teste de ponta a
+  ponta numa VM (atualização 0.6.0 → 0.14.0, cancelamento real, sobras pelo sudo, restauração real com o registro
+  chegando ao vivo) no AGENTS.md, seção 7j.
+
 ## [0.13.7] - 2026-10-28
 
 ### Licença / pacote

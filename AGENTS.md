@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 28/10/2026 (versão 0.13.7). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 28/10/2026 (versão 0.14.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -68,6 +68,8 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     byte dentro dos kernels), com `conteudo.sha256` conferido pelo `empacotar.sh`. Pacote ~1 GB. O último arquivo,
     `pacotes-buildroot/fog/fog_1.tar.gz` (vazio; só existe em www.fogproject.org, bloqueado no servidor), foi baixado
     pelo usuário (a permissão automática negou contornar o bloqueio) e entrou na 0.13.7: **código do FOS completo**.
+24. (28/10) "Os 3": expirar tarefas esquecidas, registro ao vivo no painel, limpar sobras em `/images/dev` — feito
+    na 0.14.0 (seção 7j). Precisa do instalador na produção.
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -199,6 +201,8 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
 - **Tela da máquina sem servidor**: `labfreedemo=…` na linha do kernel (lição 33).
 - **Otimizador de imagens sem root**: `python3 -I testes/teste_otimizar.py` (imagens falsas + banco simulado: menor,
   bit a bit igual, pedaços, só conferir, corrompida, pausa no meio) — deve terminar "Tudo certo."
+- **Sobras de captura sem root**: `python3 -I testes/teste_orfas.py` (pastas falsas + banco simulado: lista, recusas,
+  link simbólico, apagar) — deve terminar "Tudo certo."
 - **Envio em grupo real sem root**: `testes/teste_grupo.sh` (ponte + 2 receptores em namespaces; confere que não começa
   sozinho, começa com o pedido, partições seguintes, arquivos iguais e cancelamento limpo) — deve terminar "Tudo certo."
 - **Painel** (Chrome headless): `testes/cdp_teste.py SID "rota1;;rota2|js@@js"`. Sessão de teste: crie como www-data em
@@ -345,6 +349,27 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   e fotos pelo monitor do QEMU (`sendkey`, `screendump`).
 - **Produção**: 0.13.2 instalada (seção 8).
 
+## 7j. Versão 0.14.0 (28/10) — tarefas esquecidas, registro ao vivo, sobras de captura
+- **Expirar**: `lib/LabFreeImageDeploy-expirar` (PHP CLI, `require base.inc.php`, roda como www-data pelo timer de
+  10 min). Estado 1, fora de `multicastSessionsAssoc`, `taskCreateTime` (fuso FOG_TZ_INFO) mais velho que
+  `LABFREE_EXPIRAR_HORAS` (globalSettings; vazio = 24; 0 = nunca) → confere o estado de novo → `TaskManager::cancel`
+  → `labfreeEtapas.resultado='expirada'` com o motivo (o histórico mostra pelo `motivo()` normal).
+- **Registro ao vivo**: `labfree-tela` `enviar()` põe o nº de linhas do registro na chave de envio e, quando muda,
+  manda `tail -n 40` como `registro`; `etapa.php` grava (8 KB) sem resultado; o final substitui pelo completo.
+  `api.php`: `tem_registro` nas ativas (`fase()`), `registro()` com `ativa`; `verRegistro()` atualiza a cada 3 s
+  enquanto `ativa` (mantém a rolagem se a pessoa subiu).
+- **Sobras**: base grava a captura em `/images/dev/<mac minúsculo sem separadores>` e só move no sucesso
+  (`TaskQueue::checkout`). Ajudante `dev-orfas`: nome `[0-9a-f]{12}`, sem link, MAC sem tarefa 0–3, nada gravado há
+  60 min; `apagar` reconfere tudo e recusa o pedido inteiro se uma pasta não puder. Painel: faixa em Imagens +
+  `limparOrfas()` com senha. Nunca automático (regra: não apagar nada em /images sem o usuário).
+- **Testado**: `teste_orfas.py` = "Tudo certo."; fotos do painel sem achados; **VM** (overlay do `servidor.qcow2`,
+  ens4 com MAC `52:54:00:aa:00:02` — sem ele a conexão de clonagem não sobe): atualização 0.6.0 → 0.14.0 "Tudo
+  certo."; tarefa envelhecida 25 h cancelada com o motivo no histórico; prazo 0 mantém; prazo 6 h cancela a de 72 h e
+  mantém a de 5 h; tarefa em andamento (estado 3) intacta; prazo 9999 recusado; sobras pela API (senha errada,
+  gravada agora → recusadas; parada há 2 h → apagada e registrada); **restauração real** de uma VM cliente
+  (`-boot n`, MAC `52:54:00:aa:00:77` = CLIENTE-1): linhas no painel 40 s depois do boot, durante a cópia, e o
+  completo no fim; tela da máquina normal. `verificar` com a placa sem IP → aviso; com IP → "Tudo certo.".
+
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,
   sudoers `LabFreeImageDeploy`, serviços `LabFreeImageDeploy-*` ativos, painel em `/var/www/html/LabFreeImageDeploy`,
@@ -380,6 +405,8 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   tudo até a 0.13.0 (otimizador, Windows, cópias, visual, autonomia, NAT, correções do teste intenso) está na
   produção. As versões 0.13.3 a 0.13.6 só mudam documentação, publicação e o código-fonte no pacote: não há
   necessidade de rodar o instalador por causa delas. A máquina reiniciou em 28/10 08:34 (o `/tmp` é limpo no boot).
+- **0.14.0: falta rodar o instalador** (tarefas esquecidas, registro ao vivo, sobras de captura; grava o sudoers com
+  `dev-orfas` e reconstrói o FOS). Até lá o `verificar` da produção avisa que o timer de expirar não existe.
 
 ## 9. Próximos passos sugeridos
 1. Depois que o usuário rodar o instalador em produção: conferir `LabFreeImageDeploy verificar`, testar o painel, um
@@ -393,12 +420,10 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
 2. Traduzir as telas restantes do FOS (menus de inventário/sysinfo, mensagens do Partclone) — hoje em inglês.
 3. Confirmação com tempo na troca de IP (desfaz se o usuário não confirmar em 2 min).
 4. CI no GitHub Actions com `bash -n`, `shellcheck`, `php -l`, `py_compile` (o `publicar.sh` já faz essas conferências localmente).
-5. Registro ao vivo no painel: hoje o painel mostra fase, etapa, porcentagem e velocidade ao vivo, mas as linhas do
-   registro só chegam no fim (`LabFreeImageDeploy-etapa.php` recebe o registro com o resultado). Oferecido ao usuário.
+5. (Feito na 0.14.0: registro ao vivo, expirar tarefas esquecidas, sobras em `/images/dev`.)
 6. Pendências da 0.6.0 (seção 7c): multicast de máquinas cadastradas sem login em cada uma; progresso de cada máquina
    sem cadastro no grupo (hoje o painel mostra o progresso da transmissão; por máquina exige a tela do FOS mandar o
-   andamento por MAC); expirar tarefas esquecidas;
-   limpar `/images/dev` órfãos; testar Ubuntu 22.04/Debian 12; fuso `FOG_TZ_INFO` diferente do sistema.
+   andamento por MAC); testar Ubuntu 22.04/Debian 12; fuso `FOG_TZ_INFO` diferente do sistema.
 7. Para passar o projeto a outra IA, use o texto de `docs/PROMPT-CONTINUAR.md`.
 
 ## 10. Objetivo comercial (pedido do usuário: vender para escolas e empresas)

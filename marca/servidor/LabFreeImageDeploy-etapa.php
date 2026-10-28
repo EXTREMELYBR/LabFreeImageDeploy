@@ -5,8 +5,10 @@
  * Chamado por /bin/labfree-tela dentro do FOS. Mesmo nível de acesso de service/progress.php do FOG:
  * identifica a máquina pelo MAC e só grava para uma máquina cadastrada.
  *
- * POST: mac, sysuuid, etapa, etapas, texto, parte  [, resultado (sucesso|erro), mensagem, registro]
- * Tabela labfreeEtapas: uma linha por tarefa (taskID), com a última etapa e, no fim, o resultado e o registro.
+ * POST: mac, sysuuid, etapa, etapas, texto, parte  [, registro (últimas linhas, durante a clonagem)]
+ *       [, resultado (sucesso|erro), mensagem, registro (completo, no fim)]
+ * Tabela labfreeEtapas: uma linha por tarefa (taskID), com a última etapa, o registro (ao vivo e, no fim, completo)
+ * e o resultado.
  */
 require '../commons/base.inc.php';
 while (ob_get_level() > 0) {
@@ -57,6 +59,12 @@ try {
             VALUES (?,?,?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE etapa=VALUES(etapa), etapas=VALUES(etapas), texto=VALUES(texto),
             parte=VALUES(parte), resultado=VALUES(resultado), mensagem=VALUES(mensagem), registro=VALUES(registro), atualizada=NOW()');
         $st->execute(array_merge($dados, [$resultado, labfree_texto($_POST['mensagem'] ?? '', 2000), labfree_texto($_POST['registro'] ?? '', 65000)]));
+    } elseif (isset($_POST['registro'])) {
+        // registro ao vivo: as últimas linhas, para o painel acompanhar (o completo chega com o resultado)
+        $st = $pdo->prepare('INSERT INTO labfreeEtapas (taskID, hostID, etapa, etapas, texto, parte, velocidade, registro, atualizada)
+            VALUES (?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE etapa=VALUES(etapa), etapas=VALUES(etapas), texto=VALUES(texto),
+            parte=VALUES(parte), velocidade=VALUES(velocidade), registro=VALUES(registro), atualizada=NOW()');
+        $st->execute(array_merge($dados, [labfree_texto($_POST['registro'], 8000)]));
     } else {
         $st = $pdo->prepare('INSERT INTO labfreeEtapas (taskID, hostID, etapa, etapas, texto, parte, velocidade, atualizada) VALUES (?,?,?,?,?,?,?,NOW())
             ON DUPLICATE KEY UPDATE etapa=VALUES(etapa), etapas=VALUES(etapas), texto=VALUES(texto), parte=VALUES(parte),

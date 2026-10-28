@@ -607,6 +607,7 @@ function cartaoTarefa(t, detalhado, cor = corTipo(t.tipo)) {
     el('div', { class: 'topo-t' }, ladrilho(iconeTipo(t.tipo), cor, 'p'),
       el('div', { class: 'quem' }, el('strong', {}, t.maquina), el('div', { class: 'small muted' }, `${t.tipo} · ${t.imagem || '—'}`)),
       el('div', { class: 'acoes-t' }, direita,
+        detalhado && t.tem_registro ? el('button', { class: 'btn p fantasma', type: 'button', onclick: () => verRegistro(t) }, icone('tarefas'), 'Registro') : null,
         detalhado ? el('button', { class: 'btn p perigo', type: 'button', onclick: () => cancelarTarefa(t) }, 'Cancelar') : null)),
     trilha(t),
     copiando ? barra(t.pct, t.parada ? 'aviso' : '', cor) : barra(0, t.parada ? 'aviso' : 'indeterminado', cor),
@@ -618,7 +619,8 @@ function cartaoTarefa(t, detalhado, cor = corTipo(t.tipo)) {
       detalhado && t.decorrido ? el('span', {}, 'nesta parte há ', el('b', {}, t.decorrido)) : null) : null,
     t.fase === 'aguardando' ? el('div', { class: 'small ' + (esquecida ? 'texto-aviso' : 'muted'), style: 'margin-top:6px' },
       esquecida ? `Agendada ${haQuanto(t.criada)} e ainda esperando. Se não vai mais usar, cancele: um boot pela rede nesta máquina apaga o disco.`
-        : [`Agendada ${haQuanto(t.criada)}. Ligue a máquina e dê boot pela rede: `, teclasBoot(), '.']) : null,
+        : [`Agendada ${haQuanto(t.criada)}. Ligue a máquina e dê boot pela rede: `, teclasBoot(), '.'],
+      t.expira_em ? ` Se a máquina não ligar até ${dataHora(t.expira_em)}, a tarefa é cancelada sozinha.` : null) : null,
     t.parada ? el('div', { class: 'faixa aviso', style: 'margin-top:10px' }, icone('alerta'), el('div', {},
       el('strong', {}, `Sem notícia da máquina há ${duracao(t.sem_noticia)}`),
       'Ela pode ter travado, desligado ou perdido o cabo. Olhe a tela da máquina; se estiver parada, cancele e agende de novo.')) : null);
@@ -752,6 +754,9 @@ function linhaHistorico(h) {
         style: registro ? null : 'visibility:hidden', onclick: () => verRegistro(h) }, icone('tarefas'), 'Ver registro')));
 }
 
+/** 24 → "1 dia", 48 → "2 dias", 12 → "12 horas". */
+const prazoHoras = (h) => (h % 24 ? `${h} horas` : h === 24 ? '1 dia' : `${h / 24} dias`);
+
 /** Rótulo do dia para agrupar listas: Hoje, Ontem ou a data. */
 function rotuloDia(iso) {
   if (!iso) return 'Sem data';
@@ -769,19 +774,46 @@ function filtros(opcoes, atual, aoMudar) {
   }, rot, n !== undefined ? el('span', { class: 'n' }, String(n)) : null)));
 }
 
-/** Registro completo que a máquina enviou no fim (e os erros que o FOG recebeu). */
+/** Registro que a máquina enviou (e os erros que o FOG recebeu). Com a tarefa em andamento, as últimas linhas
+ *  chegam ao vivo: a janela se atualiza sozinha até a tarefa terminar. */
 async function verRegistro(h) {
   let r;
   try { r = await api(`registro&id=${encodeURIComponent(h.id)}`); } catch (e) { aviso(e.message, true); return; }
-  const ok = r.resultado === 'sucesso';
-  await modal({ titulo: `Registro · ${h.maquina}`, icone: ok ? 'ok' : 'alerta', cor: ok ? 'restaurar' : 'maquinas',
-    texto: `${h.tipo} · ${h.imagem || '—'} · ${dataHora(r.quando || h.criada)}`,
-    conteudo: el('div', {},
+  const corpo = el('div', {});
+  const pintar = () => {
+    const pre = corpo.querySelector('pre.registro');
+    const noFim = !pre || pre.scrollHeight - pre.scrollTop - pre.clientHeight < 24; // a pessoa não rolou para cima
+    corpo.replaceChildren(
+      r.ativa ? el('div', { class: 'faixa info', style: 'margin-bottom:12px;align-items:center' }, el('span', { class: 'ponto-vivo' }),
+        el('div', {}, el('strong', {}, 'Ao vivo'), 'As últimas linhas aparecem enquanto a máquina trabalha. O registro completo chega no fim.')) : null,
       r.mensagem ? el('div', { class: 'faixa ruim', style: 'margin-bottom:12px' }, icone('alerta'), el('div', {}, el('strong', {}, 'Motivo informado pela máquina'), r.mensagem)) : null,
       r.erros.length ? el('div', { class: 'faixa aviso', style: 'margin-bottom:12px' }, icone('alerta'), el('div', {}, el('strong', {}, 'Erros recebidos pelo servidor'),
         el('ul', { style: 'margin:4px 0 0' }, r.erros.map((x) => el('li', {}, x.motivo))))) : null,
-      r.registro ? el('pre', { class: 'registro' }, r.registro) : el('p', { class: 'small muted' }, 'A máquina não enviou o registro completo desta tarefa.')),
-    botoes: [{ texto: 'Fechar', classe: 'primario' }] });
+      r.registro ? el('pre', { class: 'registro' }, r.registro)
+        : el('p', { class: 'small muted' }, r.ativa ? 'Esperando a máquina mandar as primeiras linhas…' : 'A máquina não enviou o registro completo desta tarefa.'));
+    const novo = corpo.querySelector('pre.registro');
+    if (novo) novo.scrollTop = noFim ? novo.scrollHeight : (pre ? pre.scrollTop : 0);
+  };
+  pintar();
+  let vivo = null;
+  if (r.ativa) {
+    let pedindo = false;
+    vivo = setInterval(async () => {
+      if (pedindo || !corpo.isConnected) return;
+      pedindo = true;
+      try {
+        const novo = await api(`registro&id=${encodeURIComponent(h.id)}`);
+        if (JSON.stringify(novo) !== JSON.stringify(r)) { r = novo; pintar(); }
+        if (!r.ativa) { clearInterval(vivo); vivo = null; }
+      } catch (e) { /* sem comunicação: tenta de novo no próximo ciclo */ }
+      pedindo = false;
+    }, 3000);
+  }
+  const ok = r.resultado === 'sucesso';
+  await modal({ titulo: `Registro · ${h.maquina}`, icone: r.ativa ? 'tarefas' : ok ? 'ok' : 'alerta', cor: r.ativa ? 'tarefas' : ok ? 'restaurar' : 'maquinas',
+    texto: `${h.tipo} · ${h.imagem || '—'} · ${r.ativa ? 'em andamento' : dataHora(r.quando || h.criada)}`,
+    conteudo: corpo, botoes: [{ texto: 'Fechar', classe: 'primario' }] });
+  if (vivo) clearInterval(vivo);
 }
 
 function saudacao() {
@@ -826,7 +858,8 @@ async function telaInicio(alvo) {
           el('div', { class: 'chips' }, el('span', { class: 'chip' }, `Servidor ${r.rede.ip}`), el('span', { class: 'chip' }, `${ativos}/${r.servicos.length} serviços ativos`), el('span', { class: 'chip' }, `${gb(r.disco.livre)} livres`)))),
       r.esquecidas ? el('div', { class: 'faixa aviso', style: 'margin-bottom:20px;align-items:center' }, icone('alerta'), el('div', { style: 'flex:1' },
         el('strong', {}, `${plural(r.esquecidas, 'tarefa agendada há mais de 1 dia', 'tarefas agendadas há mais de 1 dia')} ainda espera a máquina ligar`),
-        'Se alguém der boot pela rede nessa máquina, o disco será apagado. Cancele o que não vai mais usar.'),
+        'Se alguém der boot pela rede nessa máquina, o disco será apagado. Cancele o que não vai mais usar',
+        r.expirar_horas ? ` (ou espere: ${r.expirar_horas === 1 ? 'depois de 1 hora' : `depois de ${prazoHoras(r.expirar_horas)}`} esperando, ela é cancelada sozinha).` : '.'),
         el('a', { class: 'btn p', href: '#/tarefas' }, 'Ver tarefas')) : null,
       r.contagem.novas ? el('div', { class: 'faixa info', style: 'margin-bottom:20px;align-items:center' }, icone('info'), el('div', { style: 'flex:1' },
         el('strong', {}, `${plural(r.contagem.novas, 'máquina nova detectada', 'máquinas novas detectadas')} na rede`), 'Deram boot pela rede de clonagem nos últimos 30 minutos e ainda não estão cadastradas.'),
@@ -1048,11 +1081,17 @@ async function telaMaquinas(alvo, p) {
 // ================================================================ imagens
 
 async function telaImagens(alvo) {
-  const { imagens, sistemas } = await api('imagens');
+  const [{ imagens, sistemas }, sobras] = await Promise.all([api('imagens'), api('orfas').catch(() => ({ orfas: [] }))]);
   const fato = (rot, val) => el('div', { class: 'fato' }, el('div', { class: 'rot' }, rot), el('div', { class: 'val' }, val));
+  const orfas = sobras.orfas || [];
+  const totalOrfas = orfas.reduce((s, o) => s + o.bytes, 0);
   alvo.replaceChildren(
     cabPagina('imagens', 'Cópias de disco guardadas no servidor.',
       el('button', { class: 'btn primario', type: 'button', onclick: async () => { if (await formImagem(sistemas)) navegar(); } }, icone('mais'), 'Nova imagem')),
+    orfas.length ? el('div', { class: 'faixa aviso', style: 'margin-bottom:20px;align-items:center' }, icone('alerta'), el('div', { style: 'flex:1' },
+      el('strong', {}, `${plural(orfas.length, 'captura interrompida deixou', 'capturas interrompidas deixaram')} ${gb(totalOrfas)} no servidor`),
+      'Capturas que falharam ou foram canceladas no meio. Não servem para restaurar: pode apagar para liberar espaço.'),
+      el('button', { class: 'btn p', type: 'button', onclick: async () => { if (await limparOrfas(orfas)) navegar(); } }, 'Ver e apagar')) : null,
     imagens.length ? el('div', { class: 'grade g2' }, imagens.map((i) => {
       const c = compat(i);
       const mais = el('button', { class: 'btn icone fantasma', type: 'button', 'aria-label': `Mais ações para ${i.nome}` }, icone('pontos'));
@@ -1631,6 +1670,27 @@ async function limparHistorico() {
   return !!ok;
 }
 
+/** Apagar sobras de capturas interrompidas (/images/dev): escolher quais e confirmar com a senha. */
+async function limparOrfas(orfas) {
+  const itens = orfas.map((o) => {
+    const caixa = el('input', { type: 'checkbox', checked: true });
+    return { o, caixa, no: el('label', { class: 'alternar' }, caixa, el('div', {},
+      el('strong', {}, o.maquina || 'Máquina sem cadastro'),
+      el('small', {}, `${gb(o.bytes)} · ${o.mac} · última gravação ${haQuanto(o.modificada)}`))) };
+  });
+  const minha = el('input', { type: 'password', autocomplete: 'current-password' });
+  return !!await modal({ titulo: 'Apagar sobras de capturas', icone: 'lixo', cor: 'imagens',
+    texto: 'Cada item é o que uma captura copiou antes de falhar ou ser cancelada. As imagens cadastradas não são tocadas.',
+    conteudo: el('div', {}, itens.map((x) => x.no),
+      el('div', { class: 'faixa ruim', style: 'margin-top:12px' }, icone('alerta'), el('div', {}, 'Isso não pode ser desfeito.')),
+      el('div', { style: 'margin-top:12px' }, campo(`Sua senha (${sessao.usuario})`, minha, 'Para confirmar que é você.'))),
+    botoes: [{ texto: 'Voltar', classe: 'fantasma' }, { texto: 'Apagar', classe: 'perigo-cheio', acao: async () => {
+      const pastas = itens.filter((x) => x.caixa.checked).map((x) => x.o.pasta);
+      if (!pastas.length) throw new Error('Marque pelo menos uma.');
+      aviso((await api('orfas_limpar', { pastas, minha_senha: minha.value })).msg);
+    } }] });
+}
+
 // ================================================================ ajuda
 
 async function telaAjuda(alvo) {
@@ -1889,6 +1949,10 @@ async function abaCadastro(corpo) {
   const opcoesMenu = [[0, 'Esperar alguém escolher (recomendado)'], [10, 'Iniciar pelo disco depois de 10 segundos'], [30, 'Iniciar pelo disco depois de 30 segundos'], [60, 'Iniciar pelo disco depois de 1 minuto']];
   if (!opcoesMenu.some(([v]) => v === c.menu_espera)) opcoesMenu.push([c.menu_espera, `Iniciar pelo disco depois de ${c.menu_espera} segundos (atual)`]);
   const menuEspera = el('select', {}, opcoesMenu.map(([v, t]) => el('option', { value: v, selected: v === c.menu_espera }, t)));
+  const opcoesExpirar = [[6, 'Depois de 6 horas'], [12, 'Depois de 12 horas'], [24, 'Depois de 1 dia (recomendado)'], [48, 'Depois de 2 dias'],
+    [72, 'Depois de 3 dias'], [168, 'Depois de 7 dias'], [0, 'Nunca (só avisar no Início)']];
+  if (!opcoesExpirar.some(([v]) => v === c.expirar_horas)) opcoesExpirar.push([c.expirar_horas, `Depois de ${prazoHoras(c.expirar_horas)} (atual)`]);
+  const expirar = el('select', {}, opcoesExpirar.map(([v, x]) => el('option', { value: v, selected: v === c.expirar_horas }, x)));
   const previa = el('div', { class: 'previa-nomes' });
   const montarPrevia = () => {
     const pre = prefixo.value.trim().toUpperCase(); const suf = sufixo.value.trim().toUpperCase();
@@ -1907,7 +1971,7 @@ async function abaCadastro(corpo) {
     salvar.disabled = true;
     try {
       const r = await api('cadastro_salvar', { prefixo: prefixo.value, sufixo: sufixo.value, digitos: Number(digitos.value), numero: Number(numero.value),
-        imagem_id: Number(imagem.value), restaurar: restaurar.checked, menu_espera: Number(menuEspera.value) });
+        imagem_id: Number(imagem.value), restaurar: restaurar.checked, menu_espera: Number(menuEspera.value), expirar_horas: Number(expirar.value) });
       aviso(r.msg);
       await abaCadastro(corpo);
     } catch (err) { aviso(err.message, true); salvar.disabled = false; }
@@ -1935,6 +1999,11 @@ async function abaCadastro(corpo) {
       campo('Quando ninguém escolhe nada no menu', menuEspera, 'Com "Esperar", a máquina fica no menu até alguém escolher uma opção.'),
       el('div', { class: 'faixa info' }, icone('info'), el('div', {}, el('strong', {}, 'Deixe a BIOS das máquinas iniciar pelo disco'),
         'e use a tecla do menu de boot (F12 na maioria) para entrar na rede. Se a rede for a primeira opção da BIOS, com "Esperar" a máquina vai parar no menu toda vez que ligar.'))),
+    el('div', { class: 'cartao' }, el('h2', { style: 'margin-bottom:12px' }, 'Tarefas esquecidas'),
+      campo('Cancelar sozinha a tarefa que espera a máquina ligar', expirar,
+        'Uma captura ou restauração agendada espera a máquina dar boot pela rede. Esquecida, ela apagaria o disco no próximo boot pela rede, dias depois.'),
+      el('div', { class: 'faixa info' }, icone('info'), el('div', {}, el('strong', {}, 'Só tarefas que ainda não começaram'),
+        'Uma máquina que já está copiando nunca é interrompida. Sessões em grupo não entram: elas só começam quando você clica em Iniciar.'))),
     el('div', { class: 'botoes', style: 'justify-content:flex-end' }, salvar)));
 }
 

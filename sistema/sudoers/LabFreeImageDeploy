@@ -9,5 +9,6 @@ Cmnd_Alias LABFREE_PAINEL = /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy
     /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root imagem-apagar, \
     /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root copias, \
     /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root nat-ler, \
-    /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root nat-aplicar
+    /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root nat-aplicar, \
+    /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root dev-orfas
 www-data ALL=(root) NOPASSWD: LABFREE_PAINEL

@@ -11,8 +11,10 @@ agente para Windows): a instalação não baixa nada do projeto FOG. Acrescenta:
   acompanhamento ao vivo, avisos claros (por exemplo, "esta imagem só cabe em discos de 128 GB ou mais").
 - **Tela própria na máquina durante a clonagem**: etapas, porcentagem, velocidade, tempo restante e mensagens em
   português; no fim mostra o resultado e não reinicia sozinha.
-- **Acompanhamento e histórico**: trilha das 5 etapas de cada máquina, aviso de máquina sem notícia, histórico por
-  dia com filtros, motivo das falhas e o registro completo de cada tarefa.
+- **Acompanhamento e histórico**: trilha das 5 etapas de cada máquina, registro ao vivo, aviso de máquina sem
+  notícia, histórico por dia com filtros, motivo das falhas e o registro completo de cada tarefa.
+- **Sem sustos**: tarefa esquecida (máquina que não ligou no prazo) é cancelada sozinha antes que um boot pela rede
+  dias depois apague um disco; sobras de capturas interrompidas aparecem em Imagens para apagar.
 - **Restaurar em grupo sob controle**: o painel mostra cada máquina que entrou (cadastrada ou não), avisa quando a
   sala está completa e só começa quando alguém clica em Iniciar. Nada começa sozinho na máquina.
 - **Imagens menores e conferidas**: com o servidor parado, as imagens são recomprimidas e conferidas bit a bit

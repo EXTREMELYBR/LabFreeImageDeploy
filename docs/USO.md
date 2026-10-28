@@ -59,6 +59,10 @@ Imagens de *tamanho fixo* só restauram em discos iguais ou maiores que o origin
   estiver corrompido (disco do servidor com defeito, captura interrompida), aparece *Problema nos arquivos desta
   imagem*: capture de novo.
 - Para rodar agora no servidor: `sudo LabFreeImageDeploy otimizar`.
+- **Sobras de capturas interrompidas**: uma captura que falha ou é cancelada deixa no servidor o que já tinha
+  copiado (pasta `/images/dev`). Quando isso acontece, Imagens mostra "Capturas interrompidas deixaram X GB no
+  servidor" → **Ver e apagar**: escolha o que apagar e confirme com a sua senha. Só aparecem sobras paradas há mais
+  de 1 hora e de máquinas sem tarefa em andamento; as imagens cadastradas nunca são tocadas.
 
 ## Restaurar
 - **Poucas máquinas**: Painel → Restaurar imagem → imagem → máquinas → Apagar e restaurar. Ligue as máquinas pela rede.
@@ -97,6 +101,8 @@ técnicos. Se o agendamento marcou *Desligar quando terminar*, ela desliga sozin
   Gravar/Copiar → Finalizar, as mesmas da tela da máquina), a porcentagem, o quanto já foi copiado, a velocidade e o
   tempo restante. Se ficar mais de 3 minutos sem notícia, a barra fica laranja e aparece um aviso (travou, desligou,
   cabo). Tarefa agendada há mais de 1 dia aparece em laranja com o lembrete de cancelar.
+- **Registro ao vivo**: o botão **Registro** de uma máquina em andamento abre as últimas linhas que ela escreveu
+  (as mesmas da tela da máquina), atualizadas sozinhas a cada 3 segundos. O registro completo chega no fim.
 - O histórico fica agrupado por dia (Hoje, Ontem, …) e tem filtros: Todas, Concluídas, Com falha, Canceladas.
   Falhas mostram o motivo em português; **Ver registro** abre o registro completo enviado pela máquina.
 - Em **Máquinas**, os filtros Em tarefa agora, Nunca clonadas e Sem imagem padrão ajudam a achar máquinas; uma
@@ -106,6 +112,11 @@ técnicos. Se o agendamento marcou *Desligar quando terminar*, ela desliga sozin
   O que está em andamento nunca é apagado.
 - O Início avisa quando há tarefas agendadas há mais de 1 dia: se alguém der boot pela rede nessa máquina, o disco
   é apagado. Cancele o que não vai usar.
+- **Tarefas esquecidas são canceladas sozinhas**: uma captura ou restauração que espera a máquina ligar por mais de
+  1 dia (padrão) é cancelada, e o histórico mostra "Cancelada sozinha: a máquina não ligou pela rede em 1 dia". O
+  cartão de cada tarefa mostra até quando ela espera. O prazo (6 horas a 7 dias, ou nunca) fica em Configurações →
+  Cadastro pelo boot → Tarefas esquecidas. Uma máquina que já está copiando nunca é interrompida, e as sessões em
+  grupo não entram (elas só começam quando você clica em Iniciar).
 
 ## Internet para a rede de clonagem (opcional)
 Configurações → Placa de rede → *Internet para a rede de clonagem*. Com o servidor na internet (por exemplo, o Wi-Fi

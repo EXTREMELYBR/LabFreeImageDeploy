@@ -82,9 +82,11 @@ def ativas(c):
     base = {'decorrido': '00:12:31', 'sessao': None}
     return [
         dict(base, id=101, maquina='LAB-001', tipo='Restauração', estado=3, estado_texto='Em andamento', criada=iso(20), pct=64, copiado='14,2 GB', total='22,1 GB',
-             restante='00:06:40', velocidade='1,9 GB/min', imagem='Laboratorio Fontes', fase='copiando', fase_texto='Gravando a parte 2 de 3 do disco', etapa=4, etapas=5, parte=2, sem_noticia=4, parada=False),
+             restante='00:06:40', velocidade='1,9 GB/min', imagem='Laboratorio Fontes', fase='copiando', fase_texto='Gravando a parte 2 de 3 do disco', etapa=4, etapas=5, parte=2, sem_noticia=4, parada=False,
+             tem_registro=True),
         dict(base, id=102, maquina='LAB-002', tipo='Captura', estado=1, estado_texto='Aguardando a máquina ligar', criada=iso(60 * 30), pct=0, copiado='', total='',
-             restante='', velocidade='', imagem='Windows 11 Administrativo', fase='aguardando', fase_texto='Aguardando a máquina ligar pela rede', sem_noticia=0, parada=False),
+             restante='', velocidade='', imagem='Windows 11 Administrativo', fase='aguardando', fase_texto='Aguardando a máquina ligar pela rede', sem_noticia=0, parada=False,
+             expira_em=iso(-60 * 18)),
         dict(base, id=103, maquina='PROFESSOR-SALA2', tipo='Restauração', estado=3, estado_texto='Em andamento', criada=iso(15), pct=0, copiado='', total='',
              restante='', velocidade='', imagem='Windows 11 Administrativo', fase='preparando', fase_texto='Verificando o disco da máquina', etapa=2, etapas=5, sem_noticia=6, parada=False),
         dict(base, id=104, maquina='LAB-008', tipo='Restauração', estado=3, estado_texto='Em andamento', criada=iso(50), pct=37, copiado='8,1 GB', total='22,1 GB',
@@ -147,7 +149,7 @@ def resposta(acao, c, q, corpo):
                      'rede': {'interface': 'enx00e04c690b37', 'ip': '192.168.31.1', 'adaptador': True, 'cabo': not prob, 'ip_ok': True, 'dhcp_escutando': not prob},
                      'disco': {'livre': 31e9 if prob else 312.4e9, 'total': 468.8e9, 'caminho': '/images'},
                      'contagem': {'maquinas': len(maquinas(c)), 'imagens': len(imagens(c)), 'novas': len(novas(c))},
-                     'tarefas': ativas(c), 'multicast': sessoes(c), 'esquecidas': 0 if c == 'vazio' else 1, 'versao_fog': '1.5.10.2518'}
+                     'tarefas': ativas(c), 'multicast': sessoes(c), 'esquecidas': 0 if c == 'vazio' else 1, 'expirar_horas': 48, 'versao_fog': '1.5.10.2518'}
     if acao == 'maquinas':
         return 200, {'maquinas': maquinas(c), 'nao_cadastradas': novas(c)}
     if acao == 'imagens':
@@ -161,6 +163,10 @@ def resposta(acao, c, q, corpo):
         return 200, {'tarefas': [dict(a[0], ativa=True), dict(a[1], ativa=True),
                                  {'id': 89, 'maquina': 'LAB-007', 'ativa': False, 'estado': 6, 'estado_texto': 'Falhou', 'motivo': historico('cheio')[1]['motivo'], 'tem_registro': True},
                                  {'id': 90, 'maquina': 'LAB-003', 'ativa': False, 'estado': 4, 'estado_texto': 'Concluída', 'motivo': '', 'tem_registro': True}]}
+    if acao == 'registro' and q.get('id') == '101':  # em andamento: últimas linhas ao vivo
+        return 200, {'maquina': 'LAB-001', 'resultado': '', 'mensagem': '', 'quando': iso(0), 'erros': [], 'ativa': True,
+                     'registro': '\n'.join([' * Conectando ao servidor .......... OK', ' * Verificando o disco /dev/sda (120 GB) ..... OK',
+                                             ' * Gravando parte 1 de 3 ..... OK', ' * Gravando parte 2 de 3'])}
     if acao == 'registro':
         falha = q.get('id') == '89'
         reg = '\n'.join([' * Conectando ao servidor .......... OK', ' * Verificando o disco /dev/sda (120 GB) ..... OK',
@@ -176,7 +182,11 @@ def resposta(acao, c, q, corpo):
     if acao == 'limpeza':
         return 200, {'historico': 13, 'fila': 2, 'em_andamento': 3, 'clonagens': 154, 'registros': 0}
     if acao == 'cadastro':
-        return 200, {'prefixo': 'LAB-', 'sufixo': '', 'digitos': 3, 'numero': 1, 'imagem_id': 1, 'restaurar': False, 'sugestao': 'LAB-009', 'menu_espera': 0}
+        return 200, {'prefixo': 'LAB-', 'sufixo': '', 'digitos': 3, 'numero': 1, 'imagem_id': 1, 'restaurar': False, 'sugestao': 'LAB-009', 'menu_espera': 0, 'expirar_horas': 24}
+    if acao == 'orfas':
+        return 200, {'disponivel': True, 'orfas': [] if c == 'vazio' else [
+            {'pasta': '00e04c690b99', 'mac': '00:e0:4c:69:0b:99', 'maquina': 'LAB-004', 'bytes': 18.4e9, 'modificada': iso(60 * 26)},
+            {'pasta': 'b07b25001122', 'mac': 'b0:7b:25:00:11:22', 'maquina': '', 'bytes': 2.1e9, 'modificada': iso(60 * 72)}]}
     if acao == 'nat':
         return 200, {'ligado': c == 'cheio', 'funcionando': c == 'cheio', 'saida': None if c == 'vazio' else {'placa': 'wlp2s0', 'tipo': 'wifi', 'gateway': '192.168.1.1'},
                      'saida_e_clonagem': False, 'dns': ['192.168.1.1'] if c == 'cheio' else [], 'dns_sugerido': ['192.168.1.1'],

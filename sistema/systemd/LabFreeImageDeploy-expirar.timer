@@ -1,0 +1,10 @@
+[Unit]
+Description=LabFree ImageDeploy - procura tarefas esquecidas a cada 10 minutos
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+Persistent=false
+
+[Install]
+WantedBy=timers.target

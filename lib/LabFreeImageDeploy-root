@@ -1398,6 +1398,69 @@ def imagem_apagar(e):
     return {'ok': True, 'bytes': tamanho}
 
 
+DEV_IMAGENS = '/images/dev'
+DEV_PARADA_MIN = 60  # pasta sem nenhuma gravação há menos tempo que isso pode ser uma captura começando
+
+
+def dev_orfas_lista():
+    """Pastas de captura em /images/dev (uma por MAC) que nenhuma tarefa ativa está usando: sobras de capturas
+    que falharam ou foram canceladas (a base só move a pasta para a imagem quando a captura termina bem)."""
+    raiz = os.path.realpath(DEV_IMAGENS)
+    if not os.path.isdir(raiz):
+        return []
+    # MACs (sem separadores) das máquinas com qualquer tarefa ainda não terminada
+    ocupadas = {re.sub(r'[^0-9a-f]', '', l.lower()) for l in mysql(
+        "SELECT m.hmMAC FROM hostMAC m JOIN tasks t ON t.taskHostID = m.hmHostID WHERE t.taskStateID IN (0,1,2,3)").split('\n') if l}
+    nomes = {}
+    for l in mysql("SELECT m.hmMAC, h.hostName FROM hostMAC m JOIN hosts h ON h.hostID = m.hmHostID").split('\n'):
+        if '\t' in l:
+            mac, nome = l.split('\t', 1)
+            nomes[re.sub(r'[^0-9a-f]', '', mac.lower())] = nome
+    saida = []
+    for nome in sorted(os.listdir(raiz)):
+        caminho = os.path.join(raiz, nome)
+        if not re.fullmatch(r'[0-9a-f]{12}', nome) or os.path.islink(caminho) or not os.path.isdir(caminho) or nome in ocupadas:
+            continue
+        tamanho, recente = 0, os.lstat(caminho).st_mtime
+        for r, ds, fs in os.walk(caminho):
+            for f in fs:
+                st = os.lstat(os.path.join(r, f))
+                tamanho += st.st_size
+                recente = max(recente, st.st_mtime)
+        if time.time() - recente < DEV_PARADA_MIN * 60:
+            continue
+        saida.append({'pasta': nome, 'mac': ':'.join(nome[i:i + 2] for i in range(0, 12, 2)), 'maquina': nomes.get(nome, ''),
+                      'bytes': tamanho, 'modificada': int(recente)})
+    return saida
+
+
+def dev_orfas(e):
+    """listar: sobras de capturas interrompidas em /images/dev. apagar: apaga as pastas pedidas, conferindo de novo
+    cada uma (nome de MAC, sem link, nenhuma tarefa ativa da máquina, nada gravado na última hora)."""
+    if e.get('acao', 'listar') == 'listar':
+        return {'ok': True, 'orfas': dev_orfas_lista()}
+    if e.get('acao') != 'apagar':
+        raise Erro('Ação inválida.')
+    pedidas = e.get('pastas')
+    if not isinstance(pedidas, list) or not pedidas or not all(isinstance(p, str) and re.fullmatch(r'[0-9a-f]{12}', p) for p in pedidas):
+        raise Erro('Escolha pelo menos uma pasta.')
+    livres = {o['pasta']: o for o in dev_orfas_lista()}
+    recusadas = [p for p in pedidas if p not in livres]
+    if recusadas:
+        raise Erro('Estas pastas não podem ser apagadas agora (em uso por uma tarefa, gravadas há pouco ou já apagadas): '
+                   + ', '.join(recusadas))
+    raiz = os.path.realpath(DEV_IMAGENS)
+    total = 0
+    for p in pedidas:
+        alvo = os.path.join(raiz, p)
+        if os.path.islink(alvo) or os.path.dirname(os.path.realpath(alvo)) != raiz:
+            raise Erro(f'Recusado: {p} não é uma pasta comum.')
+        shutil.rmtree(alvo)
+        total += livres[p]['bytes']
+        log(f"dev-orfas: apagada {alvo} ({livres[p]['bytes']} bytes, máquina {livres[p]['maquina'] or 'sem cadastro'})")
+    return {'ok': True, 'apagadas': len(pedidas), 'bytes': total}
+
+
 # ------------------------------------------------------------------ marca e autonomia
 
 MARCA_DIR = '/usr/local/share/LabFreeImageDeploy'
@@ -1762,12 +1825,13 @@ ACOES = {'status': status, 'dhcp-ler': dhcp_ler, 'dhcp-aplicar': dhcp_aplicar,
          'rede-listar': rede_listar, 'rede-simular': rede_simular, 'rede-aplicar': rede_aplicar, 'reaplicar': reaplicar,
          'imagem-apagar': imagem_apagar, 'marca-aplicar': marca_aplicar,
          'servicos-aplicar': lambda e=None: {'ok': True, 'criados': servicos_aplicar()}, 'recuperar': recuperar,
-         'copias': copias, 'nat-ler': nat_ler, 'nat-aplicar': nat_aplicar, 'nat-restaurar': nat_restaurar}
+         'copias': copias, 'nat-ler': nat_ler, 'nat-aplicar': nat_aplicar, 'nat-restaurar': nat_restaurar,
+         'dev-orfas': dev_orfas}
 
 
 # o painel (www-data via sudo) só pode pedir estas ações; o resto é para o administrador e o instalador
 ACOES_PAINEL = {'status', 'dhcp-ler', 'dhcp-aplicar', 'rede-listar', 'rede-simular', 'rede-aplicar', 'imagem-apagar', 'copias',
-                'nat-ler', 'nat-aplicar'}
+                'nat-ler', 'nat-aplicar', 'dev-orfas'}
 ACOES_LEITURA = {'status', 'dhcp-ler', 'rede-listar', 'rede-simular', 'copias', 'nat-ler'}  # copias tem trava própria  # (recuperar trava como as alterações)
 TRAVA = '/run/LabFreeImageDeploy.lock'
 

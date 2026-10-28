@@ -1,0 +1,71 @@
+#!/usr/bin/php
+<?php
+/**
+ * LabFree ImageDeploy — cancela sozinhas as tarefas esquecidas.
+ *
+ * Uma tarefa agendada (captura ou restauração) espera a máquina dar boot pela rede. Se ninguém liga a máquina e a
+ * tarefa fica esquecida, dias depois um boot pela rede qualquer apaga o disco sem aviso. Este programa cancela as
+ * tarefas que esperam há mais que o prazo de Configurações → Cadastro pelo boot (LABFREE_EXPIRAR_HORAS; padrão 24 h,
+ * 0 = nunca). Só tarefas que ainda não começaram (estado 1) e fora de sessão em grupo (essas só começam quando
+ * alguém clica em Iniciar). O cancelamento é o da base (TaskManager::cancel, o mesmo do botão Cancelar do painel)
+ * e o histórico mostra o motivo ("Cancelada sozinha…", tabela labfreeEtapas).
+ *
+ * Roda pelo LabFreeImageDeploy-expirar.timer como www-data (o mesmo usuário do painel).
+ * Uso: LabFreeImageDeploy-expirar [--simular]   (--simular só mostra o que seria cancelado)
+ */
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+ini_set('mysqlnd.net_read_timeout', '120');
+$simular = in_array('--simular', $argv, true);
+require '/var/www/html/fog/commons/base.inc.php';
+
+$pdo = new PDO('mysql:host=' . DATABASE_HOST . ';dbname=' . DATABASE_NAME . ';charset=utf8mb4', DATABASE_USERNAME, DATABASE_PASSWORD,
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$valor = $pdo->query("SELECT settingValue FROM globalSettings WHERE settingKey = 'LABFREE_EXPIRAR_HORAS'")->fetchColumn();
+$horas = $valor === false || $valor === '' ? 24 : max(0, min(720, (int)$valor));
+if (!$horas) {
+    echo "Cancelar tarefas esquecidas: desligado.\n";
+    exit(0);
+}
+// as datas das tarefas ficam no fuso FOG_TZ_INFO
+$fuso = new DateTimeZone(FOGCore::getSetting('FOG_TZ_INFO') ?: 'UTC');
+$limite = (new DateTime('now', $fuso))->modify("-$horas hours")->format('Y-m-d H:i:s');
+$st = $pdo->prepare("SELECT t.taskID id, t.taskHostID host, h.hostName maquina, t.taskCreateTime criada FROM tasks t
+    LEFT JOIN hosts h ON h.hostID = t.taskHostID
+    WHERE t.taskStateID = 1 AND t.taskCreateTime > '2000-01-01' AND t.taskCreateTime < ?
+      AND NOT EXISTS (SELECT 1 FROM multicastSessionsAssoc a WHERE a.tID = t.taskID) ORDER BY t.taskID");
+$st->execute([$limite]);
+$tarefas = $st->fetchAll(PDO::FETCH_ASSOC);
+$prazo = $horas % 24 ? "$horas horas" : ($horas === 24 ? '1 dia' : ($horas / 24) . ' dias');
+$canceladas = 0;
+foreach ($tarefas as $t) {
+    $quem = sprintf('tarefa %d (%s, agendada em %s %s)', $t['id'], $t['maquina'] ?: 'máquina excluída', $t['criada'], $fuso->getName());
+    if ($simular) {
+        echo "Seria cancelada: $quem\n";
+        continue;
+    }
+    // confere de novo logo antes: a máquina pode ter ligado agora mesmo
+    $ainda = $pdo->prepare('SELECT taskStateID FROM tasks WHERE taskID = ?');
+    $ainda->execute([$t['id']]);
+    if ((int)$ainda->fetchColumn() !== 1) {
+        continue;
+    }
+    FOGCore::getClass('TaskManager')->cancel([(int)$t['id']]);
+    $pdo->exec("CREATE TABLE IF NOT EXISTS labfreeEtapas (
+        taskID INT NOT NULL PRIMARY KEY, hostID INT NOT NULL, etapa TINYINT NOT NULL DEFAULT 0, etapas TINYINT NOT NULL DEFAULT 5,
+        texto VARCHAR(255) NOT NULL DEFAULT '', parte SMALLINT NOT NULL DEFAULT 0, resultado VARCHAR(10) NOT NULL DEFAULT '',
+        mensagem TEXT NULL, registro MEDIUMTEXT NULL, atualizada DATETIME NOT NULL, KEY (hostID)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $pdo->prepare("INSERT INTO labfreeEtapas (taskID, hostID, resultado, mensagem, atualizada) VALUES (?, ?, 'expirada', ?, NOW())
+        ON DUPLICATE KEY UPDATE resultado = VALUES(resultado), mensagem = VALUES(mensagem), atualizada = NOW()")
+        ->execute([(int)$t['id'], (int)$t['host'], "Cancelada sozinha: a máquina não ligou pela rede em $prazo. Agende de novo quando for usar."]);
+    echo "Cancelada (esperava há mais de $prazo): $quem\n";
+    $canceladas++;
+}
+if (!$tarefas) {
+    echo "Nenhuma tarefa esperando há mais de $prazo.\n";
+}
+exit(0);

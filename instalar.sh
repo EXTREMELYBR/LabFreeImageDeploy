@@ -236,6 +236,7 @@ instalar_arquivos() {
     install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-udp-sender" /usr/local/lib/LabFreeImageDeploy/udp-sender  # porteiro do envio em grupo
     install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-otimizar" /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-otimizar
     install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-copias" /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-copias
+    install -m 755 "$ORIGEM/lib/LabFreeImageDeploy-expirar" /usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-expirar
     rsync -a --delete "$ORIGEM/marca/" /usr/local/share/LabFreeImageDeploy/
     echo "$VERSAO" > /etc/LabFreeImageDeploy/versao
     for f in "$ORIGEM"/sbin/LabFreeImageDeploy*; do install -m 750 "$f" /usr/local/sbin/; done
@@ -439,8 +440,10 @@ aplicar_camada() {
     install -m 644 "$ORIGEM/sistema/systemd/LabFreeImageDeploy-recuperar.service" /etc/systemd/system/
     install -m 644 "$ORIGEM/sistema/systemd/LabFreeImageDeploy-otimizar.service" "$ORIGEM/sistema/systemd/LabFreeImageDeploy-otimizar.timer" /etc/systemd/system/
     install -m 644 "$ORIGEM/sistema/systemd/LabFreeImageDeploy-nat.service" /etc/systemd/system/   # habilitado só se o NAT for ligado no painel
+    install -m 644 "$ORIGEM/sistema/systemd/LabFreeImageDeploy-expirar.service" "$ORIGEM/sistema/systemd/LabFreeImageDeploy-expirar.timer" /etc/systemd/system/
     rodar systemctl daemon-reload
     rodar systemctl enable --now LabFreeImageDeploy-otimizar.timer   # imagens menores e conferidas, com o servidor parado
+    rodar systemctl enable --now LabFreeImageDeploy-expirar.timer    # tarefas esquecidas canceladas sozinhas (prazo no painel)
     rodar systemctl enable LabFreeImageDeploy-recuperar.service   # desfaz no boot uma troca de rede interrompida
     ok "backup semanal, proteção contra o apt e atualizações automáticas desligadas"
     # PHP travado na versão em uso (o PPA ondrej trocaria de versão sozinho)

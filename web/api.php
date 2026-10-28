@@ -576,6 +576,8 @@ final class Painel
             $parte = $t['parte'] ? ' (parte ' . $t['parte'] . ' do disco)' : '';
             $t['fase_texto'] = ($captura ? 'Copiando o disco para o servidor' : 'Gravando no disco') . $parte;
         }
+        // a máquina já mandou linhas do registro (a tela nova manda ao vivo, durante a clonagem)
+        $t['tem_registro'] = $maq ? (bool)$maq['tem_registro'] : false;
         // a própria máquina disse em que etapa está (tela do LabFree): é a informação mais exata
         if ($maq && (int)$t['estado'] === 3 && $maq['texto'] !== '') {
             $t['etapa'] = (int)$maq['etapa'];
@@ -623,23 +625,28 @@ final class Painel
         return mb_substr($texto, 0, 300);
     }
 
-    /** Registro completo enviado pela máquina no fim de uma tarefa (tela do LabFree). */
+    /** Registro enviado pela máquina (tela do LabFree): as últimas linhas durante a clonagem, completo no fim. */
     public static function registro($id)
     {
         $id = (int)$id;
         $r = [];
+        $ativa = (bool)self::q('SELECT 1 FROM tasks WHERE taskID = ? AND taskStateID IN (1,2,3)', [$id]);
         try {
             $r = self::q('SELECT e.resultado, e.mensagem, e.registro, UNIX_TIMESTAMP(e.atualizada) atualizada_ts, h.hostName maquina FROM labfreeEtapas e
                 LEFT JOIN hosts h ON h.hostID = e.hostID WHERE e.taskID = ?', [$id]);
         } catch (Throwable $e) {
         }
         $erros = self::q("SELECT logText, createTime FROM taskLog WHERE taskID = ? AND logType IN ('error','warning') ORDER BY id", [$id]);
+        if (!$r && !$erros && $ativa) {
+            return ['maquina' => '', 'resultado' => '', 'mensagem' => '', 'registro' => '', 'quando' => null, 'erros' => [], 'ativa' => true];
+        }
         if (!$r && !$erros) {
             self::erro('Esta tarefa não tem registro (ela foi feita antes da versão que guarda o registro, ou a máquina não chegou a enviar).', 404);
         }
         $x = $r[0] ?? [];
         return ['maquina' => self::txt($x['maquina'] ?? ''), 'resultado' => $x['resultado'] ?? '', 'mensagem' => (string)($x['mensagem'] ?? ''),
             'registro' => (string)($x['registro'] ?? ''), 'quando' => !empty($x['atualizada_ts']) ? date(DATE_ATOM, (int)$x['atualizada_ts']) : null,
+            'ativa' => $ativa,
             'erros' => array_map(function ($l) {
                 return ['texto' => $l['logText'], 'motivo' => self::motivo($l['logText']), 'quando' => self::data($l['createTime'])];
             }, $erros)];
@@ -681,6 +688,7 @@ final class Painel
         $memoria = self::progressoMemoria($ativas);
         self::windowsNasTarefas(array_unique(array_map(fn($t) => (int)$t['host_id'], $ativas)));
         $daMaquina = self::etapas(array_column($ativas, 'id'));
+        $expirar = self::expirarHoras();
         foreach ($ativas as &$t) {
             unset($t['host_id']);
             $t['maquina'] = self::txt($t['maquina']);
@@ -688,6 +696,8 @@ final class Painel
             $t['tipo'] = self::tipoTarefa($t['tipo']);
             $t['estado_texto'] = self::estadoTexto($t['estado']);
             $t['criada'] = self::data($t['criada']);
+            $t['expira_em'] = (int)$t['estado'] === 1 && $expirar && $t['criada'] && !$t['sessao']
+                ? date(DATE_ATOM, strtotime($t['criada']) + $expirar * 3600) : null;
             $t['pct'] = (int)$t['pct'];
             $t['velocidade'] = ''; // o FOG guarda só o número (sem MB/GB); a tela do LabFree manda o valor com a unidade
             $t['sessao'] = $t['sessao'] ? (int)$t['sessao'] : null;
@@ -898,6 +908,7 @@ final class Painel
             'tarefas' => $tar['ativas'],
             'multicast' => $tar['multicast_ativas'],
             'esquecidas' => $tar['esquecidas'],
+            'expirar_horas' => self::expirarHoras(),
             'versao_fog' => defined('FOG_VERSION') ? FOG_VERSION : '',
         ];
     }
@@ -1707,6 +1718,33 @@ final class Painel
         return $json;
     }
 
+    // ------------------------------------------------------------ sobras de capturas interrompidas
+
+    /** Pastas de captura em /images/dev que nenhuma tarefa usa (capturas que falharam ou foram canceladas). */
+    public static function orfas()
+    {
+        try {
+            $r = self::root('dev-orfas', ['acao' => 'listar']);
+        } catch (PainelErro $e) {
+            return ['orfas' => [], 'disponivel' => false]; // servidor ainda sem a versão do ajudante/sudo que lista
+        }
+        return ['disponivel' => true, 'orfas' => array_map(function ($o) {
+            return ['pasta' => $o['pasta'], 'mac' => $o['mac'], 'maquina' => self::txt($o['maquina']), 'bytes' => (int)$o['bytes'],
+                'modificada' => date(DATE_ATOM, (int)$o['modificada'])];
+        }, $r['orfas'] ?? [])];
+    }
+
+    public static function orfasLimpar($d)
+    {
+        self::confirmarMinhaSenha($d);
+        $pastas = array_values(array_filter((array)($d['pastas'] ?? []), 'is_string'));
+        $r = self::root('dev-orfas', ['acao' => 'apagar', 'pastas' => $pastas]);
+        $b = (int)($r['bytes'] ?? 0);
+        return ['ok' => true, 'msg' => sprintf('%d %s, %s liberados no servidor.', $r['apagadas'],
+            $r['apagadas'] === 1 ? 'sobra apagada' : 'sobras apagadas',
+            $b >= 1e9 ? number_format($b / 1e9, 1, ',', '.') . ' GB' : max(1, round($b / 1e6)) . ' MB')];
+    }
+
     // ------------------------------------------------------------ cadastro pelo boot
 
     public static function cadastroConfig()
@@ -1736,7 +1774,16 @@ final class Painel
             'sugestao' => $sugestao,
             // menu de boot: 0 = espera alguém escolher; N = depois de N segundos inicia pelo disco
             'menu_espera' => max(0, (int)FOGCore::getSetting('FOG_PXE_MENU_TIMEOUT')),
+            'expirar_horas' => self::expirarHoras(),
         ];
+    }
+
+    /** Horas que uma tarefa pode esperar a máquina ligar antes de ser cancelada sozinha (0 = nunca; padrão 24).
+     *  Quem cancela é lib/LabFreeImageDeploy-expirar (timer a cada 10 min). */
+    public static function expirarHoras()
+    {
+        $v = self::lfConfig('LABFREE_EXPIRAR_HORAS');
+        return $v === '' ? 24 : max(0, min(720, (int)$v));
     }
 
     public static function cadastroSalvar($d)
@@ -1757,7 +1804,7 @@ final class Painel
         if ($numero < 1 || $numero > 99999) {
             self::erro('Próximo número inválido.');
         }
-        $img = (int)($d['imagem_id'] ?? 0);
+        $img = max(0, (int)($d['imagem_id'] ?? 0)); // a base guarda -1 para "nenhuma"
         if ($img) {
             self::imagem($img);
         }
@@ -1772,6 +1819,13 @@ final class Painel
                 self::erro('Tempo do menu de boot: de 0 (esperar a escolha) a 600 segundos.');
             }
             FOGCore::setSetting('FOG_PXE_MENU_TIMEOUT', $espera);
+        }
+        if (isset($d['expirar_horas'])) {
+            $horas = (int)$d['expirar_horas'];
+            if ($horas < 0 || $horas > 720) {
+                self::erro('Prazo das tarefas esquecidas: de 0 (nunca cancelar) a 720 horas.');
+            }
+            self::lfConfig('LABFREE_EXPIRAR_HORAS', $horas);
         }
         return ['ok' => true, 'msg' => 'Cadastro pelo boot configurado.', 'cadastro' => self::cadastroConfig()];
     }
@@ -2103,6 +2157,8 @@ try {
                 Painel::responder(Painel::copias());
             case 'nat':
                 Painel::responder(Painel::root('nat-ler'));
+            case 'orfas':
+                Painel::responder(Painel::orfas());
         }
         Painel::erro('Ação desconhecida.', 404);
     }
@@ -2177,6 +2233,8 @@ try {
             Painel::responder(Painel::root('copias', ['op' => 'importar', 'destino' => $d['destino'] ?? [], 'pastas' => $d['pastas'] ?? []]));
         case 'copias_cancelar':
             Painel::responder(Painel::root('copias', ['op' => 'cancelar']));
+        case 'orfas_limpar':
+            Painel::responder(Painel::orfasLimpar($d));
     }
     Painel::erro('Ação desconhecida.', 404);
 } catch (PainelErro $e) {
