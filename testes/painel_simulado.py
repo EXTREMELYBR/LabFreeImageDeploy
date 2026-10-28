@@ -177,6 +177,10 @@ def resposta(acao, c, q, corpo):
         return 200, {'historico': 13, 'fila': 2, 'em_andamento': 3, 'clonagens': 154, 'registros': 0}
     if acao == 'cadastro':
         return 200, {'prefixo': 'LAB-', 'sufixo': '', 'digitos': 3, 'numero': 1, 'imagem_id': 1, 'restaurar': False, 'sugestao': 'LAB-009', 'menu_espera': 0}
+    if acao == 'nat':
+        return 200, {'ligado': c == 'cheio', 'funcionando': c == 'cheio', 'saida': None if c == 'vazio' else {'placa': 'wlp2s0', 'tipo': 'wifi', 'gateway': '192.168.1.1'},
+                     'saida_e_clonagem': False, 'dns': ['192.168.1.1'] if c == 'cheio' else [], 'dns_sugerido': ['192.168.1.1'],
+                     'firewall': {'ufw': c != 'vazio', 'outro_bloqueio': c == 'problema'}, 'servidor_ip': '192.168.31.1'}
     if acao == 'windows':
         return 200, {'renomear': True, 'dominio': {'ligado': c == 'cheio', 'nome': 'escola.local', 'ou': 'OU=Laboratorio,DC=escola,DC=local', 'usuario': 'ingresso',
                                                     'tem_senha': True}, 'licenca': True, 'chave_padrao': 'NPPR9-•••••-•••••-•••••-29W2D',

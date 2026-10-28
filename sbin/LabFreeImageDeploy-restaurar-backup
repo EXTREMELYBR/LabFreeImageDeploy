@@ -40,7 +40,13 @@ tmp=$(mktemp -d); trap 'rm -rf -- "$tmp"' EXIT
 tar xzf "$arq" -C "$tmp" || { echo "Backup corrompido ou ilegível: $arq"; exit 1; }
 
 echo "Salvando o estado atual antes de restaurar..."
-LABFREE_PROTEGER="$arq" /usr/local/sbin/LabFreeImageDeploy-backup >/dev/null
+# código 2 = backup salvo sem o banco (banco quebrado): justamente quando restaurar o banco é necessário
+rc=0; LABFREE_PROTEGER="$arq" /usr/local/sbin/LabFreeImageDeploy-backup >/dev/null || rc=$?
+if [ $rc -eq 2 ]; then
+    echo "Aviso: o banco atual não pôde ser exportado (o resto do estado atual foi salvo). Continuando a restauração."
+elif [ $rc -ne 0 ]; then
+    echo "Não foi possível salvar o estado atual antes de restaurar (código $rc). Nada foi alterado."; exit 1
+fi
 
 case "$oque" in
     painel)
@@ -81,6 +87,7 @@ case "$oque" in
             install -m 440 -o root -g root "$tmp/etc/sudoers.d/LabFreeImageDeploy" /etc/sudoers.d/LabFreeImageDeploy
         fi
         systemctl daemon-reload
+        command -v netplan >/dev/null && netplan generate 2>/dev/null || true   # o NM lê os perfis gerados pelo netplan
         nmcli general reload conf 2>/dev/null || true
         nmcli connection reload 2>/dev/null || true
         # devolve tudo que depende da configuração (Kea, NTP, marca, serviços) a partir do que foi restaurado

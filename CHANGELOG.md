@@ -5,6 +5,59 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.13.0] - 2026-10-28
+
+Precisa do instalador para chegar ao servidor (`sudo ./instalar.sh`; faz um backup antes, reconstrói o sistema de
+clonagem e recompila o boot com textos em português: ~25 min, sem clonagem em andamento).
+
+### Novo
+- **Internet para a rede de clonagem (NAT), opcional** (Configurações → Placa de rede): o servidor repassa a internet
+  dele (ex.: Wi-Fi do notebook) às máquinas da rede de clonagem — ativar o Windows, atualizações, domínio. Desligado
+  por padrão; ligar/desligar pede a sua senha. Ligado, o DHCP entrega o servidor como saída e um DNS; desligado,
+  tudo volta exatamente como era. Funciona com o firewall ufw ativo (libera só o repasse da rede de clonagem) e volta
+  sozinho depois de reiniciar. A conexão de internet do servidor e a rota padrão nunca são alteradas.
+- Boot pela rede com mais textos em português: login do grupo ("Usuario", "Senha", "Ctrl-X - confirmar"), nome da
+  sessão, sessão inexistente/já começada, login incorreto. O texto do boot não é mais desenhado sobre o logo.
+- Falhas novas explicadas em português: Linux desligado incorretamente (e2fsck) e dados corrompidos na transmissão.
+
+### Correções (teste intenso: 3 revisões de código + teste de ponta a ponta em VM)
+- **Segurança**: o envio em grupo não confia mais em arquivos criados pelo usuário do site na pasta de andamento
+  (poderia fazer o root gravar num caminho escolhido); a importação de imagens recusa links simbólicos e cópias sem a
+  soma de verificação de cada arquivo (um HD/pasta preparado poderia trazer um arquivo protegido do servidor); discos e
+  pastas de rede são montados sem programas, dispositivos e suid (e só leitura ao listar/importar).
+- Cancelar uma sessão em grupo que já tinha terminado marcava como "Cancelada" todas as restaurações bem-sucedidas.
+- Importação interrompida (falha, cancelamento, reinício) deixava imagens em /images que o painel nunca mostrava;
+  agora cada imagem importada é cadastrada mesmo assim (lista guardada até o painel cadastrar), sem duplicar.
+- Imagem nova com o nome de uma excluída (sem apagar os arquivos) herdava a captura antiga.
+- Capturar uma imagem que está sendo restaurada (ou restaurar/criar sessão com uma imagem em captura) é recusado.
+- Domínio e licença do Windows chegam também às máquinas cadastradas pelo boot e restauradas em grupo ou pelo
+  cadastro automático. Desligar o domínio apaga usuário/senha do domínio das máquinas. Chave padrão pode ser removida.
+  Salvar com dados incompletos não grava pela metade.
+- Envio em grupo: com uma máquina retirada no meio, as partes seguintes esperavam 10 min por ela.
+- Otimizador: confere de novo "servidor parado" logo antes de trocar imagens em pedaços e mantém a data da captura
+  (as imagens apareciam como "capturada há 5 min" depois de otimizadas); cópias também mantêm a data.
+- Cópias: HD exFAT em servidores sem o módulo do kernel (Ubuntu Server) — usa o exFAT por FUSE; imagem que muda
+  durante a exportação (captura terminando) é recusada; trocar uma cópia antiga não perde a anterior se algo falhar;
+  sobra de montagem de um trabalho interrompido é desfeita.
+- Tela da máquina: teclas apertadas durante a clonagem apareciam por cima e ficavam guardadas — um "r"/"d" perdido
+  reiniciava/desligava a máquina antes de alguém ver o resultado; máquina sem cadastro aparece como "sem cadastro".
+- Painel: a sessão não expira por inatividade enquanto uma tela de acompanhamento fica aberta; contadores de Tarefas
+  contam máquinas sem cadastro no grupo; cópias consultam o servidor a cada 15 s quando paradas (antes 3 s); hora
+  certa no registro das tarefas e na limpeza do histórico; nome de sessão terminada ("nº 1"); concessões do DHCP
+  lidas uma vez por pedido.
+- Instalador: **numa instalação com internet, o boot (iPXE) ainda ia ao GitHub** (e podia travar sem prazo) — agora
+  usa só o código do pacote; atualização faz backup antes; servidor FOG comum pede a placa da rede de clonagem; banco
+  fora do ar não vira "instalação nova"; a conferência final mostra todos os problemas; o nftables (NAT) não impede
+  uma atualização sem internet.
+- Restaurar o banco pelo backup funciona mesmo quando o banco atual não pode ser exportado; restaurar configurações
+  regenera o netplan; backup semanal espera o banco subir; recompilar o boot não apaga a versão anterior antes de
+  terminar; o pacote não leva sobras de compilação.
+
+### Para quem mantém
+- Ajudante: `nat-ler`, `nat-aplicar`, `nat-restaurar` (+ sudoers, `LabFreeImageDeploy-nat.service`, conferência no
+  `verificar`); `marca/ipxe/*.patch` (textos do iPXE) aplicado pelo `recompilar-ipxe`; `testes/api_cli.py` (cliente da
+  API para testes de ponta a ponta numa VM).
+
 ## [0.12.1] - 2026-10-27
 
 ### Documentação

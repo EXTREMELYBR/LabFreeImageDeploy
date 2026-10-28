@@ -1,0 +1,33 @@
+--- a/src/hci/tui/login_ui.c	2026-03-06 12:48:55.000000000 -0300
++++ b/src/hci/tui/login_ui.c	2026-10-27 22:07:34.829868911 -0300
+@@ -50,7 +50,7 @@
+ 		.next = &password.list,
+ 	},
+ 	.name = "username",
+-	.text = "Username",
++	.text = "Usuario",
+ 	.index = 0,
+ };
+ 
+@@ -60,7 +60,7 @@
+ 		.next = &login.items,
+ 	},
+ 	.name = "password",
+-	.text = "Password",
++	.text = "Senha",
+ 	.index = 1,
+ 	.flags = DYNUI_SECRET,
+ };
+--- a/src/hci/tui/form_ui.c	2026-03-06 12:48:55.000000000 -0300
++++ b/src/hci/tui/form_ui.c	2026-10-27 22:07:34.831279247 -0300
+@@ -278,8 +278,8 @@
+ 	}
+ 
+ 	/* Draw instructions */
+-	msg ( INSTRUCTION_ROW, "%s", "Ctrl-X - save changes"
+-	      INSTRUCTION_PAD "Ctrl-C - discard changes" );
++	msg ( INSTRUCTION_ROW, "%s", "Ctrl-X - confirmar"
++	      INSTRUCTION_PAD "Ctrl-C - cancelar" );
+ }
+ 
+ /**

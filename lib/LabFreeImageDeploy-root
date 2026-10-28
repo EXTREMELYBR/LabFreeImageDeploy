@@ -14,6 +14,9 @@ Ações:
   rede-aplicar    troca a placa e/ou o IP do FOG em todos os lugares (desfaz se falhar)
   reaplicar       reaplica todas as customizações (usar depois de rodar o installfog.sh do FOG)
   imagem-apagar   apaga a pasta de uma imagem em /images (só se nenhuma imagem cadastrada a usa)
+  nat-ler         estado da internet para a rede de clonagem (NAT)
+  nat-aplicar     liga/desliga o NAT (repasse + masquerade numa tabela própria; DHCP entrega o servidor como saída)
+  nat-restaurar   recria a regra do NAT no boot (LabFreeImageDeploy-nat.service)
   copias          cópias de imagens para HD externo / pasta de rede (lib/LabFreeImageDeploy-copias)
   marca-aplicar   aplica a marca LabFree ImageDeploy (menu de boot, sistema de clonagem), bloqueia a
                   interface antiga /fog e desliga tudo que buscava atualizações do FOG (idempotente)
@@ -1123,10 +1126,223 @@ def rede_aplicar(e):
             raise Erro(f"Não foi possível aplicar e, depois de desfazer, o sistema ainda não responde. Rode 'sudo LabFreeImageDeploy-verificar'. Motivo: {ex}")
         raise Erro(f"Não foi possível aplicar; tudo foi desfeito. Motivo: {ex}")
     diario(None)
+    if nat_conf().get('ligado'):
+        try:
+            nat_carregar(ler_conf())
+        except Exception as ex:
+            log(f'Aviso: NAT não recriado depois da troca de rede: {ex}')
     log(f"rede-aplicar ok ({inst.dir})")
     avisos = list(p['avisos']) + ([aviso] if aviso else [])
     return {'ok': True, 'msg': 'Rede de clonagem configurada.', 'avisos': avisos, 'url': f'https://{ip_n}/',
             'mudancas': p['mudancas'], 'copia': inst.dir}
+
+
+# ------------------------------------------------------------------ NAT (internet para a rede de clonagem)
+# Opcional, desligado por padrão. Ligado: repasse (ip_forward) + masquerade numa tabela própria do nftables, só da
+# rede de clonagem para as outras placas; o DHCP passa a entregar o servidor como gateway e um DNS. A conexão de
+# internet do servidor e a rota padrão NUNCA são alteradas. Desligado: tudo volta como estava (gateway/DNS do DHCP,
+# ip_forward, regra do ufw).
+NAT_CONF = '/etc/LabFreeImageDeploy/nat.json'
+NAT_TABELA = 'labfreeimagedeploy_nat'
+NAT_SYSCTL = '/etc/sysctl.d/90-LabFreeImageDeploy-nat.conf'
+NAT_SERVICO = 'LabFreeImageDeploy-nat.service'
+NAT_DNS_PADRAO = ['1.1.1.1', '8.8.8.8']
+
+
+def nat_conf():
+    try:
+        with open(NAT_CONF) as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def nat_saida():
+    """Placa e tipo da saída para a internet (rota padrão) — só leitura."""
+    r = sh(['ip', '-j', 'route', 'show', 'default'], verificar=False)
+    try:
+        rotas = json.loads(r.stdout or '[]')
+    except ValueError:
+        rotas = []
+    if not rotas:
+        return None
+    dev = rotas[0].get('dev', '')
+    tipo = 'wifi' if os.path.isdir(f'/sys/class/net/{dev}/wireless') else 'cabo'
+    return {'placa': dev, 'tipo': tipo, 'gateway': rotas[0].get('gateway', '')}
+
+
+def nat_dns_da_saida(dev):
+    """DNS que o servidor recebeu na placa de internet (as máquinas não alcançam o 127.0.0.53 do servidor)."""
+    if not dev or not RE_IFACE.match(dev):
+        return []
+    r = sh(['nmcli', '-g', 'IP4.DNS', 'device', 'show', dev], verificar=False)
+    dns = []
+    for linha in r.stdout.replace('|', '\n').splitlines():
+        try:
+            ip = ipaddress.IPv4Address(linha.strip())
+        except ValueError:
+            continue
+        if not ip.is_loopback:
+            dns.append(str(ip))
+    return dns[:2]
+
+
+def nat_firewall():
+    """Firewall que bloquearia o repasse: ufw ativo (política de repasse DROP) ou outra tabela com forward DROP."""
+    ufw = shutil.which('ufw') and 'Status: active' in sh(['ufw', 'status'], verificar=False).stdout
+    regras = sh(['nft', 'list', 'ruleset'], verificar=False).stdout
+    outro = bool(re.search(r'hook forward[^\n]*policy drop', regras)) and not ufw
+    return {'ufw': bool(ufw), 'outro_bloqueio': outro}
+
+
+def nat_regras_texto(iface, rede):
+    return f"""table ip {NAT_TABELA} {{
+  chain repasse {{
+    type filter hook forward priority -1; policy accept;
+    iifname "{iface}" ip saddr {rede} oifname != "{iface}" accept
+    iifname != "{iface}" oifname "{iface}" ct state established,related accept
+  }}
+  chain saida {{
+    type nat hook postrouting priority srcnat; policy accept;
+    ip saddr {rede} oifname != "{iface}" masquerade
+  }}
+}}
+"""
+
+
+def nat_carregar(conf):
+    """Liga o repasse e (re)cria a tabela do NAT a partir da configuração atual da rede de clonagem."""
+    iface, ip, pref = conf.get('FOG_IFACE', ''), conf.get('FOG_IP', ''), conf.get('FOG_PREFIXO', '24')
+    if not RE_IFACE.match(iface or ''):
+        raise Erro('Placa da rede de clonagem não configurada.')
+    rede = ipaddress.IPv4Network(f'{ip}/{pref}', strict=False)
+    sh(['nft', 'delete', 'table', 'ip', NAT_TABELA], verificar=False)
+    r = sh(['nft', '-f', '-'], verificar=False, entrada=nat_regras_texto(iface, rede))
+    if r.returncode != 0:
+        raise Erro('O firewall recusou a regra do NAT: ' + r.stderr.strip()[-200:])
+    sh(['sysctl', '-q', '-w', 'net.ipv4.ip_forward=1'])
+    return iface, rede
+
+
+def nat_ufw(iface, ligar):
+    """Com o ufw ativo (repasse bloqueado por padrão), libera só o que entra pela placa da rede de clonagem."""
+    if ligar:
+        comando = ['ufw', 'route', 'allow', 'in', 'on', iface, 'comment', 'LabFreeImageDeploy-nat']
+    else:
+        comando = ['ufw', 'route', 'delete', 'allow', 'in', 'on', iface, 'comment', 'LabFreeImageDeploy-nat']
+    return sh(comando, verificar=False).returncode == 0
+
+
+def nat_ler(_entrada=None):
+    conf = ler_conf()
+    n = nat_conf()
+    saida = nat_saida()
+    tabela = sh(['nft', 'list', 'table', 'ip', NAT_TABELA], verificar=False).returncode == 0
+    with open('/proc/sys/net/ipv4/ip_forward') as f:
+        forward = f.read().strip() == '1'
+    dns_saida = nat_dns_da_saida(saida['placa']) if saida else []
+    return {'ligado': bool(n.get('ligado')), 'funcionando': bool(n.get('ligado')) and tabela and forward,
+            'saida': saida, 'saida_e_clonagem': bool(saida) and saida['placa'] == conf.get('FOG_IFACE'),
+            'dns': n.get('dns') or [], 'dns_sugerido': dns_saida or NAT_DNS_PADRAO, 'firewall': nat_firewall(),
+            'servidor_ip': conf.get('FOG_IP', '')}
+
+
+def nat_aplicar(e):
+    conf = ler_conf()
+    iface = conf.get('FOG_IFACE', '')
+    ligar = bool(e.get('ligar'))
+    antes = nat_conf()
+    if not ligar and not antes.get('ligado'):
+        return {'ok': True, 'msg': 'A internet para a rede de clonagem já estava desligada.', 'nat': nat_ler()}
+    inst = Instantaneo('nat')
+    for arq in (NAT_CONF, NAT_SYSCTL):
+        inst.guardar(arq)
+    dhcp_atual = dhcp_ler()
+    with open('/proc/sys/net/ipv4/ip_forward') as f:
+        forward_agora = f.read().strip()
+    fw = nat_firewall()
+    ufw_nesta_vez = False
+    dhcp_mudou = False
+    try:
+        if ligar:
+            saida = nat_saida()
+            if not saida:
+                raise Erro('Este servidor está sem internet (sem rota padrão). Conecte o Wi-Fi ou o cabo da internet primeiro.')
+            if saida['placa'] == iface:
+                raise Erro('A internet deste servidor está saindo pela própria placa da rede de clonagem: não há o que repassar.')
+            dns = []
+            for d in (e.get('dns') or []):
+                d = str(d).strip()
+                if d:
+                    dns.append(str(ip_valido(d, 'DNS')))
+            dns = dns[:2] or nat_dns_da_saida(saida['placa']) or NAT_DNS_PADRAO
+            nat_carregar(conf)
+            ufw_regra = bool(antes.get('ufw_regra'))
+            if fw['ufw'] and not ufw_regra:
+                if not nat_ufw(iface, True):
+                    raise Erro('O firewall (ufw) recusou liberar o repasse da rede de clonagem.')
+                ufw_regra = ufw_nesta_vez = True
+            gravar_atomico(NAT_SYSCTL, '# LabFree ImageDeploy: NAT da rede de clonagem ligado\nnet.ipv4.ip_forward = 1\n', 0o644)
+            # o DHCP passa a entregar o servidor como saída e o DNS; o que havia antes volta quando desligar
+            anterior = antes['dhcp_anterior'] if antes.get('ligado') else {'gateway': dhcp_atual['gateway'], 'dns': dhcp_atual['dns']}
+            dhcp_aplicar({**dhcp_atual, 'gateway': conf.get('FOG_IP'), 'dns': dns})
+            dhcp_mudou = True
+            novo = {'ligado': True, 'dns': dns, 'dhcp_anterior': anterior, 'ufw_regra': ufw_regra,
+                    'forward_antes': antes.get('forward_antes', forward_agora) if antes.get('ligado') else forward_agora}
+            gravar_atomico(NAT_CONF, json.dumps(novo, indent=1) + '\n', 0o600)
+            sh(['systemctl', 'enable', NAT_SERVICO], verificar=False)
+            msg = f"Internet ligada para a rede de clonagem (pela placa {saida['placa']})."
+            if fw['outro_bloqueio']:
+                msg += ' Atenção: outro firewall neste servidor bloqueia repasse; as máquinas podem continuar sem internet.'
+            if not dhcp_atual['ativo']:
+                msg += ' O DHCP do servidor está desligado: configure o DHCP da rede para usar este servidor como gateway.'
+        else:
+            sh(['nft', 'delete', 'table', 'ip', NAT_TABELA], verificar=False)
+            if antes.get('ufw_regra'):
+                nat_ufw(iface, False)
+            if os.path.exists(NAT_SYSCTL):
+                os.remove(NAT_SYSCTL)
+            if antes.get('forward_antes', '0') != '1':
+                sh(['sysctl', '-q', '-w', 'net.ipv4.ip_forward=0'], verificar=False)
+            ant = antes.get('dhcp_anterior') or {}
+            gw = ant.get('gateway', '') if ant.get('gateway', '') != conf.get('FOG_IP') else ''
+            dhcp_aplicar({**dhcp_atual, 'gateway': gw, 'dns': ant.get('dns') or []})
+            dhcp_mudou = True
+            gravar_atomico(NAT_CONF, json.dumps({'ligado': False}) + '\n', 0o600)
+            sh(['systemctl', 'disable', NAT_SERVICO], verificar=False)
+            msg = 'Internet desligada para a rede de clonagem (o DHCP voltou a entregar o que entregava antes).'
+    except Exception as ex:
+        log(f'nat-aplicar FALHOU, desfazendo: {ex}')
+        inst.restaurar()
+        if dhcp_mudou:  # volta o DHCP de antes (o dhcp_aplicar já desfaz sozinho quando é ele que falha)
+            try:
+                dhcp_aplicar(dhcp_atual)
+            except Exception as ex2:
+                log(f'Aviso ao devolver o DHCP: {ex2}')
+        if ufw_nesta_vez:
+            nat_ufw(iface, False)
+        if antes.get('ligado'):
+            nat_carregar(conf)
+            if antes.get('ufw_regra') and not ligar:
+                nat_ufw(iface, True)
+        else:
+            sh(['nft', 'delete', 'table', 'ip', NAT_TABELA], verificar=False)
+        sh(['sysctl', '-q', '-w', f'net.ipv4.ip_forward={forward_agora}'], verificar=False)
+        if isinstance(ex, Erro):
+            raise
+        raise Erro(f'Não foi possível aplicar; tudo foi desfeito. Motivo: {ex}')
+    log(f"nat-aplicar ok: {'ligado' if ligar else 'desligado'}")
+    return {'ok': True, 'msg': msg, 'nat': nat_ler()}
+
+
+def nat_restaurar(_entrada=None):
+    """No boot (LabFreeImageDeploy-nat.service) e depois de trocar a placa/IP: recria a regra se o NAT está ligado."""
+    if not nat_conf().get('ligado'):
+        sh(['nft', 'delete', 'table', 'ip', NAT_TABELA], verificar=False)
+        return {'ok': True, 'msg': 'NAT desligado.'}
+    nat_carregar(ler_conf())
+    return {'ok': True, 'msg': 'NAT ligado.'}
 
 
 def reaplicar(_entrada=None):
@@ -1156,6 +1372,9 @@ def reaplicar(_entrada=None):
         feito += marca_aplicar()['feito']
         novos = servicos_aplicar()
         feito.append('serviços com o nome LabFreeImageDeploy-*' + (f' ({len(novos)} criados)' if novos else ''))
+    if nat_conf().get('ligado'):
+        nat_carregar(conf)
+        feito.append('internet para a rede de clonagem (NAT) recriada')
     log('reaplicar ok: ' + '; '.join(feito))
     return {'ok': True, 'msg': 'Customizações reaplicadas.', 'feito': feito}
 
@@ -1235,6 +1454,14 @@ BOOTMENU_TROCAS = [
     ("'pending approval!' :", "'aguardando aprovacao!' :"),
     ("'registered as ' . self::$Host->get('name') . '!'", "'cadastrada como ' . self::$Host->get('name') . '!'"),
     ('"item --gap Host is $reg_string",', '"item --gap LabFree ImageDeploy - Maquina $reg_string",'),
+    # textos do fluxo de grupo e do login (só ASCII: a fonte do iPXE não tem acentos)
+    ("'echo -n Please enter the session name to join > ',", "'echo -n Digite o nome da sessao de grupo e Enter > ',"),
+    ("'echo No session found with that name.',", "'echo Nenhuma sessao em andamento com esse nome. Confira no painel.',"),
+    ("'echo That session has already started and can no longer '\n                . 'be joined.',",
+     "'echo Essa sessao ja comecou a transmitir: nao da mais para entrar. '\n                . 'Crie outra sessao no painel.',"),
+    ('"echo Invalid login!",', '"echo Usuario ou senha incorretos!",'),
+    # o texto do iPXE (menu, login) não pode ser desenhado em cima do rodapé com o logo do fundo
+    ('. "--right 80 && goto console_set || goto alt_console",', '. "--right 80 --bottom 120 && goto console_set || goto alt_console",'),
 ]
 BANNER_FOS = """displayBanner() {
     # LabFree ImageDeploy (banner trocado pelo LabFreeImageDeploy-root; o original fica em init.xz.fog-original)
@@ -1535,12 +1762,13 @@ ACOES = {'status': status, 'dhcp-ler': dhcp_ler, 'dhcp-aplicar': dhcp_aplicar,
          'rede-listar': rede_listar, 'rede-simular': rede_simular, 'rede-aplicar': rede_aplicar, 'reaplicar': reaplicar,
          'imagem-apagar': imagem_apagar, 'marca-aplicar': marca_aplicar,
          'servicos-aplicar': lambda e=None: {'ok': True, 'criados': servicos_aplicar()}, 'recuperar': recuperar,
-         'copias': copias}
+         'copias': copias, 'nat-ler': nat_ler, 'nat-aplicar': nat_aplicar, 'nat-restaurar': nat_restaurar}
 
 
 # o painel (www-data via sudo) só pode pedir estas ações; o resto é para o administrador e o instalador
-ACOES_PAINEL = {'status', 'dhcp-ler', 'dhcp-aplicar', 'rede-listar', 'rede-simular', 'rede-aplicar', 'imagem-apagar', 'copias'}
-ACOES_LEITURA = {'status', 'dhcp-ler', 'rede-listar', 'rede-simular', 'copias'}  # copias tem trava própria  # (recuperar trava como as alterações)
+ACOES_PAINEL = {'status', 'dhcp-ler', 'dhcp-aplicar', 'rede-listar', 'rede-simular', 'rede-aplicar', 'imagem-apagar', 'copias',
+                'nat-ler', 'nat-aplicar'}
+ACOES_LEITURA = {'status', 'dhcp-ler', 'rede-listar', 'rede-simular', 'copias', 'nat-ler'}  # copias tem trava própria  # (recuperar trava como as alterações)
 TRAVA = '/run/LabFreeImageDeploy.lock'
 
 

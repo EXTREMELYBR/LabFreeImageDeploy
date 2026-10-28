@@ -306,7 +306,12 @@ def otimizar_grupo(img_id, nome_img, base, pecas, total_img, feito_antes):
             os.chmod(n, st.st_mode & 0o7777)
             with open(n, 'rb') as f:
                 os.fsync(f.fileno())
-        # troca: novos pedaços no lugar dos antigos; sobra de pedaços antigos sai
+        # troca: novos pedaços no lugar dos antigos; sobra de pedaços antigos sai. Confere de novo "servidor
+        # parado" logo antes (escrever os pedaços leva tempo) e mantém a data da captura (o painel mostra "capturada há")
+        if not parado():
+            raise Ocupado()
+        for n in novos:
+            os.utime(n, ns=(st.st_atime_ns, st.st_mtime_ns))
         finais = [os.path.join(pasta, f'{base}.{i:03d}') for i in range(len(novos))] if em_pedacos else [pecas[0]]
         for n, f in zip(novos, finais):
             os.replace(n, f)

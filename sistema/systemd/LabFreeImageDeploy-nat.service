@@ -1,0 +1,12 @@
+[Unit]
+Description=LabFree ImageDeploy - internet para a rede de clonagem (NAT), se estiver ligada no painel
+After=network-online.target nftables.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root nat-restaurar
+
+[Install]
+WantedBy=multi-user.target

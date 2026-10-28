@@ -171,7 +171,7 @@ final class Painel
             self::erro('Sua sessão expirou. Entre novamente.', 401);
         }
         // a atualização automática da tela (resumo/tarefas) não conta como uso
-        if (!in_array($acao, ['resumo', 'tarefas', 'sessao'], true) || !isset($_SESSION['PAINEL_ATIVIDADE'])) {
+        if (!in_array($acao, ['resumo', 'tarefas', 'sessao', 'acompanhar', 'copias', 'nat'], true) || !isset($_SESSION['PAINEL_ATIVIDADE'])) {
             $_SESSION['PAINEL_ATIVIDADE'] = time();
         }
         if (!isset($_SESSION['PAINEL_SENHA'])) {
@@ -261,6 +261,10 @@ final class Painel
     /** Último lease do Kea por MAC: quem deu boot na rede de clonagem e quando. */
     public static function leases()
     {
+        static $cache = null;  // os arquivos do Kea são lidos uma vez por pedido (resumo/tarefas chamam várias vezes)
+        if ($cache !== null) {
+            return $cache;
+        }
         // o Kea limpa o arquivo de hora em hora (LFC): as concessões podem estar em .csv, .csv.1, .csv.2 ou .completed
         $arqs = glob('/var/lib/kea/kea-leases4.csv*') ?: [];
         usort($arqs, fn($a, $b) => filemtime($a) <=> filemtime($b));
@@ -292,7 +296,7 @@ final class Painel
         }
         fclose($fh);
         }
-        return $out;
+        return $cache = $out;
     }
 
     /** Lê o layout de disco salvo na imagem para explicar onde ela cabe. */
@@ -601,6 +605,8 @@ final class Painel
         $mapa = [
             '/not (?:large|big) enough|too small|smaller than|minimum size/i' => 'O disco desta máquina é menor que o necessário para a imagem.',
             '/could not find any.*(disk|drive)|no (hard )?dis[kc]s? (found|detected)|Unable to locate.*disk/i' => 'Nenhum disco foi encontrado na máquina (confira na BIOS se o disco aparece e se o modo SATA está em AHCI).',
+            '/e2fsck|recovering journal|needs_recovery|needs journal/i' => 'O Linux desta máquina não foi desligado corretamente (disco com pendências). Ligue a máquina pelo disco, desligue pelo menu (Desligar) e tente de novo.',
+            '/checksum|Decoding error|corrupt/i' => 'Os dados chegaram diferentes do original (imagem ou rede com problema). Nada foi aproveitado: tente de novo; se repetir, veja a conferência da imagem em Imagens.',
             '/hibernat|unclean|dirty/i' => 'O Windows não foi desligado por completo (hibernação/inicialização rápida). Desligue segurando Shift e tente de novo.',
             '/BitLocker/i' => 'O disco está protegido pelo BitLocker. Desative o BitLocker no Windows e tente de novo.',
             '/Unable to locate image store|Could not locate file|not exist.*image/i' => 'Os arquivos da imagem não foram encontrados no servidor.',
@@ -623,7 +629,7 @@ final class Painel
         $id = (int)$id;
         $r = [];
         try {
-            $r = self::q('SELECT e.resultado, e.mensagem, e.registro, e.atualizada, h.hostName maquina FROM labfreeEtapas e
+            $r = self::q('SELECT e.resultado, e.mensagem, e.registro, UNIX_TIMESTAMP(e.atualizada) atualizada_ts, h.hostName maquina FROM labfreeEtapas e
                 LEFT JOIN hosts h ON h.hostID = e.hostID WHERE e.taskID = ?', [$id]);
         } catch (Throwable $e) {
         }
@@ -633,7 +639,7 @@ final class Painel
         }
         $x = $r[0] ?? [];
         return ['maquina' => self::txt($x['maquina'] ?? ''), 'resultado' => $x['resultado'] ?? '', 'mensagem' => (string)($x['mensagem'] ?? ''),
-            'registro' => (string)($x['registro'] ?? ''), 'quando' => self::data($x['atualizada'] ?? null),
+            'registro' => (string)($x['registro'] ?? ''), 'quando' => !empty($x['atualizada_ts']) ? date(DATE_ATOM, (int)$x['atualizada_ts']) : null,
             'erros' => array_map(function ($l) {
                 return ['texto' => $l['logText'], 'motivo' => self::motivo($l['logText']), 'quando' => self::data($l['createTime'])];
             }, $erros)];
@@ -665,7 +671,7 @@ final class Painel
 
     public static function tarefas($historico = true)
     {
-        $ativas = self::q("SELECT t.taskID id, h.hostName maquina, tt.ttName tipo, t.taskStateID estado, t.taskCreateTime criada,
+        $ativas = self::q("SELECT t.taskID id, t.taskHostID host_id, h.hostName maquina, tt.ttName tipo, t.taskStateID estado, t.taskCreateTime criada,
                 t.taskPercentText pct, t.taskDataCopied copiado, t.taskDataTotal total, t.taskTimeElapsed decorrido,
                 t.taskTimeRemaining restante, t.taskBPM velocidade, i.imageName imagem,
                 (SELECT MAX(a.msID) FROM multicastSessionsAssoc a WHERE a.tID = t.taskID) sessao
@@ -673,8 +679,10 @@ final class Painel
             LEFT JOIN images i ON i.imageID = t.taskImageID
             WHERE t.taskStateID IN (1,2,3) ORDER BY t.taskID");
         $memoria = self::progressoMemoria($ativas);
+        self::windowsNasTarefas(array_unique(array_map(fn($t) => (int)$t['host_id'], $ativas)));
         $daMaquina = self::etapas(array_column($ativas, 'id'));
         foreach ($ativas as &$t) {
+            unset($t['host_id']);
             $t['maquina'] = self::txt($t['maquina']);
             $t['imagem'] = self::txt($t['imagem']);
             $t['tipo'] = self::tipoTarefa($t['tipo']);
@@ -1017,6 +1025,12 @@ final class Painel
         }
         if (FOGCore::getClass('ImageManager')->exists($caminho, '', 'path')) {
             self::erro("Já existe uma imagem usando a pasta \"$caminho\". Escolha outro nome.");
+        }
+        // pasta que sobrou de uma imagem excluída sem apagar os arquivos: a imagem nova não pode herdar a captura antiga
+        $raiz = self::noArmazenamento()['raiz'];
+        $base = $caminho;
+        for ($n = 2; is_dir("$raiz/$caminho") && (new FilesystemIterator("$raiz/$caminho"))->valid(); $n++) {
+            $caminho = "$base-$n";
         }
         $tipo = (int)($d['tipo'] ?? 1);
         if (!in_array($tipo, [1, 2, 3, 4], true)) {
@@ -1395,10 +1409,26 @@ final class Painel
         return $r ? (int)$r[0]['taskID'] : null;
     }
 
+    /** Captura e restauração não podem usar a mesma imagem ao mesmo tempo (a captura troca os arquivos no fim). */
+    public static function imagemOcupada($id, $porCaptura)
+    {
+        $id = (int)$id;
+        if ($porCaptura) {  // capturar: ninguém pode estar restaurando (nem em grupo) nem capturando esta imagem
+            $n = self::q("SELECT (SELECT COUNT(*) FROM tasks WHERE taskImageID=? AND taskStateID IN (1,2,3))
+                + (SELECT COUNT(*) FROM multicastSessions WHERE msImage=? AND msState IN (0,1,2,3)) n", [$id, $id]);
+            return (int)$n[0]['n'] > 0;
+        }
+        $n = self::q("SELECT COUNT(*) n FROM tasks WHERE taskImageID=? AND taskStateID IN (1,2,3) AND taskTypeID IN (2,16)", [$id]);
+        return (int)$n[0]['n'] > 0;
+    }
+
     public static function capturar($d)
     {
         $Host = self::host($d['maquina_id'] ?? 0);
         $Image = self::imagem($d['imagem_id'] ?? 0);
+        if (self::imagemOcupada($Image->get('id'), true)) {
+            self::erro('Esta imagem está sendo usada agora (restauração, sessão em grupo ou outra captura). Espere terminar para capturar por cima.');
+        }
         if ($Image->get('protected')) {
             self::erro('Esta imagem está protegida contra sobrescrita. Desmarque a proteção na tela Imagens para capturar de novo.');
         }
@@ -1428,6 +1458,9 @@ final class Painel
     public static function restaurar($d)
     {
         $Image = self::imagem($d['imagem_id'] ?? 0);
+        if (self::imagemOcupada($Image->get('id'), false)) {
+            self::erro('Esta imagem está sendo capturada agora. Espere a captura terminar para restaurar.');
+        }
         $ids = array_values(array_unique(array_map('intval', (array)($d['maquinas'] ?? []))));
         if (!$ids) {
             self::erro('Escolha pelo menos uma máquina.');
@@ -1468,6 +1501,9 @@ final class Painel
     public static function multicast($d)
     {
         $Image = self::imagem($d['imagem_id'] ?? 0);
+        if (self::imagemOcupada($Image->get('id'), false)) {
+            self::erro('Esta imagem está sendo capturada agora. Espere a captura terminar para criar a sessão.');
+        }
         $nome = trim((string)($d['nome'] ?? ''));
         if (!preg_match('/^[A-Za-z0-9-]{2,20}$/', $nome)) {
             self::erro('Nome da sessão: de 2 a 20 letras, números ou hífen, sem espaços (ex.: sala3).');
@@ -1574,10 +1610,11 @@ final class Painel
             if ($op['historico']) {
                 $db->exec("DELETE l FROM taskLog l JOIN tasks t ON t.taskID = l.taskID WHERE t.taskStateID NOT IN (1,2,3)");
                 // sessões que terminaram há menos de 1 h ficam: o FOG ainda encerra as máquinas por elas
-                $velhas = "m.msState NOT IN (0,1,2,3) AND (m.msCompleteDateTime IS NULL OR m.msCompleteDateTime < NOW() - INTERVAL 1 HOUR)";
+                $limite = (new DateTime('now', new DateTimeZone(FOGCore::getSetting('FOG_TZ_INFO') ?: 'UTC')))->modify('-1 hour')->format('Y-m-d H:i:s');
+                $velhas = "m.msState NOT IN (0,1,2,3) AND (m.msCompleteDateTime IS NULL OR m.msCompleteDateTime < " . $db->quote($limite) . ")";
                 $db->exec("DELETE a FROM multicastSessionsAssoc a LEFT JOIN multicastSessions m ON m.msID = a.msID WHERE m.msID IS NULL OR ($velhas)");
                 $db->exec("DELETE m FROM multicastSessions m WHERE $velhas");
-                $db->exec("DELETE FROM tasks WHERE taskStateID NOT IN (1,2,3)");
+                $db->exec("DELETE FROM tasks WHERE taskStateID NOT IN (1,2,3) AND taskID NOT IN (SELECT tID FROM multicastSessionsAssoc)");
                 $db->exec("DELETE FROM snapinTasks WHERE stState NOT IN (1,2,3)");
                 $db->exec("DELETE j FROM snapinJobs j LEFT JOIN snapinTasks t ON t.stJobID = j.sjID WHERE t.stID IS NULL AND j.sjStateID NOT IN (1,2,3)");
                 if (self::q("SHOW TABLES LIKE 'labfreeEtapas'")) {
@@ -1620,6 +1657,11 @@ final class Painel
         $id = (int)($d['id'] ?? 0);
         if ($id < 1) {
             self::erro('Sessão inválida.');
+        }
+        // o cancelamento da base marca TODAS as tarefas da sessão como canceladas: numa sessão que já terminou isso
+        // apagaria do histórico restaurações que deram certo
+        if (!self::q('SELECT msID FROM multicastSessions WHERE msID = ? AND msState IN (0,1,2,3)', [$id])) {
+            self::erro('Esta sessão já terminou. Veja o resultado no histórico.');
         }
         FOGCore::getClass('MulticastSessionManager')->cancel([$id]);
         return ['ok' => true, 'msg' => 'Sessão multicast cancelada.'];
@@ -1810,14 +1852,14 @@ final class Painel
             if ($ou !== '' && !preg_match('/^(OU|CN|DC)=/i', $ou)) {
                 self::erro('Unidade organizacional: no formato OU=Laboratorio,DC=escola,DC=local (ou deixe vazio).');
             }
+            if ((!isset($dom['senha']) || $dom['senha'] === '') && (string)FOGCore::getSetting('FOG_AD_DEFAULT_PASSWORD') === '') {
+                self::erro('Informe a senha do usuário do domínio.');
+            }
             FOGCore::setSetting('FOG_AD_DEFAULT_DOMAINNAME', $nome);
             FOGCore::setSetting('FOG_AD_DEFAULT_OU', $ou);
             FOGCore::setSetting('FOG_AD_DEFAULT_USER', $usuario);
             if (isset($dom['senha']) && $dom['senha'] !== '') {
                 FOGCore::setSetting('FOG_AD_DEFAULT_PASSWORD', (string)$dom['senha']);
-            }
-            if ((string)FOGCore::getSetting('FOG_AD_DEFAULT_PASSWORD') === '') {
-                self::erro('Informe a senha do usuário do domínio.');
             }
         }
         if (isset($d['chave_padrao'])) {
@@ -1842,6 +1884,25 @@ final class Painel
         return ['ok' => true, 'msg' => 'Ajustes do Windows salvos e aplicados a ' . ($n === 1 ? '1 máquina.' : "$n máquinas."), 'windows' => self::windowsConfig()];
     }
 
+    /** Máquinas com tarefa em andamento (cadastradas pelo boot, sessão em grupo, cadastro automático que já restaura)
+     *  recebem o domínio/licença atuais se ainda não têm — antes do Windows dar o primeiro boot. */
+    public static function windowsNasTarefas($hostIds)
+    {
+        $hostIds = array_filter(array_map('intval', $hostIds));
+        if (!$hostIds || (self::lfConfig('LABFREE_WIN_DOMINIO') !== '1' && self::lfConfig('LABFREE_WIN_LICENCA') !== '1')) {
+            return;
+        }
+        $dominio = self::lfConfig('LABFREE_WIN_DOMINIO') === '1' ? 1 : 0;
+        $pendentes = self::q('SELECT hostID FROM hosts WHERE hostID IN (' . implode(',', $hostIds) . ') AND (hostUseAD <> ? OR (? = 1 AND hostProductKey = \'\') OR hostID NOT IN
+            (SELECT m.msHostID FROM moduleStatusByHost m JOIN modules mo ON mo.id = m.msModuleID WHERE mo.short_name = \'hostnamechanger\'))', [$dominio, self::lfConfig('LABFREE_WIN_LICENCA') === '1' ? 1 : 0]);
+        foreach ($pendentes as $p) {
+            $Host = new Host((int)$p['hostID']);
+            if ($Host->isValid()) {
+                self::aplicarWindows($Host);
+            }
+        }
+    }
+
     /** Leva a configuração de domínio/licença para uma máquina (o agente lê da máquina). Chamado ao salvar, ao
      *  cadastrar/editar e antes de restaurar (máquinas cadastradas pelo boot depois de salvar também recebem). */
     public static function aplicarWindows($Host)
@@ -1853,8 +1914,9 @@ final class Painel
         if ($dominio) {
             $Host->setAD(1, (string)FOGCore::getSetting('FOG_AD_DEFAULT_DOMAINNAME'), (string)FOGCore::getSetting('FOG_AD_DEFAULT_OU'),
                 (string)FOGCore::getSetting('FOG_AD_DEFAULT_USER'), str_repeat('#', 32), true, true, '', $chave, 0);
-        } else {
-            $Host->set('useAD', 0)->set('productKey', $chave);
+        } else {  // sem domínio: nada de usuário/senha do domínio guardado na máquina
+            $Host->set('useAD', 0)->set('ADDomain', '')->set('ADOU', '')->set('ADUser', '')->set('ADPass', '')
+                ->set('ADPassLegacy', '')->set('productKey', $chave);
         }
         $mods = FOGCore::getSubObjectIDs('Module', ['shortName' => 'hostnamechanger']);
         if ($mods) {
@@ -1869,12 +1931,20 @@ final class Painel
     public static function copias()
     {
         $r = self::root('copias', ['op' => 'ler']);
-        $t = $r['trabalho'] ?? null;
-        if ($t && ($t['op'] ?? '') === 'importar' && ($t['fase'] ?? '') === 'concluido' && !empty($t['importadas'])
-            && self::lfConfig('LABFREE_IMPORTACAO_FEITA') !== (string)$t['id']) {
-            self::lfConfig('LABFREE_IMPORTACAO_FEITA', (string)$t['id']);
-            $r['cadastradas'] = self::cadastrarImportadas($t['importadas']);
+        // imagens que a cópia já trouxe para /images (lista guardada pelo ajudante, sobrevive a reinício, cancelamento
+        // e falha no meio): cadastra as que faltam e avisa o ajudante para tirar da lista
+        if (!empty($r['pendentes'])) {
+            $trava = self::q("SELECT GET_LOCK('labfree_importar', 10) ok")[0]['ok'] ?? 0;
+            if ((int)$trava === 1) {
+                try {
+                    $r['cadastradas'] = self::cadastrarImportadas($r['pendentes']);
+                    self::root('copias', ['op' => 'confirmar', 'caminhos' => array_values(array_map(fn($m) => (string)($m['caminho'] ?? ''), $r['pendentes']))]);
+                } finally {
+                    self::q("SELECT RELEASE_LOCK('labfree_importar')");
+                }
+            }
         }
+        unset($r['pendentes']);
         if (is_array($r['trabalho'] ?? null)) {
             unset($r['trabalho']['importadas']);
         }
@@ -1888,9 +1958,11 @@ final class Painel
         $grupo = (int)(self::q("SELECT ngID FROM nfsGroups ORDER BY ngID LIMIT 1")[0]['ngID'] ?? 1);
         foreach ($lista as $m) {
             $caminho = (string)($m['caminho'] ?? '');
-            if (!preg_match('/^[A-Za-z0-9_-]{1,60}$/', $caminho) || !is_dir("/images/$caminho")
-                || FOGCore::getClass('ImageManager')->exists($caminho, '', 'path')) {
+            if (!preg_match('/^[A-Za-z0-9_-]{1,60}$/', $caminho) || !is_dir("/images/$caminho")) {
                 continue;
+            }
+            if (FOGCore::getClass('ImageManager')->exists($caminho, '', 'path')) {
+                continue;  // já cadastrada (ex.: outra aba chegou antes)
             }
             $nome = mb_substr(trim((string)($m['nome'] ?? $caminho)), 0, 40) ?: $caminho;
             for ($n = 2; FOGCore::getClass('ImageManager')->exists($nome); $n++) {
@@ -2029,6 +2101,8 @@ try {
                 Painel::responder(Painel::windowsConfig());
             case 'copias':
                 Painel::responder(Painel::copias());
+            case 'nat':
+                Painel::responder(Painel::root('nat-ler'));
         }
         Painel::erro('Ação desconhecida.', 404);
     }
@@ -2089,6 +2163,9 @@ try {
             Painel::responder(Painel::root('rede-simular', ['cliente_ip' => $_SERVER['REMOTE_ADDR'] ?? ''] + $d));
         case 'rede_aplicar':
             Painel::responder(Painel::root('rede-aplicar', ['cliente_ip' => $_SERVER['REMOTE_ADDR'] ?? ''] + $d));
+        case 'nat_salvar':
+            Painel::confirmarMinhaSenha($d);
+            Painel::responder(Painel::root('nat-aplicar', ['ligar' => !empty($d['ligar']), 'dns' => array_values(array_filter((array)($d['dns'] ?? []), 'is_string'))]));
         case 'copias_listar':
             Painel::responder(Painel::root('copias', ['op' => 'listar', 'destino' => $d['destino'] ?? []]));
         case 'copias_rede':

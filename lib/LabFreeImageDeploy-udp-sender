@@ -152,7 +152,9 @@ class Andamento:
 
     def ler(self):
         try:
-            if not stat.S_ISREG(os.lstat(self.caminho).st_mode):
+            st = os.lstat(self.caminho)
+            # a pasta aceita arquivos do www-data (pedido de início): só vale o andamento gravado por nós mesmos
+            if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid():
                 return {}
             with open(self.caminho) as f:
                 d = json.load(f)
@@ -240,6 +242,8 @@ def preparar(args):
     # mesma sessão = mesmo `sh -c` da base (mesmo PID e mesmo início); partição seguinte mesmo depois de erro
     mesma = anterior.get('sh') == ppid and anterior.get('sh_inicio') == inicio_processo(ppid)
     partes = partes_da_sessao(ppid)
+    if mesma and not os.path.realpath(str(anterior.get('registro', ''))).startswith(os.path.realpath(LOGS) + os.sep):
+        mesma = False  # registro fora da pasta de registros: não confia no arquivo anterior
     if mesma:
         d = anterior
         d['parte'] = int(d.get('parte', 0)) + 1
@@ -306,6 +310,7 @@ def enviar(estado, novos, primeira, arquivo):
 
     pedido = f"{GRUPO}/{d['porta']}.iniciar"
     conectadas = {}  # nº dado pelo udp-sender -> ip
+    retiradas_parte = 0
     resto = b''
     ultimo_stat = 0
     saida = filho.stdout.fileno()
@@ -343,6 +348,7 @@ def enviar(estado, novos, primeira, arquivo):
                     ip = conectadas.pop(m.group(1), None)
                     if ip:
                         d['retiradas'].append(ip)
+                        retiradas_parte += 1
                 elif linha.startswith('Starting transfer'):
                     d['fase'] = 'enviando'
                     d['inicio_envio'] = int(time.time())
@@ -382,7 +388,9 @@ def enviar(estado, novos, primeira, arquivo):
     if teclado_w is not None:
         os.close(teclado_w)
     fim = time.time()
-    d['receberam'] = len(conectadas) if conectadas else int(d.get('nesta_parte') or 0)
+    # no fim normal o udp-sender desconecta todas ("Disconnecting"): quem recebeu = quem começou menos as retiradas
+    # (senão a parte seguinte esperaria 10 min por uma máquina que já saiu)
+    d['receberam'] = len(conectadas) if conectadas else max(1, int(d.get('nesta_parte') or 0) - retiradas_parte)
     ultima = d['parte'] + 1 >= d['partes']
     d['fase'] = 'erro' if rc != 0 else ('concluido' if ultima else 'parte_concluida')
     if rc == 0:

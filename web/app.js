@@ -121,7 +121,7 @@ function rotuloDisco(dev) {
 const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
 
 // ações que reconfiguram o servidor podem levar alguns minutos (testam e desfazem se falhar)
-const PRAZOS = { rede_aplicar: 300000, dhcp_salvar: 120000, excluir_imagem: 120000, rede_simular: 60000, restaurar: 600000, capturar: 120000, multicast: 120000, limpar_historico: 120000, copias_listar: 120000, copias_rede: 90000, copias_exportar: 60000, copias_importar: 60000, windows_salvar: 300000 };
+const PRAZOS = { rede_aplicar: 300000, dhcp_salvar: 120000, excluir_imagem: 120000, rede_simular: 60000, restaurar: 600000, capturar: 120000, multicast: 120000, limpar_historico: 120000, copias_listar: 120000, nat_salvar: 120000, copias_rede: 90000, copias_exportar: 60000, copias_importar: 60000, windows_salvar: 300000 };
 
 async function api(acao, dados, repetida = false) {
   const op = { credentials: 'same-origin', headers: {} };
@@ -629,6 +629,9 @@ const mbs = (bps) => `${(bps / 1e6).toLocaleString('pt-BR', { maximumFractionDig
 const salaPronta = (s) => !!s.grupo && s.grupo.fase === 'aguardando' && s.grupo.conectadas.length > 0
   && s.grupo.conectadas.length >= (Number(s.esperadas) || 0);
 
+/** Nome da sessão em grupo (a base apaga o nome quando a sessão termina, para ele poder ser usado de novo). */
+const nomeSessao = (s) => (s.nome ? `“${s.nome}”` : `nº ${s.id}`);
+
 /** Sessão em grupo: todas as máquinas que entraram (cadastradas ou não), o botão Iniciar e o andamento do envio.
  *  `s.grupo` vem do porteiro do envio; sem ele (servidor ainda sem a versão nova), o cartão antigo. */
 function cartaoSessao(s, detalhado) {
@@ -654,7 +657,7 @@ function cartaoSessao(s, detalhado) {
           : `Transmitindo para ${plural(Math.max(n, g.iniciadas), 'máquina', 'máquinas')} ao mesmo tempo`;
   return el('div', { class: 'tarefa-viva' + (pronta ? ' pronta' : ''), 'data-cor': 'grupo' },
     el('div', { class: 'topo-t' }, ladrilho('grupo', 'grupo', 'p'),
-      el('div', { class: 'quem' }, el('strong', {}, `Sessão em grupo “${s.nome || s.id}”`),
+      el('div', { class: 'quem' }, el('strong', {}, `Sessão em grupo ${nomeSessao(s)}`),
         el('div', { class: 'small muted' }, `${s.imagem || '—'} · ${esperando ? `${n} de ${esperadas} ${esperadas === 1 ? 'conectada' : 'conectadas'}` : plural(Math.max(n, g.iniciadas), 'máquina', 'máquinas')}`)),
       el('div', { class: 'acoes-t' }, direita,
         detalhado ? el('button', { class: 'btn p perigo', type: 'button', onclick: () => cancelarSessao(s) }, 'Cancelar') : null)),
@@ -699,7 +702,7 @@ function cartaoSessaoBase(s, detalhado) {
   const transmitindo = maquinas.some((m) => m.fase === 'copiando' || m.fase === 'finalizando');
   return el('div', { class: 'tarefa-viva', 'data-cor': 'grupo' },
     el('div', { class: 'topo-t' }, ladrilho('grupo', 'grupo', 'p'),
-      el('div', { class: 'quem' }, el('strong', {}, `Sessão em grupo “${s.nome || s.id}”`),
+      el('div', { class: 'quem' }, el('strong', {}, `Sessão em grupo ${nomeSessao(s)}`),
         el('div', { class: 'small muted' }, `${s.imagem || '—'} · ${conectadas} de ${plural(esperadas, 'máquina conectada', 'máquinas conectadas')}`)),
       el('div', { class: 'acoes-t' },
         transmitindo ? el('span', { class: 'pct' }, `${s.pct}%`) : pilula(conectadas ? 'Aguardando as demais' : 'Aguardando máquinas', 'aviso', true),
@@ -731,7 +734,7 @@ async function cancelarTarefa(t) {
   try { aviso((await api('cancelar_tarefa', { id: t.id })).msg); navegar(); } catch (e) { aviso(e.message, true); }
 }
 async function cancelarSessao(s) {
-  if (!await confirmar('Cancelar a sessão em grupo?', `A sessão “${s.nome || s.id}” será encerrada para todas as máquinas.`, 'Cancelar sessão', true)) return;
+  if (!await confirmar('Cancelar a sessão em grupo?', `A sessão ${nomeSessao(s)} será encerrada para todas as máquinas.`, 'Cancelar sessão', true)) return;
   try { aviso((await api('cancelar_multicast', { id: s.id })).msg); navegar(); } catch (e) { aviso(e.message, true); }
 }
 
@@ -1541,7 +1544,7 @@ async function telaTarefas(alvo) {
     // tarefas e sessões em grupo numa lista só, da mais nova para a mais antiga
     const itens = [...t.historico.map((h) => ({ quando: h.criada, estado: Number(h.estado), no: () => linhaHistorico(h) })),
       ...t.multicast_historico.map((s) => ({ quando: s.inicio, estado: Number(s.estado), no: () => el('div', { class: 'linha quebra hist', 'data-cor': 'grupo' }, ladrilho('grupo', 'grupo', 'p'),
-        el('div', { class: 'corpo' }, el('strong', {}, `Sessão “${s.nome || s.id}”`, el('span', { class: 'tipo-h' }, ' · Restauração em grupo')),
+        el('div', { class: 'corpo' }, el('strong', {}, `Sessão ${nomeSessao(s)}`, el('span', { class: 'tipo-h' }, ' · Restauração em grupo')),
           el('div', { class: 'meta' }, el('span', {}, s.imagem || 'imagem excluída'), el('span', {}, dataHora(s.inicio)), el('span', {}, plural(Number(s.esperadas), 'máquina', 'máquinas')))),
         el('div', { class: 'lado' }, pilulaEstado(s.estado, s.estado_texto), el('span', { class: 'btn p fantasma', 'aria-hidden': 'true', style: 'visibility:hidden' }, icone('tarefas'), 'Ver registro'))) }))]
       .sort((a, b) => new Date(b.quando || 0) - new Date(a.quando || 0));
@@ -1567,8 +1570,12 @@ async function telaTarefas(alvo) {
     ultimo = t;
     // resumo em números: o que está acontecendo agora, de relance
     const todas = [...t.ativas, ...t.multicast_ativas.flatMap((s) => s.maquinas || [])];
-    const trabalhando = todas.filter((x) => ['preparando', 'copiando', 'finalizando'].includes(x.fase) && !x.parada).length;
-    const esperando = t.ativas.filter((x) => x.fase === 'aguardando' || x.fase === 'fila').length + t.multicast_ativas.filter((s) => !(s.maquinas || []).length).length;
+    // sessão em grupo com o porteiro: conta pelas máquinas conectadas (as sem cadastro não têm tarefa)
+    const grupoEnviando = (s) => s.grupo && !['aguardando', 'concluido', 'erro', 'cancelado'].includes(s.grupo.fase);
+    const trabalhando = todas.filter((x) => ['preparando', 'copiando', 'finalizando'].includes(x.fase) && !x.parada).length
+      + t.multicast_ativas.filter(grupoEnviando).reduce((n, s) => n + Math.max(0, Math.max(s.grupo.conectadas.length, s.grupo.iniciadas) - (s.maquinas || []).length), 0);
+    const esperando = t.ativas.filter((x) => x.fase === 'aguardando' || x.fase === 'fila').length
+      + t.multicast_ativas.filter((s) => (s.grupo ? s.grupo.fase === 'aguardando' : !(s.maquinas || []).length)).length;
     const paradas = todas.filter((x) => x.parada).length;
     const falhasHoje = t.historico.filter((h) => Number(h.estado) === 6 && rotuloDia(h.criada) === 'Hoje').length;
     const numero = (ic, cor, valor, rot, tipo) => el('div', { class: 'cartao numero' + (tipo ? ` destaque-${tipo}` : ''), 'data-cor': cor },
@@ -1731,7 +1738,13 @@ async function abaCopias(corpo) {
     if (chave !== anterior) { anterior = chave; pintarTrabalho(r.trabalho, r.rodando); }
   };
   pintarTrabalho(c.trabalho, c.rodando);
-  repetir(atualizar, 3000);
+  let ultimaLeitura = Date.now();
+  repetir(async () => {
+    const rodando = anterior.includes('"copiando"') || anterior.includes('"conferindo"') || anterior.includes('"preparando"');
+    if (!rodando && Date.now() - ultimaLeitura < 15000) return;
+    ultimaLeitura = Date.now();
+    await atualizar();
+  }, 3000);
 
   const abrirDestino = async () => {
     conteudoDestino.replaceChildren(el('div', { class: 'fase' }, el('span', { class: 'ponto-vivo' }), el('span', {}, 'Abrindo o destino…')));
@@ -1812,11 +1825,13 @@ async function abaWindows(corpo) {
   const senha = el('input', { type: 'password', placeholder: w.dominio.tem_senha ? '•••••••• (guardada; digite para trocar)' : 'senha desse usuário', autocomplete: 'new-password' });
   const lic = el('input', { type: 'checkbox', checked: w.licenca });
   const chave = el('input', { type: 'text', class: 'mono', maxlength: '29', placeholder: w.chave_padrao || 'XXXXX-XXXXX-XXXXX-XXXXX-XXXXX', autocomplete: 'off', spellcheck: 'false' });
+  const apagarChave = el('input', { type: 'checkbox' });
   const caixaDom = el('div', { class: 'grade', style: 'grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px;margin-top:12px' },
     campo('Domínio', nome, 'Nome completo do domínio do Active Directory.'), campo('Unidade organizacional (OU)', ou, 'Onde as máquinas entram. Vazio = padrão do domínio.'),
     campo('Usuário com permissão', usuario, 'Pode colocar máquinas no domínio.'), campo('Senha', senha, 'Guardada no servidor; nunca aparece de novo no painel.'));
   const caixaLic = el('div', { style: 'margin-top:12px' }, campo('Chave padrão (opcional)', chave,
-    w.chave_padrao ? 'Já existe uma chave padrão (escondida). Digite outra para trocar.' : 'Usada nas máquinas sem chave própria. Licença por volume (KMS/MAK) também serve. Chave própria: Máquinas → Editar.'));
+    w.chave_padrao ? 'Já existe uma chave padrão (escondida). Digite outra para trocar.' : 'Usada nas máquinas sem chave própria. Licença por volume (KMS/MAK) também serve. Chave própria: Máquinas → Editar.'),
+    w.chave_padrao ? el('label', { class: 'alternar' }, apagarChave, el('div', {}, el('strong', {}, 'Remover a chave padrão'), el('small', {}, 'As máquinas sem chave própria ficam sem chave.'))) : null);
   const mostrar = () => { caixaDom.hidden = !dom.checked; caixaLic.hidden = !lic.checked; };
   dom.addEventListener('change', mostrar); lic.addEventListener('change', mostrar); mostrar();
   const salvar = el('button', { class: 'btn primario g', type: 'button' }, icone('check'), 'Salvar e aplicar');
@@ -1829,6 +1844,7 @@ async function abaWindows(corpo) {
         const dados = { minha_senha: minha.value, renomear: renomear.checked, licenca: lic.checked,
           dominio: { ligado: dom.checked, nome: nome.value.trim(), ou: ou.value.trim(), usuario: usuario.value.trim(), senha: senha.value } };
         if (chave.value.trim()) dados.chave_padrao = chave.value.trim();
+        else if (apagarChave.checked) dados.chave_padrao = '';
         aviso((await api('windows_salvar', dados)).msg);
       } }] });
     if (ok) await abaWindows(corpo);
@@ -2033,6 +2049,7 @@ async function abaRede(corpo) {
   const est = { interface: atual.interface, ip: atual.ip, prefixo: atual.prefixo };
   const placaAtual = r.placas.find((x) => x.nome === atual.interface);
   const plano = el('div');
+  const cartaoNat = el('div');
   const ip = el('input', { type: 'text', value: est.ip, class: 'mono', inputmode: 'decimal' });
   const mascara = el('select', {}, MASCARAS.map(([v, t]) => el('option', { value: v, selected: v === est.prefixo }, t)));
   const invalidar = () => plano.replaceChildren();
@@ -2092,7 +2109,47 @@ async function abaRede(corpo) {
       el('p', { class: 'small muted', style: 'margin-bottom:14px' }, 'IP fixo do servidor. Sem gateway e sem DNS nesta placa, para não atrapalhar a internet do servidor.'),
       el('div', { class: 'grade', style: 'grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px' }, campo('IP do servidor', ip, 'Ex.: 192.168.31.1 ou 10.10.10.1'), campo('Máscara', mascara)),
       el('div', { class: 'botoes' }, verPlano)),
-    plano));
+    plano,
+    cartaoNat));
+  pintarNat(cartaoNat);
+}
+
+/** Internet para a rede de clonagem (NAT opcional): o servidor repassa a internet dele (ex.: Wi-Fi) às máquinas. */
+async function pintarNat(alvo) {
+  let n;
+  try { n = await api('nat'); } catch (err) { alvo.replaceChildren(); return; }
+  const dns1 = el('input', { type: 'text', class: 'mono', value: (n.dns[0] || ''), placeholder: n.dns_sugerido[0] || '1.1.1.1', inputmode: 'decimal' });
+  const dns2 = el('input', { type: 'text', class: 'mono', value: (n.dns[1] || ''), placeholder: n.dns_sugerido[1] || '8.8.8.8', inputmode: 'decimal' });
+  const saida = n.saida ? `${n.saida.tipo === 'wifi' ? 'Wi-Fi' : 'cabo'} (${n.saida.placa})` : null;
+  const mudar = async (ligar) => {
+    const minha = el('input', { type: 'password', autocomplete: 'current-password' });
+    const ok = await modal({ titulo: ligar ? 'Ligar a internet para a rede de clonagem?' : 'Desligar a internet da rede de clonagem?', icone: 'rede', cor: 'inicio',
+      texto: ligar ? `As máquinas da rede de clonagem passam a acessar a internet pela conexão deste servidor${saida ? ` (${saida})` : ''}. O DHCP vai entregar o servidor como saída; as máquinas pegam isso na próxima vez que pedirem IP (ou reiniciando).`
+        : 'As máquinas voltam a ficar sem internet pela rede de clonagem, como antes.',
+      conteudo: campo(`Sua senha (${sessao.usuario})`, minha, 'Para confirmar que é você.'),
+      botoes: [{ texto: 'Voltar', classe: 'fantasma' }, { texto: ligar ? 'Ligar internet' : 'Desligar internet', classe: ligar ? 'primario' : 'perigo-cheio', acao: async () => {
+        const r = await api('nat_salvar', { minha_senha: minha.value, ligar, dns: [dns1.value.trim(), dns2.value.trim()].filter(Boolean) });
+        aviso(r.msg);
+      } }] });
+    if (ok) pintarNat(alvo);
+  };
+  const fw = n.firewall || {};
+  alvo.replaceChildren(el('div', { class: 'cartao', 'data-cor': 'tarefas' },
+    el('div', { class: 'cartao-cab' }, el('div', { class: 'titulo' }, ladrilho('rede', 'tarefas', 'p'), el('h2', {}, 'Internet para a rede de clonagem')),
+      pilula(n.ligado ? (n.funcionando ? 'Ligada' : 'Ligada, com problema') : 'Desligada', n.ligado ? (n.funcionando ? 'ok' : 'aviso') : '')),
+    el('p', { class: 'small muted', style: 'margin-bottom:12px' },
+      'Opcional. Útil num notebook: o servidor fica na internet pelo Wi-Fi e as máquinas da rede de clonagem usam essa conexão (ativar o Windows, atualizações, domínio). A clonagem continua só na rede local, na mesma velocidade.'),
+    !n.saida ? el('div', { class: 'faixa aviso' }, icone('alerta'), el('div', {}, el('strong', {}, 'Este servidor está sem internet agora'), 'Conecte o Wi-Fi ou o cabo da internet para poder ligar.'))
+      : n.saida_e_clonagem ? el('div', { class: 'faixa aviso' }, icone('alerta'), el('div', {}, 'A internet deste servidor está saindo pela própria placa da rede de clonagem: não há o que repassar.'))
+        : el('div', { class: 'faixa info' }, icone('info'), el('div', {}, el('strong', {}, `Internet deste servidor: ${saida}`), 'A conexão de internet do servidor não é alterada.')),
+    fw.ufw ? el('div', { class: 'faixa info', style: 'margin-top:10px' }, icone('escudo'), el('div', {}, 'O firewall deste servidor (ufw) está ativo: ao ligar, ele libera só o repasse da rede de clonagem; ao desligar, a liberação é retirada.')) : null,
+    fw.outro_bloqueio ? el('div', { class: 'faixa aviso', style: 'margin-top:10px' }, icone('alerta'), el('div', {}, 'Outro firewall deste servidor bloqueia repasse (ex.: Docker): as máquinas podem continuar sem internet mesmo com isto ligado.')) : null,
+    el('div', { class: 'grade', style: 'grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 16px;margin-top:12px' },
+      campo('DNS para as máquinas', dns1, `Vazio = ${n.dns_sugerido.join(' e ')} (os mesmos deste servidor).`), campo('DNS alternativo', dns2)),
+    el('div', { class: 'botoes', style: 'justify-content:flex-end' },
+      n.ligado ? [el('button', { class: 'btn', type: 'button', onclick: () => mudar(true) }, 'Salvar DNS'),
+        el('button', { class: 'btn perigo', type: 'button', onclick: () => mudar(false) }, 'Desligar internet')]
+        : el('button', { class: 'btn primario', type: 'button', disabled: !n.saida || n.saida_e_clonagem, onclick: () => mudar(true) }, icone('rede'), 'Ligar internet'))));
 }
 
 // ================================================================ partida

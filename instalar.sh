@@ -135,6 +135,9 @@ checagens() {
     [ "$livre" -ge 40 ] && ok "Espaço livre: ${livre} GB" || aviso "Só ${livre} GB livres em /. Cada imagem ocupa de 10 a 60 GB."
     # base pronta = marcador desta versão, ou (instalações antigas) site + banco do FOG já criados.
     # Uma instalação da base que falhou no meio não conta: rodar de novo continua a instalação nova.
+    if [ ! -e "$BASE_OK" ] && [ -f /var/www/html/fog/lib/fog/config.class.php ] && ! mysql -N -e 'SELECT 1' >/dev/null 2>&1; then
+        falha "O banco de dados não está respondendo, mas o sistema parece instalado. Inicie o banco (sudo systemctl start mariadb) e rode de novo."
+    fi
     if [ ! -e "$BASE_OK" ] && [ -f /var/www/html/fog/lib/fog/config.class.php ] \
        && mysql -N fog -e 'SELECT 1 FROM users LIMIT 1' >/dev/null 2>&1 && mysql -N fog -e 'SELECT 1 FROM globalSettings LIMIT 1' >/dev/null 2>&1; then
         mkdir -p "$(dirname "$BASE_OK")"; date > "$BASE_OK"
@@ -213,8 +216,11 @@ instalar_arquivos() {
     passo "pacotes necessários"
     rodar apt-get update || aviso "o apt-get update reclamou de algum repositório (veja $LOG); continuando com o que já está disponível"
     rodar env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        python3 curl rsync chrony whiptail git xz-utils sbsigntool sudo cifs-utils exfatprogs ntfs-3g zstd
+        python3 curl rsync chrony whiptail git xz-utils sbsigntool sudo cifs-utils exfatprogs exfat-fuse ntfs-3g zstd
     feito "pacotes necessários"
+    # opcional (internet para a rede de clonagem): a falta dele não pode impedir uma atualização sem internet
+    command -v nft >/dev/null || rodar env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nftables \
+        || aviso "não foi possível instalar o nftables: a opção de internet para a rede de clonagem fica indisponível"
     if [ "$ORIGEM" != "$DESTINO" ]; then
         if [ -e "$DESTINO/.git" ]; then
             # pasta de desenvolvimento (repositório): nunca sobrescrever nem apagar
@@ -336,6 +342,8 @@ preparar_terceiros() { # $1 = pasta base-fog que será usada
     if [ ! -x /opt/fog/ipxe/buildipxe.sh ]; then
         mkdir -p /opt/fog/ipxe && cp -a "$t/fog-ipxe/fonte/." /opt/fog/ipxe/
     fi
+    # o script da base buscaria o iPXE no GitHub (sem prazo) antes de compilar: o código já está aqui, na versão marcada
+    sed -i '/git fetch --tags --force \${IPXEGIT}/d' /opt/fog/ipxe/buildipxe.sh
     for d in ipxe ipxe-efi; do
         [ -d "/opt/fog/ipxe/build/$d/.git" ] && continue
         tmpd=$(mktemp -d)
@@ -430,6 +438,7 @@ aplicar_camada() {
     rodar systemctl enable --now LabFreeImageDeploy-backup.timer
     install -m 644 "$ORIGEM/sistema/systemd/LabFreeImageDeploy-recuperar.service" /etc/systemd/system/
     install -m 644 "$ORIGEM/sistema/systemd/LabFreeImageDeploy-otimizar.service" "$ORIGEM/sistema/systemd/LabFreeImageDeploy-otimizar.timer" /etc/systemd/system/
+    install -m 644 "$ORIGEM/sistema/systemd/LabFreeImageDeploy-nat.service" /etc/systemd/system/   # habilitado só se o NAT for ligado no painel
     rodar systemctl daemon-reload
     rodar systemctl enable --now LabFreeImageDeploy-otimizar.timer   # imagens menores e conferidas, com o servidor parado
     rodar systemctl enable LabFreeImageDeploy-recuperar.service   # desfaz no boot uma troca de rede interrompida
@@ -456,7 +465,10 @@ aplicar_camada() {
 
 marca_ipxe() {
     [ "$SEM_IPXE" = 1 ] && { aviso "iPXE mantido sem o nome do produto (--sem-ipxe-marca)"; return; }
-    if grep -aq "LabFree ImageDeploy" /tftpboot/snponly.efi 2>/dev/null; then ok "boot pela rede já mostra o nome LabFree ImageDeploy"; return; fi
+    # recompila também quando os textos em português (marca/ipxe/*.patch) ainda não estão no boot instalado
+    if grep -aq "LabFree ImageDeploy" /tftpboot/snponly.efi 2>/dev/null && grep -aq "Ctrl-X - confirmar" /tftpboot/snponly.efi 2>/dev/null; then
+        ok "boot pela rede já mostra o nome LabFree ImageDeploy"; return
+    fi
     passo "recompilando o iPXE com o nome do produto (10 a 20 min)"
     if /usr/local/sbin/LabFreeImageDeploy-recompilar-ipxe compilar >>"$LOG" 2>&1 && /usr/local/sbin/LabFreeImageDeploy-recompilar-ipxe instalar >>"$LOG" 2>&1; then
         feito "iPXE com o nome LabFree ImageDeploy"
@@ -487,7 +499,7 @@ usuario_admin() {
 
 final() {
     titulo "Conferência final"
-    /usr/local/sbin/LabFreeImageDeploy-verificar | tail -3
+    /usr/local/sbin/LabFreeImageDeploy-verificar | grep -E 'CORRIGIDO|ATEN|Tudo certo' || true
     . /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf
     local outros; outros=$(ip -4 -o addr show scope global | awk -v f="$FOG_IFACE" '$2 != f {sub(/\/.*/, "", $4); print "https://" $4 "/"}' | tr '\n' ' ')
     echo
@@ -513,9 +525,24 @@ final() {
 
 # ------------------------------------------------------------------ execução
 
+backup_antes() { # atualização: sempre um backup do estado atual antes de mexer em qualquer coisa
+    [ -x /usr/local/sbin/LabFreeImageDeploy-backup ] || return 0
+    passo "backup do estado atual (antes de atualizar)"
+    local rc=0; /usr/local/sbin/LabFreeImageDeploy-backup >>"$LOG" 2>&1 || rc=$?
+    case $rc in
+        0) feito "backup do estado atual feito (em /var/backups/LabFreeImageDeploy)" ;;
+        2) echo; aviso "backup feito, mas sem o banco de dados (veja $LOG)" ;;
+        *) falha "Não foi possível fazer o backup antes de atualizar (veja $LOG). Nada foi alterado." ;;
+    esac
+}
+
 checagens
-if [ "$MODO" = nova ]; then escolher_rede; fi
+# servidor FOG comum (sem o LabFree configurado): também precisa escolher a placa da rede de clonagem
+if [ "$MODO" = nova ] || ! grep -qs '^FOG_IFACE=.\+' /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf /etc/labfree/labfree.conf /etc/fogfacil/fogfacil.conf; then
+    escolher_rede
+fi
 confirmar_tudo
+[ "$MODO" = atualizar ] && backup_antes
 instalar_arquivos
 migrar_nomes_antigos
 configurar_rede

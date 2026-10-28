@@ -1,5 +1,7 @@
 [Unit]
 Description=Backup do painel, configurações e banco do FOG (customização local)
+After=mariadb.service mysql.service
+Wants=mariadb.service
 
 [Service]
 Type=oneshot

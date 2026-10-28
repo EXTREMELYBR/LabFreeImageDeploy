@@ -18,7 +18,7 @@ c = importlib.util.module_from_spec(spec)
 carregador.exec_module(c)
 
 T = tempfile.mkdtemp()
-c.IMAGENS, c.ESTADO, c.BLOCO = f'{T}/images', f'{T}/estado.json', 64 * 1024
+c.IMAGENS, c.ESTADO, c.BLOCO, c.PENDENTES = f'{T}/images', f'{T}/estado.json', 64 * 1024, f'{T}/pendentes.json'
 HD = f'{T}/hd'
 os.makedirs(f'{T}/images/Lab1'); os.makedirs(HD)
 arquivos = {'d1.mbr': os.urandom(512), 'd1.partitions': b'label: gpt\n', 'd1p1.img': os.urandom(300_000), 'd1p2.img': os.urandom(1_200_000)}

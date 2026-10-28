@@ -17,7 +17,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf -- "$tmp"' EXIT
 D="$tmp/$NOME"
 mkdir -p "$D"
-rsync -a --exclude '.git' --exclude 'dist' --exclude 'testes' --exclude '__pycache__' --exclude 'CLAUDE.md' --exclude 'docs/CUSTOMIZACOES-MAQUINA-ATUAL.md' "$RAIZ/" "$D/"
+rsync -a --exclude '.git' --exclude 'dist' --exclude 'testes' --exclude 'base-fog/tmp' --exclude '__pycache__' --exclude 'CLAUDE.md' --exclude 'docs/CUSTOMIZACOES-MAQUINA-ATUAL.md' "$RAIZ/" "$D/"
 cp "$RAIZ/base-fog/LICENSE" "$D/LICENSE"
 # confere que nenhum segredo desta máquina entrou no pacote
 if [ -r /opt/fog/.fogsettings ]; then

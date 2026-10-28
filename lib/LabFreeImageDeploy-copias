@@ -31,6 +31,7 @@ import tempfile
 import time
 
 CONF = '/etc/LabFreeImageDeploy/copias.json'          # pasta de rede (inclui a senha: só root lê)
+PENDENTES = '/var/lib/LabFreeImageDeploy/importadas-pendentes.json'  # já em /images, falta o painel cadastrar
 ESTADO = '/run/LabFreeImageDeploy/copia.json'          # andamento (o painel lê)
 TRAVA = '/run/LabFreeImageDeploy-copia.lock'
 TRAVA_OTIMIZAR = '/run/LabFreeImageDeploy-otimizar.lock'
@@ -102,8 +103,14 @@ def gravar_conf(d):
     os.replace(tmp, CONF)
 
 
-def montar(destino):
-    """Devolve (pasta_raiz_no_destino, montado_por_nos)."""
+OPC_SEGURAS = 'noatime,nosuid,nodev,noexec'
+
+
+def montar(destino, so_leitura=False):
+    """Devolve (pasta_raiz_no_destino, montado_por_nos). Montagens sem suid/dispositivos/execução (e só leitura
+    quando só vamos ler): o conteúdo de um disco ou pasta de rede de terceiros nunca vira programa no servidor."""
+    if os.path.ismount(MONTAGEM):  # sobra de um trabalho interrompido (SIGKILL): não empilhar montagens
+        sh(['umount', MONTAGEM])
     tipo = destino.get('tipo')
     if tipo == 'disco':
         dev = str(destino.get('dispositivo', ''))
@@ -118,21 +125,27 @@ def montar(destino):
             return d['montado_em'], False
         os.makedirs(MONTAGEM, exist_ok=True)
         fs = {'ntfs': 'ntfs3'}.get(d['fs'], d['fs'])
-        r = sh(['mount', '-t', fs, '-o', 'noatime', dev, MONTAGEM])
-        if r.returncode != 0 and d['fs'] == 'ntfs':
-            r = sh(['mount', '-t', 'ntfs-3g', '-o', 'noatime', dev, MONTAGEM])
+        opc = OPC_SEGURAS + (',ro' if so_leitura else '')
+        r = sh(['mount', '-t', fs, '-o', opc, dev, MONTAGEM])
+        # kernels sem o módulo (ex.: Ubuntu Server "virtual"): versões FUSE do exFAT e do NTFS
+        reserva = {'ntfs': 'ntfs-3g', 'exfat': 'exfat-fuse'}.get(d['fs'])
+        if r.returncode != 0 and reserva:
+            r = sh(['mount', '-t', reserva, '-o', opc, dev, MONTAGEM])
         if r.returncode != 0:
+            if 'unknown filesystem type' in r.stderr:
+                raise Erro(f"Este servidor não consegue abrir discos {d['fs'].upper()}. Rode o instalador de novo (ele instala o suporte) "
+                           'ou formate o disco em NTFS ou ext4.')
             raise Erro(f'Não foi possível abrir o disco: {r.stderr.strip()[-200:]}')
         return MONTAGEM, True
     if tipo == 'rede':
         c = ler_conf().get('rede')
         if not c:
             raise Erro('Configure a pasta de rede primeiro.')
-        return montar_rede(c), True
+        return montar_rede(c, so_leitura), True
     raise Erro('Destino inválido.')
 
 
-def montar_rede(c):
+def montar_rede(c, so_leitura=False):
     if not shutil.which('mount.cifs'):
         raise Erro('Falta o suporte a pasta de rede (pacote cifs-utils). Rode o instalador de novo.')
     os.makedirs(MONTAGEM, exist_ok=True)
@@ -143,7 +156,8 @@ def montar_rede(c):
             f.write(f"username={c.get('usuario', '')}\npassword={c.get('senha', '')}\n")
             if c.get('dominio'):
                 f.write(f"domain={c['dominio']}\n")
-        r = sh(['mount', '-t', 'cifs', c['endereco'], MONTAGEM, '-o', f'credentials={cred},uid=0,gid=0,file_mode=0640,dir_mode=0750,noserverino'], 60)
+        opc = f'credentials={cred},uid=0,gid=0,file_mode=0640,dir_mode=0750,noserverino,{OPC_SEGURAS}' + (',ro' if so_leitura else '')
+        r = sh(['mount', '-t', 'cifs', c['endereco'], MONTAGEM, '-o', opc], 60)
     finally:
         os.remove(cred)
     if r.returncode != 0:
@@ -202,6 +216,26 @@ class Andamento:
         self.ultimo = time.time()
 
 
+def ler_pendentes():
+    try:
+        with open(PENDENTES) as f:
+            d = json.load(f)
+        return [m for m in d if isinstance(m, dict) and RE_PASTA.match(str(m.get('caminho', '')))] if isinstance(d, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def gravar_pendentes(lista):
+    os.makedirs(os.path.dirname(PENDENTES), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(PENDENTES), prefix='.importadas-')
+    with os.fdopen(fd, 'w') as f:
+        os.fchmod(f.fileno(), 0o600)
+        json.dump(lista, f, ensure_ascii=False)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, PENDENTES)
+
+
 def ler_estado():
     try:
         with open(ESTADO) as f:
@@ -235,7 +269,8 @@ def copiar_conferido(origem, destino, est, esperado=None):
     """Copia calculando o SHA-256, grava no disco (fsync), descarta o cache e lê de volta do destino.
     Devolve o SHA-256. Levanta Erro se o lido de volta (ou o esperado) não bater."""
     h = hashlib.sha256()
-    with open(origem, 'rb') as fo, open(destino, 'wb') as fd:
+    fo_fd = os.open(origem, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fo_fd, 'rb') as fo, open(destino, 'wb') as fd:
         while True:
             if est.d.get('cancelar'):
                 raise Cancelado()
@@ -268,6 +303,11 @@ def copiar_conferido(origem, destino, est, esperado=None):
             h2.update(b)
     if h2.hexdigest() != sha:
         raise Erro(f'A conferência de {os.path.basename(destino)} falhou: o que foi gravado não é igual ao original. Troque o disco/cabo e tente de novo.')
+    try:
+        st = os.stat(origem)
+        os.utime(destino, ns=(st.st_atime_ns, st.st_mtime_ns))
+    except OSError:
+        pass
     est.d['fase'] = 'copiando'
     return sha
 
@@ -307,9 +347,13 @@ def exportar(raiz, imagens, est):
         man = {k: img.get(k) for k in ('nome', 'descricao', 'os', 'os_id', 'tipo', 'tipo_particao', 'formato', 'compressao', 'caminho')}
         man.update({'arquivos': {}, 'exportada': time.strftime('%Y-%m-%dT%H:%M:%S%z'), 'servidor': os.uname().nodename,
                     'versao_labfree': open('/etc/LabFreeImageDeploy/versao').read().strip() if os.path.exists('/etc/LabFreeImageDeploy/versao') else ''})
+        antes = {a: (os.stat(os.path.join(origem, a)).st_size, os.stat(os.path.join(origem, a)).st_mtime_ns) for a in arqs}
         for a in arqs:
             sha = copiar_conferido(os.path.join(origem, a), os.path.join(parcial, a), est)
             man['arquivos'][a] = {'tamanho': os.path.getsize(os.path.join(origem, a)), 'sha256': sha}
+        if arquivos_da_imagem(origem) != arqs or any(
+                (os.stat(os.path.join(origem, a)).st_size, os.stat(os.path.join(origem, a)).st_mtime_ns) != antes[a] for a in arqs):
+            raise Erro(f"A imagem {img.get('nome', img['caminho'])} mudou durante a cópia (uma captura terminou?). Copie de novo.")
         with open(os.path.join(parcial, MANIFESTO), 'w') as f:
             json.dump(man, f, ensure_ascii=False, indent=1)
             f.flush()
@@ -319,7 +363,11 @@ def exportar(raiz, imagens, est):
             velha = os.path.join(base, f".{img['caminho']}.anterior")
             shutil.rmtree(velha, ignore_errors=True)
             os.rename(final, velha)
-            os.rename(parcial, final)
+            try:
+                os.rename(parcial, final)
+            except OSError:
+                os.rename(velha, final)  # a cópia anterior volta para o lugar
+                raise
             shutil.rmtree(velha, ignore_errors=True)
         else:
             os.rename(parcial, final)
@@ -335,15 +383,23 @@ def importar(raiz, pastas, est):
         if not RE_PASTA.match(p):
             raise Erro('Pasta inválida.')
         pasta = os.path.join(base, p)
+        if os.path.islink(pasta) or not os.path.isdir(pasta):
+            raise Erro(f'{p}: não é uma pasta de cópia válida.')
         try:
+            if os.path.islink(os.path.join(pasta, MANIFESTO)):
+                raise OSError('link')
             with open(os.path.join(pasta, MANIFESTO)) as f:
                 man = json.load(f)
         except (OSError, ValueError):
             raise Erro(f'{p}: falta o arquivo de dados da imagem ({MANIFESTO}); não é uma cópia do LabFree.')
         arqs = man.get('arquivos') or {}
+        if not isinstance(arqs, dict) or not arqs:
+            raise Erro(f'{p}: a cópia não lista nenhum arquivo.')
         for a, info in arqs.items():
             c = os.path.join(pasta, a)
-            if '/' in a or a.startswith('.') or not os.path.isfile(c):
+            if not isinstance(info, dict) or not re.fullmatch(r'[0-9a-f]{64}', str(info.get('sha256', ''))):
+                raise Erro(f'{p}: o arquivo {a} não tem a soma de verificação. A cópia não é confiável.')
+            if '/' in a or a.startswith('.') or os.path.islink(c) or not os.path.isfile(c):
                 raise Erro(f'{p}: falta o arquivo {a}. A cópia está incompleta.')
             if os.path.getsize(c) != int(info.get('tamanho', -1)):
                 raise Erro(f'{p}: o arquivo {a} está com tamanho diferente do original. A cópia está estragada.')
@@ -373,13 +429,18 @@ def importar(raiz, pastas, est):
         os.chmod(parcial, 0o775)
         os.rename(parcial, os.path.join(IMAGENS, nova))
         man['caminho'] = nova
+        man.pop('arquivos', None)
+        gravar_pendentes(ler_pendentes() + [man])  # o painel cadastra mesmo se o trabalho parar depois desta imagem
         est.d['importadas'].append(man)
         est.gravar(True)
 
 
 def trabalho(pedido):
     fd = os.open(TRAVA, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
-    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return 1  # outro trabalho começou ao mesmo tempo: ele é quem vale
     est = Andamento({'op': pedido['op_trabalho'], 'fase': 'preparando', 'inicio': int(time.time()), 'total': 0, 'feito': 0,
                      'destino': pedido.get('destino_nome', ''), 'id': pedido.get('id', '')})
     est.gravar(True)
@@ -400,7 +461,7 @@ def trabalho(pedido):
     montado = False
     raiz = None
     try:
-        raiz, montado = montar(pedido['destino'])
+        raiz, montado = montar(pedido['destino'], so_leitura=pedido['op_trabalho'] == 'importar')
         est.d['fase'] = 'copiando'
         if pedido['op_trabalho'] == 'exportar':
             exportar(raiz, pedido['imagens'], est)
@@ -449,7 +510,11 @@ def executar(e):
         rede = ler_conf().get('rede') or {}
         return {'discos': discos_usb(), 'rede': {'endereco': rede.get('endereco', ''), 'usuario': rede.get('usuario', ''),
                                                  'dominio': rede.get('dominio', '')} if rede else None,
-                'trabalho': ler_estado(), 'rodando': trabalho_rodando()}
+                'trabalho': ler_estado(), 'rodando': trabalho_rodando(), 'pendentes': ler_pendentes()}
+    if op == 'confirmar':  # o painel cadastrou estas imagens
+        feitos = {str(c) for c in (e.get('caminhos') or [])}
+        gravar_pendentes([m for m in ler_pendentes() if m.get('caminho') not in feitos])
+        return {'ok': True}
     if op == 'rede':
         end = str(e.get('endereco', '')).strip().replace('\\', '/')
         if not RE_REDE.match(end):
@@ -471,7 +536,7 @@ def executar(e):
     if op == 'listar':
         if trabalho_rodando():
             raise Erro('Há uma cópia em andamento: espere terminar.')
-        raiz, montado = montar(e.get('destino') or {})
+        raiz, montado = montar(e.get('destino') or {}, so_leitura=True)
         try:
             return {'imagens': listar_destino(raiz), 'livre': espaco_livre(raiz)}
         finally:

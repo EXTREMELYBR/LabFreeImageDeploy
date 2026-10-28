@@ -30,17 +30,24 @@ compilar() {
     # o script do FOG copia só usb.h para config/local; acrescenta o branding.h logo depois
     sed -i 's#^\(cp ${FOGDIR}/\(src\|src-efi\)/config/local/usb.h config/local/\)$#\1\ncp ${FOGDIR}/\2/config/local/branding.h config/local/#' "$TRABALHO/buildipxe.sh"
     [ "$(grep -c 'branding.h config/local/' "$TRABALHO/buildipxe.sh")" -ge 2 ] || { echo "Não consegui incluir a marca no script de compilação."; exit 1; }
-    rm -rf "$SAIDA"; mkdir -p "$SAIDA"
+    # textos do iPXE em português (formulário de login: Usuario/Senha); aplicados pelo próprio script da base
+    mkdir -p "$TRABALHO/patches"
+    cp -f /usr/local/share/LabFreeImageDeploy/ipxe/*.patch "$TRABALHO/patches/" 2>/dev/null || true
+    # sistema autônomo: o código do iPXE já está aqui (versão marcada); o script da base buscaria no GitHub sem prazo
+    sed -i '/git fetch --tags --force \${IPXEGIT}/d' "$TRABALHO/buildipxe.sh"
+    local nova="$SAIDA.nova"
+    rm -rf "$nova"; mkdir -p "$nova"
     echo "Compilando (pode levar 10–20 minutos)…"
-    if ! bash "$TRABALHO/buildipxe.sh" "$CA" "$SAIDA" > "$SAIDA.log" 2>&1; then
-        echo "A compilação falhou. Últimas linhas de $SAIDA.log:"; tail -20 "$SAIDA.log"; exit 1
+    if ! bash "$TRABALHO/buildipxe.sh" "$CA" "$nova" > "$SAIDA.log" 2>&1; then
+        echo "A compilação falhou (a compilação anterior foi mantida). Últimas linhas de $SAIDA.log:"; tail -20 "$SAIDA.log"; rm -rf "$nova"; exit 1
     fi
-    conferir
+    SAIDA_CONF="$nova" conferir || { rm -rf "$nova"; exit 1; }
+    rm -rf "$SAIDA"; mv "$nova" "$SAIDA"
     echo "Compilado em $SAIDA. Para colocar em uso: sudo $0 instalar"
 }
 
 conferir() {
-    python3 -I - "$SAIDA" "$CA" "$NOME" <<'PY'
+    python3 -I - "${SAIDA_CONF:-$SAIDA}" "$CA" "$NOME" <<'PY'
 import os, subprocess, sys
 saida, ca, nome = sys.argv[1:4]
 der = subprocess.run(['openssl', 'x509', '-in', ca, '-outform', 'DER'], capture_output=True, check=True).stdout
