@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 28/10/2026 (versão 0.13.3). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 28/10/2026 (versão 0.13.4). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -57,6 +57,9 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     — feito na 0.13.2: `docs/PLANO-LABFREE-ENGINE.md` (inventário, matriz de paridade, arquitetura, etapas,
     migração, licenças, riscos). **Desenvolvimento só começa quando o usuário mandar**; linguagem (C# ou Go)
     ainda é decisão dele (recomendado C#).
+21. (28/10) "Manter o FOS personalizado, com opção de atualizar quando sair versão nova sem quebrar; não vejo por
+    que deixar de usar ele e fazer um nosso do zero" — decisão permanente: o Engine reescreve só o servidor; as
+    máquinas continuam no FOS + camada LabFree (plano, seção 6). Feito no plano na 0.13.4.
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.

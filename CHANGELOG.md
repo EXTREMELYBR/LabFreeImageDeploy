@@ -5,6 +5,18 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.13.4] - 2026-10-28
+
+### Documentação
+- `docs/PLANO-LABFREE-ENGINE.md` atualizado com a decisão do usuário: **as máquinas continuam no FOS personalizado,
+  de forma permanente** (sem sistema próprio do zero); só o servidor, o painel e o agente Windows são reescritos.
+  Seção nova "FOS personalizado e atualizável": original sempre intacto, camada LabFree em arquivos próprios que
+  redefinem funções em vez de editar o FOS, impressão digital dos pontos de encaixe, contrato do FOS (parâmetros de
+  boot e endpoints que o servidor precisa responder), passo a passo para adotar uma versão nova do FOS com kit de
+  compatibilidade em VM e volta para a versão anterior sem reinstalar. Estimativa cai para ~4 a 6 meses.
+- Registrada uma pendência de licença que já vale para a versão atual: o pacote traz só os binários do FOS; para
+  vender, precisa trazer o código-fonte correspondente (ou oferta escrita).
+
 ## [0.13.3] - 2026-10-28
 
 ### Para quem mantém

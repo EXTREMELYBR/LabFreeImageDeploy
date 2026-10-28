@@ -37,8 +37,9 @@ Fale comigo em português, de forma simples e direta.
 - **O sistema tem de ser 100% autônomo**: nada da instalação pode depender de links do projeto FOG ou do GitHub
   (a base fica em `base-fog/` e o que ela baixaria em `terceiros/`, com SHA-256). Teste instalações do zero numa VM
   com o GitHub bloqueado.
-- Sistema próprio sem o FOG: há um **plano de migração completo** (`docs/PLANO-LABFREE-ENGINE.md`), mas o
-  desenvolvimento só começa quando eu mandar; a linguagem (C# ou Go) ainda é decisão minha.
+- Servidor próprio escrito do zero: há um **plano de migração completo** (`docs/PLANO-LABFREE-ENGINE.md`), mas o
+  desenvolvimento só começa quando eu mandar; a linguagem (C# ou Go) ainda é decisão minha. As máquinas continuam
+  sempre no **FOS personalizado** (atualizável sem quebrar), nunca um sistema nosso do zero.
 - Toda alteração deve ser documentada (CHANGELOG.md, AGENTS.md, docs/ quando afetar o uso, VERSION) e a nova
   versão enviada para o GitHub com `ferramentas/publicar.sh` (ele recusa publicar sem CHANGELOG). Sempre que fizer
   algo, suba para o GitHub e lance uma release nova: o `publicar.sh` já lança a release com as notas e o pacote.
