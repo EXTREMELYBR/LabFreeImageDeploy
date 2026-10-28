@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 27/10/2026 (versão 0.12.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 28/10/2026 (versão 0.13.1). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -50,6 +50,8 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     Autonomia feita na 0.12.0 (`base-fog/` + `terceiros/` no repositório). A ideia de um **sistema próprio sem o FOG**
     (Go, licença fechada, porte para Windows) ficou **só como ideia arquivada** em `docs/PLANO-LABFREE-ENGINE.md`
     (decisão do usuário): não trabalhar nela nem sugerir começar, a menos que ele peça.
+19. (28/10) NAT opcional feito; "teste intenso de todo o sistema, procurar bugs, falhas e otimizações" — feito na
+    0.13.0 (seção 7i).
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -149,6 +151,17 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
 34. Comando grande que mistura editar arquivo + matar processo + baixar pode ser barrado pelo modo automático de
     permissões; em passos separados passa. `pkill -f`/`pgrep -f` com um padrão que aparece na própria linha de
     comando mata o próprio shell (saída 144): filtre com `ps -eo pid,args | grep "[x]yz"`.
+35. Kernel "virtual" do Ubuntu Server não tem exFAT (nem sempre NTFS): `mount -t exfat` falha com "unknown filesystem
+    type" → o copias tenta `exfat-fuse`/`ntfs-3g` (pacotes instalados pelo instalador).
+36. Captura de Linux que não foi desligado direito falha no `e2fsck` do FOS (journal pendente): é o "hibernação do
+    Windows" do Linux — mensagem traduzida no painel e na tela.
+37. O verificador de segurança do Claude Code bloqueia comandos com `rm` em variável ou dentro de `bash -c`, e até a
+    palavra RM numa coluna do `lsblk`: escreva o comando sem isso (ou em passos).
+38. A base apaga `msName` quando a sessão em grupo termina (para o nome poder ser reutilizado): o histórico mostra "nº ID".
+39. O `buildipxe.sh` da base faz `git fetch` do GitHub sem prazo antes de compilar, mesmo com o código já presente:
+    o LabFree tira essa linha (instalação nova e recompilação).
+40. Ao publicar, rode a edição da documentação ANTES do `publicar.sh` e confira que ela terminou (na 0.13.0 a edição
+    parou no meio e o publicar seguiu).
 22. Nunca escreva um heredoc de bash contendo outro `EOF` dentro (o bash fecha no primeiro e executa o resto): scripts de
     edição vão em arquivo (Write) e rodam com `python3 -I arquivo`.
 
@@ -288,6 +301,27 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   assim tudo instalado: kernel/init/agente vindos de `terceiros/` (SHA-256 iguais aos do pacote), iPXE "Skipped
   (pre-placed sources)" e compilado localmente, iPXE com a marca recompilado, `verificar` = "Tudo certo.".
 - Única dependência externa que sobra: os pacotes do Ubuntu/Debian (apt). Um "pacote offline" com os .deb é possível.
+
+## 7i. Versão 0.13.0 (28/10) — NAT e teste intenso
+- **Três revisões de código** (API/painel, programas root, instalador/scripts/FOS) por agentes; todos os achados
+  confirmados foram corrigidos (lista no CHANGELOG). Ficaram como decisão/observação: `--force-confold` do apt vale
+  para todos os pacotes (escolha deliberada: o apt nunca troca configuração alterada; revisar se der problema com
+  pacotes de segurança); `LabFreeImageDeploy-etapa.php` confia no MAC (mesmo nível do `progress.php` da base);
+  troca de imagens "em pedaços" pelo otimizador não é atômica entre pedaços (reconfere antes; imagens atuais são de
+  arquivo único).
+- **Teste de ponta a ponta em VM** (servidor Ubuntu 24.04 com o sistema instalado + VMs clientes na rede de clonagem
+  por socket multicast, boot pela rede de verdade): atualização com backup antes; troca obrigatória da senha (428);
+  cadastro; captura (falha legítima por e2fsck e depois sucesso, tela nova, sem reiniciar); otimizador na imagem real
+  (−26%, conteúdo idêntico, data mantida); restauração da imagem otimizada num disco vazio → Ubuntu sobe; sessão em
+  grupo com 2 máquinas sem cadastro → painel lista as duas, não começa sozinha, Iniciar → 4 partes → as duas sobem;
+  cópias para "pendrive" USB exFAT (achou o defeito do módulo exFAT) e importação → cadastrada, arquivos iguais;
+  Windows (domínio/chave nas máquinas, senha conferida, desligar limpa); NAT (cliente sem internet → com internet →
+  sem de novo; com ufw ativo; persiste após reiniciar); menu de boot sem tempo; login do grupo em português.
+- 123 fotos do painel sem achados; `teste_grupo.sh`, `teste_otimizar.py`, `teste_copias.py` = "Tudo certo."
+- Como repetir: VM servidor em `scratchpad/vm` (cloud image + cloud-init, `ssh -p 2223`), `testes/api_cli.py` dentro
+  dela (`entrar`, `get`, `post`), clientes com `-boot n` na mesma rede `-netdev socket,mcast=230.0.0.1:12346`, teclas
+  e fotos pelo monitor do QEMU (`sendkey`, `screendump`).
+- **Produção**: 0.13.x ainda não instalada (versão instalada em 28/10: 0.12.0).
 
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,

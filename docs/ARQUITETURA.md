@@ -104,6 +104,12 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
   do systemd; SHA-256 de cada arquivo no manifesto `labfree-imagem.json`; conferência lendo de volta do destino
   (cache descartado com `posix_fadvise`). O painel cadastra as imagens importadas com as classes da base.
 
+## Internet para a rede de clonagem (NAT)
+- Ajudante `nat-aplicar`: tabela própria do nftables `ip labfreeimagedeploy_nat` (repasse só da rede de clonagem +
+  masquerade para as outras placas), `ip_forward`, regra do ufw quando ele está ativo, DHCP com o servidor como
+  gateway e o DNS da placa de internet; o estado anterior fica em `/etc/LabFreeImageDeploy/nat.json` e volta ao
+  desligar. `LabFreeImageDeploy-nat.service` recria no boot; trocar placa/IP e o `reaplicar` também recriam.
+
 ## Visual nas máquinas
 - Menu de boot: `LabFreeImageDeploy-fundo.png` (gerado de `marca/fundo-boot.html`) + `CORES_IPXE`.
 - Sistema de clonagem: `labfree-cores.sh` troca a paleta do console para as cores da LabFree e define as cores do

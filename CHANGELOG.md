@@ -5,6 +5,12 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.13.1] - 2026-10-28
+
+### Documentação
+- AGENTS.md (seção 7i: resultado do teste intenso e como repetir; lições 35–39), USO (internet para a rede de
+  clonagem), ARQUITETURA (NAT) e README — ficaram de fora da publicação da 0.13.0.
+
 ## [0.13.0] - 2026-10-28
 
 Precisa do instalador para chegar ao servidor (`sudo ./instalar.sh`; faz um backup antes, reconstrói o sistema de

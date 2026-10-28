@@ -22,7 +22,8 @@ agente para Windows): a instalação não baixa nada do projeto FOG. Acrescenta:
 - **Telas da máquina com a identidade da LabFree**: menu de boot, cadastro e acompanhamento da clonagem.
 - **Cadastro de máquinas em 2 passos** direto na tela da máquina, pelo boot da rede: nome sugerido e imagem.
 - **Rede e DHCP configuráveis pelo painel**, com teste e desfazer automático se algo der errado.
-- **Funciona com adaptador USB-Ethernet** e não mexe na internet do servidor.
+- **Funciona com adaptador USB-Ethernet** e não mexe na internet do servidor; opcionalmente, repassa essa internet
+  às máquinas da rede de clonagem (NAT).
 - **Proteções**: backups automáticos, nada é estragado por `apt upgrade`, notebook não suspende.
 
 ## Instalação (3 passos)

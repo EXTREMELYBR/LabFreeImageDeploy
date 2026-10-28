@@ -107,6 +107,12 @@ técnicos. Se o agendamento marcou *Desligar quando terminar*, ela desliga sozin
 - O Início avisa quando há tarefas agendadas há mais de 1 dia: se alguém der boot pela rede nessa máquina, o disco
   é apagado. Cancele o que não vai usar.
 
+## Internet para a rede de clonagem (opcional)
+Configurações → Placa de rede → *Internet para a rede de clonagem*. Com o servidor na internet (por exemplo, o Wi-Fi
+do notebook), **Ligar internet** faz as máquinas da rede de clonagem usarem essa conexão (ativar o Windows,
+atualizações, entrar no domínio). As máquinas pegam a mudança na próxima vez que pedirem IP (ou reiniciando).
+A clonagem continua na rede local, na mesma velocidade. **Desligar internet** volta tudo como era. Pede a sua senha.
+
 ## Configurações (painel)
 - **DHCP**: faixa de IPs, gateway, DNS, domínio, tempo de concessão, reservas de IP, ligar/desligar.
 - **Placa de rede**: qual placa e qual IP atendem a rede de clonagem. Mostra o que vai mudar antes de aplicar e
