@@ -5,6 +5,15 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.13.3] - 2026-10-28
+
+### Para quem mantém
+- **Toda versão publicada agora vira uma release no GitHub** (regra do usuário): `ferramentas/publicar.sh` envia o
+  código, marca a versão e lança a release com as notas deste CHANGELOG e o pacote de instalação
+  (`LabFreeImageDeploy-X.Y.Z.tar.gz` + `.sha256`). `--sem-pacote` lança a release só com as notas. Se a release
+  falhar depois do envio, rodar o script de novo lança só a release. Documentado em AGENTS.md, PROMPT-CONTINUAR e
+  INSTALACAO (atualizar baixando o pacote da página de releases).
+
 ## [0.13.2] - 2026-10-28
 
 ### Documentação

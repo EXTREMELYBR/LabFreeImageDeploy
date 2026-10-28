@@ -2,9 +2,12 @@
 # =============================================================================
 #  LabFree ImageDeploy — publica uma versão nova no GitHub (repositório privado).
 #
-#  Uso:   ferramentas/publicar.sh            confere, faz o commit, marca a versão (tag vX.Y.Z) e envia
-#         ferramentas/publicar.sh --pacote   o mesmo e ainda anexa o pacote de instalação (dist/) a uma
-#                                            "release" privada no GitHub
+#  Uso:   ferramentas/publicar.sh               confere, faz o commit, marca a versão (tag vX.Y.Z), envia e
+#                                               SEMPRE lança uma release no GitHub com as notas do CHANGELOG e o
+#                                               pacote de instalação (.tar.gz + .sha256)
+#         ferramentas/publicar.sh --sem-pacote  o mesmo, mas a release sai só com as notas (sem o pacote)
+#  Se a versão já foi enviada mas a release falhou (internet caiu, por exemplo), rodar de novo só lança a release.
+#  Precisa do gh com acesso ao repositório (variável GH_TOKEN ou gh auth login).
 #
 #  PUBLICAR_RODAPE="linhas"   acrescenta essas linhas no fim da mensagem do commit (ex.: coautoria).
 #
@@ -17,14 +20,36 @@
 set -Eeuo pipefail
 RAIZ=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
 cd "$RAIZ"
-PACOTE=0; [ "${1:-}" = "--pacote" ] && PACOTE=1
+PACOTE=1
+case "${1:-}" in --sem-pacote) PACOTE=0 ;; --pacote|"") ;; *) echo "opção desconhecida: $1" >&2; exit 1 ;; esac
 erro() { echo "ERRO: $*" >&2; exit 1; }
 
 VERSAO=$(tr -d '[:space:]' < VERSION)
 [[ "$VERSAO" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9.]+)?$ ]] || erro "VERSION inválida: '$VERSAO' (use X.Y.Z)"
 TAG="v$VERSAO"
-git rev-parse --verify -q "refs/tags/$TAG" >/dev/null && erro "a versão $VERSAO já foi publicada. Aumente o número em VERSION e descreva a mudança no CHANGELOG.md."
 grep -qF "## [$VERSAO]" CHANGELOG.md || erro "CHANGELOG.md não tem a seção '## [$VERSAO]' descrevendo esta versão."
+command -v gh >/dev/null || erro "falta o programa gh (GitHub CLI) para lançar a release."
+NOTAS=$(awk -v v="## [$VERSAO]" 'index($0, v) == 1 {ok = 1; next} ok && /^## \[/ {exit} ok' CHANGELOG.md)
+
+lancar_release() {
+    echo "== Release $TAG no GitHub"
+    local arquivos=()
+    if [ $PACOTE = 1 ]; then
+        ferramentas/empacotar.sh
+        arquivos=("dist/LabFreeImageDeploy-$VERSAO.tar.gz" "dist/LabFreeImageDeploy-$VERSAO.tar.gz.sha256")
+    fi
+    gh release create "$TAG" "${arquivos[@]}" --verify-tag --title "LabFree ImageDeploy $VERSAO" --notes "$NOTAS" \
+        || erro "a versão foi enviada, mas a release não. Rode ferramentas/publicar.sh de novo para lançá-la."
+    echo "  release: $(gh release view "$TAG" --json url -q .url)"
+}
+
+if git rev-parse --verify -q "refs/tags/$TAG" >/dev/null; then
+    gh release view "$TAG" >/dev/null 2>&1 && erro "a versão $VERSAO já foi publicada (com release). Aumente o número em VERSION e descreva a mudança no CHANGELOG.md."
+    echo "A versão $TAG já foi enviada, mas falta a release: lançando só a release."
+    lancar_release
+    echo "Pronto: versão $VERSAO publicada."
+    exit 0
+fi
 
 echo "== Conferindo sintaxe"
 for f in instalar.sh sbin/* ferramentas/*.sh ferramentas/LabFreeImageDeploy-recompilar-ipxe sistema/networkmanager/* marca/fos/bin/*; do
@@ -53,7 +78,6 @@ fi
 echo "== Commit e versão $TAG"
 # o navegador busca app.js/app.css novos a cada versão (sem misturar arquivo velho com API nova)
 sed -i -E "s/\?v=[0-9A-Za-z.-]+/?v=$VERSAO/g" web/index.html
-NOTAS=$(awk -v v="## [$VERSAO]" 'index($0, v) == 1 {ok = 1; next} ok && /^## \[/ {exit} ok' CHANGELOG.md)
 git add -A
 if git diff --cached --quiet; then
     echo "  (nada novo para commit; só marcando a versão)"
@@ -70,9 +94,5 @@ git tag -a "$TAG" -m "LabFree ImageDeploy $VERSAO"   # só marca depois que o c�
 git push -q origin "$TAG" || { git tag -d "$TAG" >/dev/null; erro "não consegui enviar a marca da versão; rode de novo."; }
 echo "  enviado: $(git remote get-url origin) ($TAG)"
 
-if [ $PACOTE = 1 ]; then
-    echo "== Pacote de instalação"
-    ferramentas/empacotar.sh
-    gh release create "$TAG" "dist/LabFreeImageDeploy-$VERSAO.tar.gz" --title "LabFree ImageDeploy $VERSAO" --notes "$NOTAS"
-fi
+lancar_release
 echo "Pronto: versão $VERSAO publicada."

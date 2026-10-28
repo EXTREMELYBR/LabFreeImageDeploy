@@ -40,7 +40,8 @@ Fale comigo em português, de forma simples e direta.
 - Sistema próprio sem o FOG: há um **plano de migração completo** (`docs/PLANO-LABFREE-ENGINE.md`), mas o
   desenvolvimento só começa quando eu mandar; a linguagem (C# ou Go) ainda é decisão minha.
 - Toda alteração deve ser documentada (CHANGELOG.md, AGENTS.md, docs/ quando afetar o uso, VERSION) e a nova
-  versão enviada para o GitHub com `ferramentas/publicar.sh` (ele recusa publicar sem CHANGELOG).
+  versão enviada para o GitHub com `ferramentas/publicar.sh` (ele recusa publicar sem CHANGELOG). Sempre que fizer
+  algo, suba para o GitHub e lance uma release nova: o `publicar.sh` já lança a release com as notas e o pacote.
 - Para o git/gh, use o token do `labfree` só dentro do próprio comando, sem imprimir nem salvar:
   `GH_TOKEN=$(sudo -u labfree gh auth token) GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=credential.https://github.com.helper GIT_CONFIG_VALUE_0='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' <comando git>`
   (`PUBLICAR_RODAPE="..."` acrescenta linhas de coautoria no commit do `publicar.sh`).

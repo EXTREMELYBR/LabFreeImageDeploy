@@ -54,7 +54,7 @@ Registro completo da instalação: `/var/log/LabFreeImageDeploy/instalacao.log`.
 
 ## Atualizar para uma versão nova
 
-Extraia o pacote novo e rode o mesmo comando: `sudo ./instalar.sh`. Em máquina que já tem o sistema, ele
+Baixe o pacote da versão nova na página de releases do repositório no GitHub (`LabFreeImageDeploy-X.Y.Z.tar.gz`; confira com o `.sha256` ao lado), extraia e rode o mesmo comando: `sudo ./instalar.sh`. Em máquina que já tem o sistema, ele
 **atualiza** (painel, scripts, marca) sem reinstalar a base e sem apagar imagens, máquinas ou configurações.
 Versões de desenvolvimento antigas (nomes "FOG Fácil", `fogfacil`, `labfree`) são migradas automaticamente;
 os arquivos antigos ficam guardados em `/var/lib/LabFreeImageDeploy/migracao/`.

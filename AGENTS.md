@@ -1,13 +1,15 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 28/10/2026 (versão 0.13.2). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 28/10/2026 (versão 0.13.3). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
 > Ao terminar qualquer mudança: (1) atualize a documentação afetada (README, docs/, este arquivo);
 > (2) aumente `VERSION` (X.Y.Z: correção → Z, função nova → Y); (3) descreva a mudança em `CHANGELOG.md` na seção
-> `## [X.Y.Z] - AAAA-MM-DD`; (4) rode `ferramentas/publicar.sh` (confere sintaxe e senhas, faz commit, tag `vX.Y.Z`
-> e envia; `--pacote` também anexa o pacote de instalação a uma release privada).
+> `## [X.Y.Z] - AAAA-MM-DD`; (4) rode `ferramentas/publicar.sh` (confere sintaxe e senhas, faz commit, tag `vX.Y.Z`,
+> envia e **sempre lança uma release no GitHub** com as notas do CHANGELOG e o pacote de instalação `.tar.gz` +
+> `.sha256`; `--sem-pacote` lança só as notas). **REGRA DO USUÁRIO (28/10): sempre que fizer algo, suba para o GitHub e
+> lance uma release nova.** Se a release falhar depois do envio, rodar o `publicar.sh` de novo lança só a release.
 
 ## 1. O que é e o que o usuário pediu
 Produto **LabFree ImageDeploy**: clonagem de máquinas pela rede, **baseado no FOG Project 1.5.10** (GPL v3).
@@ -81,7 +83,7 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 | `sbin/` | `LabFreeImageDeploy` (comando único) + `LabFreeImageDeploy-{verificar,backup,restaurar-backup,reaplicar,senha}` |
 | `sistema/` | sudoers, dispatcher NM, timer de backup, regras apt, energia, `raiz-index.php` |
 | `marca/` | `LabFreeImageDeploy-fundo.png` (+ `fundo-boot.html` que o gera); `fos/` (arquivos que entram no FOS: `bin/fog.man.reg` cadastro guiado, `bin/labfree-tela` tela da clonagem, `etc/init.d/S99fog`, `usr/share/fog/lib/labfree-tela.sh`); `servidor/` (`LabFreeImageDeploy-cadastro.php`, `LabFreeImageDeploy-etapa.php`) |
-| `ferramentas/` | `empacotar.sh` (gera `dist/LabFreeImageDeploy-<versão>.tar.gz`), `publicar.sh` (envia versão ao GitHub), `LabFreeImageDeploy-recompilar-ipxe` |
+| `ferramentas/` | `empacotar.sh` (gera `dist/LabFreeImageDeploy-<versão>.tar.gz`), `publicar.sh` (envia versão ao GitHub e lança a release com o pacote), `LabFreeImageDeploy-recompilar-ipxe` |
 | `CHANGELOG.md` | o que mudou em cada versão (obrigatório antes de publicar) |
 | `testes/` | `painel_simulado.py`, `plano_fotos.py`, `fotos_painel.py` (painel com API simulada e fotos), `cdp_teste.py`, `boot_vm.sh`, testes de rollback e de certificado (não vão no pacote) |
 | `docs/` | `INSTALACAO.md`, `USO.md`, `ARQUITETURA.md` (leia este para entender o funcionamento), `PROMPT-CONTINUAR.md` (texto para passar o projeto a outra IA), `CUSTOMIZACOES-MAQUINA-ATUAL.md` (histórico do dia 1, nomes antigos) |
