@@ -51,10 +51,11 @@ downloads do Buildroot) e o `linux-6.18.38.tar.xz` juntado também para `~/.buil
 compila os cabeçalhos do kernel; o arquivo não foi repetido aqui). O firmware vai na pasta `linux-firmware/` ao lado
 do `build.sh` (o script tenta clonar o repositório inteiro se ela não existir).
 
-**Falta um arquivo**: `pacotes-buildroot/fog/fog_1.tar.gz`. Não tem código (o programa desse pacote, `fogmbrfix`,
-está no código do FOS, em `Buildroot/package/fog/src`), mas o Buildroot exige o arquivo, com o SHA-512 de
-`Buildroot/package/fog/fog.hash`. Ele só existe em www.fogproject.org, que o LabFree bloqueia no servidor (sem
-atualizações do FOG); precisa ser baixado à parte e acrescentado aqui.
+`pacotes-buildroot/fog/fog_1.tar.gz` (desde a 0.13.7) é um arquivo vazio: o programa desse pacote (`fogmbrfix`) está
+no código do FOS, em `Buildroot/package/fog/src`, mas o Buildroot exige o arquivo, com o SHA-512 de
+`Buildroot/package/fog/fog.hash` (conferido). Ele só existe em www.fogproject.org, que o LabFree bloqueia no servidor;
+foi baixado à parte com `curl --resolve` para `www.fogproject.org` e `fogproject.org` (o site redireciona), sem
+mexer no `/etc/hosts`.
 
 Como foi obtido (o script do FOS só aceita Debian/Ubuntu e exige as ferramentas de compilação até para baixar; numa
 cópia temporária, as duas conferências foram puladas, sem instalar nada):

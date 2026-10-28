@@ -5,6 +5,13 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.13.7] - 2026-10-28
+
+### Licença / pacote
+- **Código do sistema de clonagem completo no pacote**: entrou o último arquivo que faltava,
+  `terceiros/fos-fonte/pacotes-buildroot/fog/fog_1.tar.gz` (vazio, exigido pelo Buildroot; conferido com a soma
+  SHA-512 do FOS). Com isso o sistema das máquinas pode ser reconstruído só com o que está no pacote.
+
 ## [0.13.6] - 2026-10-28
 
 ### Licença / pacote

@@ -306,8 +306,7 @@ parte mais arriscada).
   mesma versão dos binários, Buildroot e kernel. Na 0.13.6 entraram o código dos 126 pacotes que o Buildroot
   compila dentro do `init.xz`/`init_32.xz` (busybox, partclone, util-linux…), o código do compilador da Bootlin
   (gcc e glibc das bibliotecas do sistema de 64 bits) e o firmware embutido no kernel, tudo conferido
-  (`terceiros/fos-fonte/LEIAME.md`). Falta só o `fog_1.tar.gz` (arquivo sem código exigido pelo Buildroot, que só
-  existe no site do FOG). Toda atualização do FOS (seção 6.3) troca binários e código-fonte juntos.
+  (`terceiros/fos-fonte/LEIAME.md`); na 0.13.7, o último arquivo (`fog_1.tar.gz`, vazio). Toda atualização do FOS (seção 6.3) troca binários e código-fonte juntos.
 - Os avisos de licença e autoria do FOS continuam nos arquivos dele e na tela "Sobre"; as telas do produto são
   LabFree.
 - Revisão com advogado antes de vender (fronteira "programa separado", avisos e oferta de código-fonte).

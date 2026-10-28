@@ -59,8 +59,6 @@ Fale comigo em português, de forma simples e direta.
 - Testes com máquinas reais: sessão em grupo pequena (2–3 máquinas: lista de conectadas, aviso de sala completa,
   Iniciar, progresso), Windows com domínio, HD externo e NAS. Mudar o adaptador USB da rede de clonagem para uma
   porta USB 3 (é o maior ganho de velocidade).
-- Código-fonte do FOS no pacote: falta só `terceiros/fos-fonte/pacotes-buildroot/fog/fog_1.tar.gz` (sem código;
-  só existe no site do FOG, bloqueado no servidor) — ver `terceiros/fos-fonte/LEIAME.md`.
 - Ideias e itens conhecidos: registro ao vivo no painel durante a clonagem; multicast para máquinas cadastradas sem
   login em cada uma; expirar tarefas esquecidas; limpar órfãos em `/images/dev`; testar em Ubuntu 22.04 e Debian 12;
   fuso do `FOG_TZ_INFO`.
