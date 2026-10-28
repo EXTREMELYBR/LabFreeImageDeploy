@@ -1,7 +1,10 @@
-# Plano: LabFree Engine — sistema próprio, sem o FOG
+# Ideia: LabFree Engine — sistema próprio, sem o FOG
 
-> Decisão do usuário (27/10/2026): **por enquanto não construir**. Este documento guarda o plano para quando for a
-> hora. Servidor em **Go**, licença **fechada (proprietária)** da LabFree, com **todas as funções da versão atual**
+> **SOMENTE IDEIA, ARQUIVADA (decisão do usuário em 27/10/2026).** Não é um plano em andamento nem tem previsão.
+> Não trabalhar nisto, não sugerir começar e não usar como guia do desenvolvimento atual, a menos que o usuário
+> peça explicitamente. Fica registrado só para consulta.
+>
+> Resumo da ideia, para quando (e se) for retomada: Servidor em **Go**, licença **fechada (proprietária)** da LabFree, com **todas as funções da versão atual**
 > e porte para **Windows**. Enquanto isso, a versão atual (camada sobre o FOG 1.5.10) segue em produção, autônoma
 > (base e componentes embutidos no repositório, versão 0.12.0).
 

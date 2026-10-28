@@ -37,8 +37,8 @@ Fale comigo em português, de forma simples e direta.
 - **O sistema tem de ser 100% autônomo**: nada da instalação pode depender de links do projeto FOG ou do GitHub
   (a base fica em `base-fog/` e o que ela baixaria em `terceiros/`, com SHA-256). Teste instalações do zero numa VM
   com o GitHub bloqueado.
-- Sistema próprio sem o FOG (Go, licença fechada, porte para Windows): **só o plano** em
-  `docs/PLANO-LABFREE-ENGINE.md`; não começar sem eu pedir.
+- Sistema próprio sem o FOG: é **só uma ideia arquivada** (`docs/PLANO-LABFREE-ENGINE.md`); não trabalhe nela
+  nem sugira começar, a menos que eu peça.
 - Toda alteração deve ser documentada (CHANGELOG.md, AGENTS.md, docs/ quando afetar o uso, VERSION) e a nova
   versão enviada para o GitHub com `ferramentas/publicar.sh` (ele recusa publicar sem CHANGELOG).
 - Para o git/gh, use o token do `labfree` só dentro do próprio comando, sem imprimir nem salvar:

@@ -47,9 +47,9 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 18. (27/10, noite) **REGRA: o sistema tem de ser 100% autônomo** — o instalador já traz a base FOG e tudo de que
     ela precisa, sem baixar nada do projeto FOG (se os links do FOG sumirem, ninguém mais instalaria). Pedido também
     um NAT opcional (rede de clonagem com internet pelo Wi-Fi do servidor): avaliado como viável (aguardando a vez).
-    Autonomia feita na 0.12.0 (`base-fog/` + `terceiros/` no repositório). O usuário quer, no futuro, um **sistema
-    próprio sem o FOG** (Go, licença fechada, todas as funções atuais, porte para Windows): por enquanto **só o plano**,
-    em `docs/PLANO-LABFREE-ENGINE.md` — não começar sem ele pedir.
+    Autonomia feita na 0.12.0 (`base-fog/` + `terceiros/` no repositório). A ideia de um **sistema próprio sem o FOG**
+    (Go, licença fechada, porte para Windows) ficou **só como ideia arquivada** em `docs/PLANO-LABFREE-ENGINE.md`
+    (decisão do usuário): não trabalhar nela nem sugerir começar, a menos que ele peça.
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.

@@ -5,6 +5,12 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.12.1] - 2026-10-27
+
+### Documentação
+- `docs/PLANO-LABFREE-ENGINE.md` passa a ser **só uma ideia arquivada** (sem previsão), por decisão do usuário;
+  AGENTS.md, README e PROMPT-CONTINUAR atualizados para não tratá-la como plano em andamento.
+
 ## [0.12.0] - 2026-10-27
 
 ### Novo
