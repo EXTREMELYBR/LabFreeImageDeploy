@@ -1,0 +1,295 @@
+body {
+    padding-top: 70px;
+    padding-bottom: 70px;
+}
+.logoimg {
+    position: relative;
+    top: -7px;
+    height: 35px;
+    width: 35px;
+}
+#login-history,
+.fogdashbox {
+    min-width: 200px;
+    max-width: 90%;
+    min-height: 125px;
+    max-height: 300px;
+    margin: auto;
+    margin-bottom: 10px;
+}
+.select2-container,
+.input-group {
+    width: 100% !important;
+}
+.form-signin {
+    margin: auto;
+    max-width: 500px;
+    padding: 15px 35px 0 35px;
+    background-color: #fff;
+    border: 1px solid rgba(0,0,0,0.1);
+    .form-control {
+        position: relative;
+        font-size: 16px;
+        height: auto;
+        padding: 10px;
+        @include box-sizing(border-box);
+        &:focus {
+            z-index: 2;
+        }
+    }
+    input[type="text"] {
+        margin-bottom: 1px;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+    input[type="password"] {
+        margin-bottom: 20px;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+}
+#login-form-info b {
+    float: right;
+    color: #00567A;
+}
+.graph-filters {
+    margin-left: 10px;
+    color: #00567a;
+    font-weight: bold;
+}
+.graph-filters.active,
+.graph-filters:hover {
+    color: #0799ce;
+}
+table td {
+    padding-right: 10px;
+    padding-bottom: 5px;
+}
+.table-responsive > tbody > tr > td {
+    vertical-align: middle;
+}
+.fakes {
+    display: none;
+}
+.sidenotes {
+    padding: 10px;
+    margin: 10px;
+}
+#login-history {
+    width: 600px;
+}
+.form-signin .select2-container {
+    max-width: 100% !important;
+}
+.action-boxes {
+    display: none;
+}
+.additionalMACsRow,
+.pendingMACsRow {
+    display: none;
+}
+.hidefirst,
+.hiddeninitially {
+    display: none;
+}
+.advanced-tasks {
+    display: none;
+}
+.red {
+    color: #ce0f0f;
+}
+.green {
+    color: #18f008;
+}
+.tablesorter-filter.disabled {
+    display: none;
+}
+.showVal {
+    position: relative;
+    top: 0;
+    right: 0;
+    min-width: 0;
+    width: 40px;
+}
+.version-info {
+    color: white;
+    font-size: 9px;
+    padding-top: 5px;
+}
+.input-group-addon {
+    min-width: 50px;
+}
+.hand {
+    cursor: pointer;
+}
+input[type=radio].default {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+}
+/**
+ * Default printer information.
+ * Radio button as circle/checks
+ */
+input[type=radio].default {
+    display: none;
+}
+input[type=radio].default + label {
+    display: block;
+}
+input[type=radio].default + label:before {
+    display: inline-block;
+    font-family: FontAwesome;
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    padding:right: 8px;
+    width: 23px;
+}
+input[type=radio].default + label:before {
+    content: "\f10c";
+}
+input[type=radio].default:checked + label:before {
+    content: "\f05d";
+}
+/**
+ * Virus checkbox thing.
+ */
+input[type=checkbox].delvid {
+    display: none;
+}
+input[type=checkbox].delvid + label {
+    display: block;
+}
+input[type=checkbox].delvid + label:before {
+    display: inline-block;
+    font-family: FontAwesome;
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    padding-right: 8px;
+    width: 23px;
+    color: red;
+}
+input[type=checkbox].delvid + label:before {
+    content: "\f10c";
+}
+input[type=checkbox].delvid:checked + label:before {
+    content: "\f05d";
+}
+@media (min-width: 768px) {
+    .collapsedmenu-text {
+        display: none;
+    }
+}
+/**
+ * Task Progress/Active
+ */
+.progress ul {
+    margin: 0;
+    padding: 0;
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    height: 17px;
+    /*display: block;*/
+    cursor: default;
+}
+.progress ul:hover {
+    display: block;
+}
+.progress ul li {
+    float: left;
+    width: 33%;
+    display: block;
+    height: 18px;
+}
+
+.icon.fa.fa-download {
+  color: #7baa0f
+}
+.icon.fa.fa-upload {
+  color: #ff9c07
+}
+@media (min-width: 768px) {
+    .navbar-nav {
+        width: 100%;
+        text-align: center;
+        > li {
+            float: none;
+            display: inline-block;
+        }
+    }
+}
+
+/*
+ * tablesorter grouping widget (kernel/initrd update tables).
+ *
+ * The widget only emits markup; the look is entirely the theme's job, and
+ * neither theme.bootstrap_3.css nor theme.blue.css carries any of these
+ * classes -- without the rules below a group header renders as an ordinary
+ * row, and ".group-hidden" does nothing at all, so collapsing a group would
+ * appear to do nothing.
+ */
+tr.group-header td {
+  background-color: #f5f5f5;
+  border-top: 2px solid #ddd;
+  font-weight: bold;
+  cursor: pointer;
+  /* One line, whatever the locale's date format costs in width. */
+  white-space: nowrap;
+}
+tr.group-header td:hover {
+  background-color: #ececec;
+}
+/* Caret drawn with borders rather than a font glyph, so it cannot be thrown
+   off by Font Awesome's version or by the icon set the active theme uses.
+ *
+ * The widget emits "<i/>" for the collapse arrow. HTML has no self-closing
+ * <i>, so a browser parses that as an OPENING tag and the group-name and
+ * group-count spans that follow become its children, closed only by </td>.
+ * The arrow therefore cannot be drawn on the <i> itself: sizing it to 0x0 for
+ * a CSS triangle collapses the box the label is sitting in, and the date wraps
+ * a word per line and spills over the rows beneath it. It also inherits the
+ * italics, which is the visible tell.
+ *
+ * So the <i> is left as an ordinary inline box with the italics undone, and
+ * the triangle is drawn in its ::before, which is a real empty box and safe to
+ * collapse.
+ */
+tr.group-header i {
+  font-style: normal;
+}
+tr.group-header i:before {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-right: 8px;
+  vertical-align: middle;
+  border-top: 6px solid #555;
+  border-right: 5px solid transparent;
+  border-left: 5px solid transparent;
+}
+tr.group-header.collapsed i:before {
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid #555;
+  border-right: 0;
+}
+.group-count {
+  color: #999;
+  font-weight: normal;
+}
+tr.group-hidden {
+  display: none;
+}

@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 27/10/2026 (versão 0.11.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 27/10/2026 (versão 0.12.0). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -46,7 +46,10 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 17. (27/10, noite) Painel também com a identidade da LabFree, com logomarca e favicon — feito na 0.11.0.
 18. (27/10, noite) **REGRA: o sistema tem de ser 100% autônomo** — o instalador já traz a base FOG e tudo de que
     ela precisa, sem baixar nada do projeto FOG (se os links do FOG sumirem, ninguém mais instalaria). Pedido também
-    um NAT opcional (rede de clonagem com internet pelo Wi-Fi do servidor): o usuário pediu primeiro a avaliação.
+    um NAT opcional (rede de clonagem com internet pelo Wi-Fi do servidor): avaliado como viável (aguardando a vez).
+    Autonomia feita na 0.12.0 (`base-fog/` + `terceiros/` no repositório). O usuário quer, no futuro, um **sistema
+    próprio sem o FOG** (Go, licença fechada, todas as funções atuais, porte para Windows): por enquanto **só o plano**,
+    em `docs/PLANO-LABFREE-ENGINE.md` — não começar sem ele pedir.
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -63,6 +66,8 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 | Pasta/arquivo | Conteúdo |
 |---|---|
 | `instalar.sh` | instalador (nova instalação e atualização/migração); `--ajuda` lista opções |
+| `base-fog/` | a base FOG 1.5.10.2518 embutida (sem histórico/testes); único ajuste: `downloadfiles` usa os arquivos locais |
+| `terceiros/` | o que a base baixaria da internet (FOS, agente Windows, iPXE binário e fonte) + `LEIAME.md` (origem/licenças) |
 | `web/` | painel (index.html, app.css, app.js, api.php, fontes/Inter) |
 | `lib/LabFreeImageDeploy-root` | ajudante root em Python (ações na seção 4) |
 | `lib/LabFreeImageDeploy-copias` | cópia/importação de imagens para HD externo ou pasta de rede, conferida bit a bit (seção 7g) |
@@ -166,6 +171,9 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
   Variáveis `TELAS`, `TEMAS`, `MOCKS` (interceptar chamadas que dependem do sudo).
 - **Boot PXE real em VM** (QEMU/KVM instalados): `RAIZ_TFTP=/tftpboot testes/boot_vm.sh bios|uefi PASTA "segundos"`.
   FOS direto: `qemu-system-x86_64 -kernel bzImage -initrd init.xz -append "... mode=sysinfo|manreg"`; teclas via monitor `sendkey`.
+- **Instalação do zero SEM o GitHub/FOG (prova de autonomia)**: VM própria (overlay da imagem cloud do Ubuntu 24.04,
+  cloud-init instala o NetworkManager e bloqueia github.com/fogproject.org em /etc/hosts), repositório copiado por
+  `tar | ssh`, `sudo ./instalar.sh --sim --placa ens4`. Passos usados na 0.12.0 estão no CHANGELOG/seção 7h.
 - **Instalação do zero em VM**: `/var/tmp/LabFreeImageDeploy-teste/` (imagem Ubuntu 24.04 cloud, `servidor.qcow2`,
   chave `id_teste`, SSH `-p 2222 teste@127.0.0.1`, painel em `https://127.0.0.1:8443/`). Placa de clonagem da VM `ens4`
   numa rede `-netdev socket,mcast=230.0.0.1:12345` — uma segunda VM cliente nessa rede faz PXE contra o servidor da VM.
@@ -273,6 +281,13 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
 - Visual: `marca/fundo-boot.html` → PNG (Chrome headless, comando no próprio arquivo); `CORES_IPXE`; `labfree-tela`
   redesenhada (`topo`, `trilha`, `cartao`, `barra`, `msg`, `tela_final`, `demo`); `fog.man.reg` e `BANNER_FOS` usam
   `labfree-cores.sh`. Fotografados em VM: menu de boot, tela (preparando, gravando, grupo, sucesso, erro) e cadastro.
+
+## 7h. Versão 0.12.0 (27/10) — autonomia comprovada
+- Instalação do zero numa VM Ubuntu 24.04 (cloud image + cloud-init com NetworkManager) com github.com,
+  *.githubusercontent.com e fogproject.org bloqueados em /etc/hosts: "Testing internet connection… Failed" e mesmo
+  assim tudo instalado: kernel/init/agente vindos de `terceiros/` (SHA-256 iguais aos do pacote), iPXE "Skipped
+  (pre-placed sources)" e compilado localmente, iPXE com a marca recompilado, `verificar` = "Tudo certo.".
+- Única dependência externa que sobra: os pacotes do Ubuntu/Debian (apt). Um "pacote offline" com os .deb é possível.
 
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,

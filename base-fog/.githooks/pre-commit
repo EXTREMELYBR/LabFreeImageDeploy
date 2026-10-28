@@ -1,0 +1,104 @@
+#!/usr/bin/env sh
+#
+# Exit on error
+# set -e
+
+project_dir=$(git rev-parse --show-toplevel)
+
+# Turns a missing tool from a silent no-op into a visible one. See the header of
+# that file for why announcing beats both skipping quietly and refusing outright.
+. "$project_dir/.githooks/lib/require-tools.sh"
+
+psrfix() {
+    require_tools "PSR2 formatting" php-cs-fixer || return
+    fixer=$(command -v php-cs-fixer)
+
+    # Only the PHP files staged for THIS commit.
+    #
+    # This used to run the fixer over all of packages/web and then
+    # `git add` the whole directory, which staged every modified file in
+    # the working tree whether or not it had anything to do with the
+    # commit. In a checkout with two sessions working at once that
+    # silently swept one session's work into the other's commit, under a
+    # message describing something else entirely.
+    #
+    # core.quotePath=false so non-ASCII names arrive verbatim rather than
+    # octal-escaped. -z is not used because POSIX sh cannot read NUL
+    # delimited input; a newline in a filename would still break this, and
+    # nothing in this repo has one.
+    git -c core.quotePath=false diff --cached --name-only \
+        --diff-filter=ACMR -- 'packages/web/*.php' |
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+
+        # Skip files that also have UNSTAGED changes. The fixer rewrites
+        # the working-tree copy, so `git add` here would stage the part
+        # that was deliberately held back with `git add -p`. A missed PSR2
+        # pass is cheaper than committing work someone chose to keep out.
+        if ! git diff --quiet -- "$f"; then
+            printf 'pre-commit: %s is partially staged, skipping PSR2 fix\n' \
+                "$f" >&2
+            continue
+        fi
+
+        "$fixer" fix "$project_dir/$f" --rules=@PSR2 >/dev/null 2>&1
+        git add "$project_dir/$f"
+    done
+}
+
+updateLanguage() {
+    require_tools "translation template regeneration" xgettext msgcat msgmerge || return
+    # The regeneration itself lives in lib/ so CI runs the identical commands.
+    sh "$project_dir/.githooks/lib/update-language.sh" "$project_dir"
+    git add "$project_dir/packages/web/management/languages/"
+}
+
+updateLanguage
+psrfix
+
+
+# FOG_VERSION IS NOT STAMPED HERE ANY MORE. That is deliberate.
+#
+# The version is `git rev-list master..HEAD --count` put through
+# .githooks/lib/fog-version.sh -- a function of the commit graph. Stamping it
+# into a tracked line of packages/web/lib/fog/system.class.php on every commit
+# meant that any two branches open at once wrote DIFFERENT values to the SAME
+# line, so merging the base back into either one conflicted, every time, by
+# construction. Not a race: there is no ordering of commits that avoids it.
+#
+# It is also what left a dangling staged system.class.php bump behind after a
+# commit, which this branch's CLAUDE.md used to have to warn about.
+#
+# The version is now written in exactly one place -- on the base branch, after
+# a merge, by .github/workflows/sync-generated-files.yml -- where there is only
+# ever one writer and so nothing to conflict with. fog-workflows' daily sweep
+# still covers direct pushes and rc-*/feature-* branches.
+#
+# The consequence, stated so it is not rediscovered as a bug: a commit made
+# locally leaves FOG_VERSION reading whatever the last merge into the base
+# branch set. It is BEHIND on a feature branch, on purpose. Do not "fix" that
+# by putting the stamp back; a version that is a few commits stale costs a
+# wrong number in a build string, and stamping it per-commit costs a
+# hand-resolved conflict on every open pull request every time anything
+# merges.
+#
+# .githooks/pre-push, which refused a push whose committed version disagreed
+# with the branch, was removed in the same change: with nothing stamping a
+# version there is nothing for it to guard, and it would have blocked every
+# push instead.
+#
+# Ported from working-1.6 (GH-1510), where the bug was diagnosed.
+
+# GH-1581: the hook's exit status is the status of the last command, which was
+# psrfix -- and psrfix returns 1 when php-cs-fixer is not installed, via
+# require_tools. So a machine without the optional tools printed "the commit
+# will proceed WITHOUT those changes" and then blocked the commit, with git
+# exiting 1 and saying nothing.
+#
+# Every step above is deliberately advisory: require_tools exists so a missing
+# formatter is a skip, not a failure, and CI regenerates all of it. Nothing in
+# this hook is a gate. Say so explicitly rather than leaving the status to
+# whichever helper happens to run last -- post-commit already ends this way.
+#
+# Ported from working-1.6, where it was diagnosed and fixed first.
+exit 0

@@ -145,6 +145,7 @@ checagens() {
     else
         MODO=nova
         [ -x "$ORIGEM/base-fog/bin/installfog.sh" ] || falha "Pacote incompleto: falta a pasta base-fog. Baixe o pacote completo."
+        [ -d "$ORIGEM/terceiros/fos" ] || falha "Pacote incompleto: falta a pasta terceiros. Baixe o pacote completo."
         [ -f /opt/fog/.fogsettings ] && aviso "Uma instalação anterior da base não terminou: ela será retomada."
         curl -fsS --max-time 15 -o /dev/null http://archive.ubuntu.com/ 2>/dev/null || curl -fsS --max-time 15 -o /dev/null http://deb.debian.org/ 2>/dev/null \
             || falha "Sem internet. A instalação precisa baixar pacotes do sistema."
@@ -322,6 +323,31 @@ configurar_rede() {
         "$FAIXA" > /etc/LabFreeImageDeploy/dhcp.json
 }
 
+# Tudo o que a base baixaria da internet (sistema de clonagem, agente para Windows, iPXE) vem no pacote, na pasta
+# terceiros/, conferido pelo SHA-256: a instalação não depende de nenhum link do projeto FOG (sistema autônomo).
+preparar_terceiros() { # $1 = pasta base-fog que será usada
+    local b="$1" t="$ORIGEM/terceiros" d tmpd
+    [ -d "$t/fos" ] || falha "Pacote incompleto: falta a pasta terceiros. Baixe o pacote completo."
+    mkdir -p "$b/tmp"
+    cp -f "$t"/fos/* "$t"/fog-client/* "$t"/fog-ipxe/*.tar.gz* "$b/tmp/"
+    ( cd "$b/tmp" && for h in "$t"/fos/*.sha256 "$t"/fog-client/*.sha256 "$t"/fog-ipxe/*.sha256; do sha256sum --quiet -c "$(basename "$h")" || exit 1; done ) >>"$LOG" 2>&1 \
+        || falha "Arquivos do pacote estão corrompidos (SHA-256 não confere). Baixe o pacote de novo."
+    # fontes do iPXE: a base compila o boot (HTTPS) e o LabFree recompila com o nome do produto, sem baixar nada
+    if [ ! -x /opt/fog/ipxe/buildipxe.sh ]; then
+        mkdir -p /opt/fog/ipxe && cp -a "$t/fog-ipxe/fonte/." /opt/fog/ipxe/
+    fi
+    for d in ipxe ipxe-efi; do
+        [ -d "/opt/fog/ipxe/build/$d/.git" ] && continue
+        tmpd=$(mktemp -d)
+        tar -xzf "$t/ipxe/ipxe-v2.0.0-fonte.tar.gz" -C "$tmpd" || falha "Não foi possível abrir o código do iPXE do pacote."
+        mkdir -p /opt/fog/ipxe/build && rm -rf "/opt/fog/ipxe/build/$d" && mv "$tmpd/ipxe" "/opt/fog/ipxe/build/$d" && rmdir "$tmpd"
+        # o script de compilação da base espera um repositório git com a versão marcada (v2.0.0)
+        ( cd "/opt/fog/ipxe/build/$d" && git init -q && git add -A && git -c user.name=LabFree -c user.email=labfree@localhost commit -qm "iPXE v2.0.0 (pacote LabFree ImageDeploy)" && git tag v2.0.0 ) >>"$LOG" 2>&1 \
+            || falha "Não foi possível preparar o código do iPXE."
+    done
+    ok "componentes da base vindos do pacote (nada é baixado do projeto FOG)"
+}
+
 instalar_base() {
     [ "$MODO" = nova ] || return 0
     titulo "Instalando a base (FOG 1.5.10) — demora de 15 a 30 minutos"
@@ -372,6 +398,7 @@ EOF
         base="$DESTINO/base-fog/bin"
         [ -x "$base/installfog.sh" ] || falha "Extraia o pacote numa pasta sem espaços no nome (ex.: /root/LabFreeImageDeploy) e rode de novo."
     fi
+    preparar_terceiros "$(dirname "$base")"
     ( cd "$base" && ./installfog.sh -y ) >>"$LOG" 2>&1 || falha "A instalação da base falhou. Veja o final de $LOG. Rodar sudo ./instalar.sh de novo continua de onde parou."
     [ -d /var/www/html/fog/lib/fog ] || falha "A base não foi instalada corretamente (falta /var/www/html/fog)."
     date > "$BASE_OK"

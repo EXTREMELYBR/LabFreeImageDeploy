@@ -4,7 +4,8 @@
 essa imagem em uma, dez ou cem máquinas pelo cabo de rede, a partir de um painel web simples em português.
 
 Baseado no [FOG Project](https://fogproject.org) (licença GNU GPL v3). O LabFree ImageDeploy traz a base
-FOG 1.5.10 embutida e travada nessa versão (não recebe atualizações do FOG) e acrescenta:
+FOG 1.5.10 embutida e travada nessa versão, junto com tudo o que ela precisa (sistema de clonagem, boot pela rede,
+agente para Windows): a instalação não baixa nada do projeto FOG. Acrescenta:
 
 - **Painel novo**: assistentes passo a passo para capturar, restaurar e restaurar em grupo (multicast),
   acompanhamento ao vivo, avisos claros (por exemplo, "esta imagem só cabe em discos de 128 GB ou mais").
@@ -68,6 +69,8 @@ sudo LabFreeImageDeploy                  # lista todas as ações
 - [CHANGELOG.md](CHANGELOG.md) — o que mudou em cada versão
 - [AGENTS.md](AGENTS.md) — estado do projeto e guia para continuar o desenvolvimento (inclui a regra de publicação)
 - [docs/PROMPT-CONTINUAR.md](docs/PROMPT-CONTINUAR.md) — texto pronto para passar o projeto a outra IA
+- [docs/PLANO-LABFREE-ENGINE.md](docs/PLANO-LABFREE-ENGINE.md) — plano do sistema próprio (sem o FOG), para o futuro
+- [terceiros/LEIAME.md](terceiros/LEIAME.md) — componentes de terceiros embutidos (origem, versão, licença)
 
 ## Licença
 

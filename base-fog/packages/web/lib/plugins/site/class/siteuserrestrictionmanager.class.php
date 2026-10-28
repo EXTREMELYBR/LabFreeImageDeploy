@@ -1,0 +1,72 @@
+<?php
+/**
+ * Site plugin
+ *
+ * PHP version 7.4+
+ *
+ * @category SiteAssocManager
+ * @package  FOGProject
+ * @author   Fernando Gietz <fernando.gietz@gmail.com>
+ * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
+ * @link     https://fogproject.org
+ */
+/**
+ * Site plugin
+ *
+ * @category SiteAssocManager
+ * @package  FOGProject
+ * @author   Fernando Gietz <fernando.gietz@gmail.com>
+ * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
+ * @link     https://fogproject.org
+ */
+class SiteUserRestrictionManager extends FOGManagerController
+{
+    /**
+     * The table name.
+     *
+     * @var string
+     */
+    public $tablename = 'siteUserRestriction';
+    /**
+     * Installs the database for the plugin.
+     *
+     * @return bool
+     */
+    public function install()
+    {
+        $this->uninstall();
+        $sql = $this->createTableSql(
+            $this->tablename,
+            true,
+            array(
+                'surID',
+                'surUserID',
+                'surRestricted'
+            ),
+            array(
+                'INTEGER',
+                'INTEGER',
+                "ENUM('0', '1')"
+            ),
+            array(
+                false,
+                false,
+                false
+            ),
+            array(
+                false,
+                false,
+                false
+            ),
+            array(),
+            'InnoDB',
+            'utf8',
+            'surID',
+            'surID'
+        );
+        if (!self::$DB->query($sql)) {
+            return false;
+        }
+        return true;
+    }
+}

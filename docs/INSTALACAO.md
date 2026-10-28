@@ -7,7 +7,7 @@
 | Sistema | Ubuntu 22.04 ou 24.04, Linux Mint 21 ou 22, Debian 12 — 64 bits (x86_64) |
 | Rede do servidor | **NetworkManager** ativo (padrão em Ubuntu/Mint desktop) |
 | Placa de clonagem | Uma placa **com cabo**, só para a rede de clonagem (adaptador USB-Ethernet serve). Não pode ser a placa que leva o servidor à internet, nem Wi-Fi |
-| Internet | Necessária durante a instalação (pacotes do sistema e componentes de boot) |
+| Internet | Necessária durante a instalação só para os pacotes do sistema (Ubuntu/Debian). Todo o resto vem no pacote: o LabFree ImageDeploy não baixa nada do projeto FOG nem do GitHub |
 | Memória | 4 GB ou mais |
 | Disco | Espaço para as imagens: cada uma ocupa de 10 a 60 GB (ficam em `/images`) |
 | Rede de clonagem | Um switch onde ficam a placa de clonagem do servidor e as máquinas a clonar. **Nenhum outro servidor DHCP** nessa rede (o LabFree entrega os IPs) |

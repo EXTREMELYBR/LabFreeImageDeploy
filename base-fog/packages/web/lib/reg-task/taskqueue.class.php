@@ -1,0 +1,578 @@
+<?php
+/**
+ * The queue handling system for FOG's checkin/checkout processes.
+ *
+ * PHP version 7.4+
+ *
+ * @category TaskQueue
+ * @package  FOGProject
+ * @author   Tom Elliott <tommygunsster@gmail.com>
+ * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
+ * @link     https://fogproject.org
+ */
+/**
+ * The queue handling system for FOG's checkin/checkout processes.
+ *
+ * @category TaskQueue
+ * @package  FOGProject
+ * @author   Tom Elliott <tommygunsster@gmail.com>
+ * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
+ * @link     https://fogproject.org
+ */
+class TaskQueue extends TaskingElement
+{
+    /**
+     * Handles task checkin
+     *
+     * @throws Exception
+     * @return void
+     */
+    public function checkIn()
+    {
+        try {
+            $this->Task->taskCheckIn();
+            if ($this->imagingTask) {
+                if ($this->Task->isCapture()) {
+                    $this->Task->getImage()->set('size', '')->save();
+                }
+                $method = (
+                    $this->Task->isCapture() || $this->Task->isMulticast() ?
+                    'getMasterStorageNode' :
+                    'getOptimalStorageNode'
+                );
+                if ($this->Task->isMulticast()) {
+                    // A task with no multicastsessionassociation rows gives an
+                    // empty array here; PHP 8's min() would throw an uncaught
+                    // ValueError instead of reaching the isValid() check below,
+                    // which is the intended way this failure surfaces.
+                    $msID = self::minId(
+                        self::getSubObjectIDs(
+                            'MulticastSessionAssociation',
+                            array(
+                                'taskID' => $this->Task->get('id')
+                            ),
+                            'msID'
+                        )
+                    );
+                    $MulticastSession = self::getClass(
+                        'MulticastSession',
+                        $msID
+                    );
+                    if (!$MulticastSession->isValid()) {
+                        throw new Exception(_('Invalid Multicast Session'));
+                    }
+                    if ($MulticastSession->get('clients') < 0) {
+                        $clients = 1;
+                    } else {
+                        $clients = $MulticastSession->get('clients') + 1;
+                    }
+                    $MulticastSession
+                        ->set('clients', $clients)
+                        ->set('stateID', self::getProgressState());
+                    if (!$MulticastSession->save()) {
+                        throw new Exception(_('Failed to update Session'));
+                    }
+                    if (self::$Host->isValid()) {
+                        self::$Host
+                            ->set(
+                                'imageID',
+                                $MulticastSession->get('image')
+                            );
+                    }
+
+                    $this->StorageNode = self::nodeFail(
+                        self::getClass('StorageNode', $this->Task->get('storagenodeID')),
+                        self::$Host->get('id')
+                    );
+                    if ($MulticastSession->get('stateID') == 1) {
+                        $inFront = $this->Task->getInFrontOfHostCount();
+                        $msg = sprintf(
+                            '%s, %s %d %s.',
+                            _('No open slots'),
+                            _('There are'),
+                            $inFront,
+                            _('before me')
+                        );
+                        throw new Exception($msg);
+                    }
+                } elseif ($this->Task->isForced()) {
+                    self::$HookManager->processEvent(
+                        'TASK_GROUP',
+                        array(
+                            'StorageGroup' => &$this->StorageGroup,
+                            'Host' => &self::$Host
+                        )
+                    );
+                    $this->StorageNode = null;
+                    self::$HookManager->processEvent(
+                        'TASK_NODE',
+                        array(
+                            'StorageNode' => &$this->StorageNode,
+                            'Host' => &self::$Host
+                        )
+                    );
+                    if (!$this->StorageNode || !$this->StorageNode->isValid()) {
+                        $this->StorageNode = $this->Image
+                            ->getStorageGroup()
+                            ->{$method}();
+                    }
+                } else {
+                    $this->StorageNode = self::nodeFail(
+                        self::getClass(
+                            'StorageNode',
+                            $this->Task->get('storagenodeID')
+                        ),
+                        self::$Host->get('id')
+                    );
+                    $nodeOk = $this->StorageNode instanceof StorageNode &&
+                        $this->StorageNode->isValid();
+
+                    if (!$nodeOk) {
+                        $msg = sprintf(
+                            '%s %s. %s %s.',
+                            _('The node trying to be used is currently'),
+                            _('unavailable'),
+                            _('On reboot we will try to find a new node'),
+                            _('automatically')
+                        );
+                        throw new Exception($msg);
+                    }
+                    $totalSlots = $this->StorageNode->get('maxClients');
+                    $usedSlots = $this->StorageNode->getUsedSlotCount();
+                    $inFront = $this->Task->getInFrontOfHostCount();
+                    $groupOpenSlots = $totalSlots - $usedSlots;
+
+                    $MyLineTime = self::niceDate($this->Task->get('scheduledStartTime'));
+                    // Fallback to now if placeholder hasn't been established yet.
+                    if (!self::validDate($MyLineTime)) {
+                        $MyLineTime = self::niceDate();
+                    }
+                    $msgFormat = '%s, %s %d %s. %s %s.';
+                    if ($groupOpenSlots < 1) {
+                        $msg = sprintf(
+                            $msgFormat,
+                            _('No open slots'),
+                            _('There are'),
+                            $inFront,
+                            _('before me on this node'),
+                            _('Got in line at'),
+                            $MyLineTime->format('Y-m-d H:i:s')
+                        );
+                        throw new Exception($msg);
+                    }
+                    
+                    if ($groupOpenSlots <= $inFront) {
+                        $msg = sprintf(
+                            $msgFormat,
+                            _('There are open slots'),
+                            _('but there are'),
+                            $inFront,
+                            _('before me on this node'),
+                            _('Got in line at'),
+                            $MyLineTime->format('Y-m-d H:i:s')
+                        );
+                        throw new Exception($msg);
+                    }
+                }
+                $this->Task
+                     ->set('storagenodeID', $this->StorageNode->get('id'));
+                if (!$this->imageLog(true)) {
+                    throw new Exception(_('Failed to update/create image log'));
+                }
+            }
+            $this->Task
+                ->set('stateID', self::getProgressState())
+                ->set('checkInTime', self::formatTime('now', 'Y-m-d H:i:s'));
+            if (!$this->Task->save()) {
+                throw new Exception(_('Failed to update Task'));
+            }
+            if (!$this->taskLog()) {
+                throw new Exception(_('Failed to update/create task log'));
+            }
+            self::$EventManager->notify(
+                'HOST_CHECKIN',
+                array(
+                    'Host' => &self::$Host
+                )
+            );
+            echo '##@GO';
+        } catch (Exception $e) {
+            echo Initiator::e($e->getMessage());
+        }
+    }
+    /**
+     * Handles the email sending.
+     *
+     * @return void
+     */
+    private function _email()
+    {
+        list(
+            $emailAction,
+            $emailAddress,
+            $emailBinary,
+            $fromEmail
+        ) = self::getSubObjectIDs(
+            'Service',
+            array(
+                'name' => array(
+                    'FOG_EMAIL_ACTION',
+                    'FOG_EMAIL_ADDRESS',
+                    'FOG_EMAIL_BINARY',
+                    'FOG_FROM_EMAIL'
+                )
+            ),
+            'value',
+            false,
+            'AND',
+            'name',
+            false,
+            false
+        );
+        if (!$emailAction || !$emailAddress) {
+            return;
+        }
+        if (!self::$Host->get('inventory')->isValid()) {
+            return;
+        }
+        $SnapinJob = self::$Host->get('snapinjob');
+        $SnapinTasks = self::getSubObjectIDs(
+            'SnapinTask',
+            array(
+                'stateID' => self::getQueuedStates(),
+                'jobID' => $SnapinJob->get('id')
+            ),
+            'snapinID'
+        );
+        $SnapinNames = array();
+        if ($SnapinJob->isValid()) {
+            $SnapinNames = self::getSubObjectIDs(
+                'Snapin',
+                array(
+                    'id' => $SnapinTasks,
+                ),
+                'name'
+            );
+        }
+        if (!$emailBinary) {
+            $emailBinary = '/usr/sbin/sendmail -t -f noreply@fogserver.com -i';
+        }
+        $reg = '#\$\{server-name\}#';
+        $nodeName = 'fogserver';
+        if ($this->StorageNode->isValid()) {
+            $nodeName = $this->StorageNode->get('name');
+        }
+        $emailBinary = preg_replace(
+            $reg,
+            $nodeName,
+            $emailBinary
+        );
+        if (!$fromEmail) {
+            $fromEmail = 'noreply@fogserver.com';
+        }
+        $fromEmail = preg_replace(
+            $reg,
+            $nodeName,
+            $fromEmail
+        );
+        $headers = sprintf(
+            "From: %s\r\nX-Mailer: PHP/%s",
+            $fromEmail,
+            phpversion()
+        );
+        $engineer = ucwords(
+            $this->Task->get('createdBy')
+        );
+        $primaryUser = ucwords(
+            self::$Host->get('inventory')->get('primaryUser')
+        );
+        $replaceUser = '#\$\{user-name\}#';
+        $emailAddress = preg_replace(
+            $replaceUser,
+            lcfirst($engineer),
+            $emailAddress
+        );
+        $emailAddress = preg_replace(
+            $reg,
+            $nodeName,
+            $emailAddress
+        );
+        $Inventory = self::$Host->get('inventory');
+        $mac = self::$Host->get('mac')->__toString();
+        $ImageName = $this->Task->getImage()->get('name');
+        $ImageStartTime = self::niceDate($this->Task->get('checkInTime'))->format('Y-m-d H:i:s');
+        $ImageEndTime = self::niceDate()->format('Y-m-d H:i:s');
+        $duration = self::diff($ImageStartTime, $ImageEndTime);
+        $Snapins = implode(',', (array)$SnapinNames);
+        $email = array(
+            sprintf("%s:-\n", _('Machine Details')) => '',
+            sprintf("\n%s: ", _('Host Name')) => self::$Host->get('name'),
+            sprintf("\n%s: ", _('Computer Model')) => $Inventory->get('sysproduct'),
+            sprintf("\n%s: ", _('Serial Number')) => $Inventory->get('sysserial'),
+            sprintf("\n%s: ", _('MAC Address')) => $mac,
+            "\n" => '',
+            sprintf("\n%s: ", _('Image Used')) => $ImageName,
+            sprintf("\n%s: ", _('Snapin Used')) => $Snapins,
+            "\n" => '',
+            sprintf("\n%s: ", _('Imaged By')) => $engineer,
+            sprintf("\n%s: ", _('Imaged For')) => $primaryUser,
+            sprintf("\n%s: ", _('Imaging Started')) => $ImageStartTime,
+            sprintf("\n%s: ", _('Imaging Completed')) => $ImageEndTime,
+            sprintf("\n%s: ", _('Imaging Duration')) => $duration
+        );
+        self::$HookManager->processEvent(
+            'EMAIL_ITEMS',
+            array(
+                'email' => &$email,
+                'Host' => &self::$Host
+            )
+        );
+        ob_start();
+        foreach ((array)$email as $key => &$val) {
+            printf('%s%s', $key, $val);
+            unset($key, $val);
+        }
+        $emailMe = ob_get_clean();
+        $stat = sprintf(
+            '%s - %s',
+            self::$Host->get('name'),
+            _('Image Task Completed')
+        );
+        if ($Inventory->get('other1')) {
+            mail(
+                $emailAddress,
+                sprintf(
+                    'ISSUE=%s PROJ=1',
+                    $Inventory->get('other1')
+                ),
+                $emailMe,
+                $headers
+            );
+            $emailMe .= sprintf(
+                "\n%s (%s): %s",
+                _('Imaged For'),
+                _('Call'),
+                $Inventory->get('other1')
+            );
+            //$Inventory->set('other1', '')->save();
+        }
+        mail(
+            $emailAddress,
+            $stat,
+            $emailMe,
+            $headers
+        );
+    }
+    /**
+     * Function moves the images from dev into root when upload
+     * tasking is finished.
+     *
+     * @throws Exception
+     * @return void
+     */
+    private function _moveUpload()
+    {
+        if (!$this->Task->isCapture()) {
+            return;
+        }
+        if (!(isset($_REQUEST['mac'])
+            && is_string($_REQUEST['mac']))
+        ) {
+            return;
+        }
+        $macftp = strtolower(
+            str_replace(
+                array(
+                    ':',
+                    '-',
+                    '.'
+                ),
+                '',
+                basename($_REQUEST['mac'])
+            )
+        );
+        $src = sprintf(
+            '%s/dev/%s',
+            $this->StorageNode->get('ftppath'),
+            $macftp
+        );
+        $dest = sprintf(
+            '%s/%s',
+            $this->StorageNode->get('ftppath'),
+            $this->Image->get('path')
+        );
+        self::$FOGFTP
+            ->set('host', $this->StorageNode->get('ip'))
+            ->set('username', $this->StorageNode->get('user'))
+            ->set('password', $this->StorageNode->get('pass'))
+            ->connect();
+        /**
+         * Move any existing image aside instead of deleting it up front. If the
+         * rename below fails we can put it back, rather than having destroyed
+         * the previous image for a capture that never landed.
+         */
+        $backup = sprintf('%s.movetmp', $dest);
+        $moved = false;
+        if (self::$FOGFTP->exists($dest)) {
+            self::$FOGFTP->delete($backup);
+            self::$FOGFTP->rename($dest, $backup);
+            $moved = true;
+        }
+        try {
+            self::$FOGFTP->rename($src, $dest);
+        } catch (Exception $e) {
+            if ($moved) {
+                self::$FOGFTP->rename($backup, $dest);
+            }
+            self::$FOGFTP->close();
+            throw new Exception(
+                sprintf(
+                    '%s: %s -> %s. %s. %s',
+                    _('Unable to move the captured image into place'),
+                    $src,
+                    $dest,
+                    _('Check the capture folder is owned by and writable to the storage node user'),
+                    $e->getMessage()
+                )
+            );
+        }
+        if ($moved) {
+            self::$FOGFTP->delete($backup);
+        }
+        self::$FOGFTP
+            ->chmod(0775, $dest)
+            ->close();
+        if ($this->Image->get('format') == 1) {
+            $this->Image
+                ->set('format', 0)
+                ->set('srvsize', self::getFilesize($dest));
+        }
+        $this->Image
+            ->set(
+                'deployed',
+                self::niceDate()->format('Y-m-d H:i:s')
+            )->save();
+    }
+    /**
+     * Handles task checkout
+     *
+     * @throws Exception
+     * @return void
+     */
+    public function checkout()
+    {
+        self::randWait();
+        if ($this->Task->isSnapinTasking()) {
+            die('##');
+        }
+        try {
+            if ($this->Task->isMulticast()) {
+                $MCTask = self::getClass('MulticastSessionAssociation')
+                    ->set(
+                        'taskID',
+                        $this->Task->get('id')
+                    )->load('taskID');
+                $MulticastSession = $MCTask->getMulticastSession();
+                // The manager closes a session as soon as udp-sender exits
+                // and leaves this task and its association row for us (see
+                // MulticastSession::complete()). The session no longer counts
+                // clients, so release the row instead. A missing session is
+                // left alone: save() on it would insert an empty row.
+                if ($MulticastSession->isValid()
+                    && $MulticastSession->get('stateID') == self::getCompleteState()
+                ) {
+                    $MCTask->destroy();
+                } elseif ($MulticastSession->isValid()) {
+                    if ($MulticastSession->get('clients') < 0) {
+                        $clients = 1;
+                    } else {
+                        $clients = $MulticastSession->get('clients') - 1;
+                    }
+                    $MulticastSession
+                        ->set('clients', $clients)
+                        ->save();
+                }
+            }
+            self::$Host
+                ->set('pub_key', '')
+                ->set('sec_tok', '')
+                // Clearing sec_tok without the grace token would leave a
+                // secret behind that nothing can use but that still sits in
+                // the database.
+                ->set('prev_sec_tok', '')
+                // On completion reset token and lock
+                ->set('token', self::createSecToken())
+                ->set('tokenlock', false);
+            $updateFields = [
+                'pub_key' => self::$Host->get('pub_key'),
+                'sec_tok' => self::$Host->get('sec_tok'),
+                'prev_sec_tok' => self::$Host->get('prev_sec_tok'),
+                'token' => self::$Host->get('token'),
+                'tokenlock' => self::$Host->get('tokenlock')
+            ];
+            if ($this->Task->isDeploy()) {
+                self::$Host
+                    ->set('deployed', self::niceDate()->format('Y-m-d H:i:s'));
+                $updateFields['deployed'] = self::$Host->get('deployed');
+                $this->_email();
+            } elseif ($this->Task->isCapture()) {
+                $this->_moveUpload();
+            }
+            $this->Task
+                ->set('pct', 100)
+                ->set('percent', 100)
+                ->set('stateID', self::getCompleteState());
+            $updatedHost = self::getClass('HostManager')->update(
+                ['id' => self::$Host->get('id')],
+                '',
+                $updateFields
+            );
+            if (!$updatedHost) {
+                throw new Exception(_('Failed to update Host'));
+            }
+            /**
+             * Close the imaging log BEFORE the task is marked Complete.
+             *
+             * It used to be the last thing done, after the save below had
+             * already written the Complete state. So a failure here threw
+             * with the task already finished: FOS never saw '##', retried,
+             * and every retry from then on was answered "No Active Task found
+             * for Host" -- on a machine that had in fact imaged perfectly.
+             * The operator sees a host that will not stop rebooting into an
+             * error and a task that is nowhere to be found.
+             *
+             * Written first, a failure leaves the task in progress, which is
+             * the truth: the imaging happened but FOG could not record it,
+             * FOS can retry, and the task is still visible and cancellable.
+             */
+            if ($this->imagingTask) {
+                if (!$this->imageLog(false)) {
+                    throw new Exception(_('Failed to update imaging log'));
+                }
+            }
+            if (!$this->Task->save()) {
+                throw new Exception(_('Failed to update Task'));
+            }
+            self::$HookManager
+                ->processEvent(
+                    'HOST_TASKING_COMPLETE',
+                    array(
+                        'Host' => &self::$Host,
+                        'Task' => &$this->Task
+                    )
+                );
+            if (!$this->taskLog()) {
+                throw new Exception(_('Failed to update task log'));
+            }
+            self::$EventManager->notify(
+                'HOST_IMAGE_COMPLETE',
+                array(
+                    'HostName' => self::$Host->get('name')
+                )
+            );
+            echo '##';
+        } catch (Exception $e) {
+            echo $e->getMessage();
+        }
+    }
+}

@@ -1,0 +1,590 @@
+<?php
+/**
+ * The image object
+ *
+ * PHP version 7.4+
+ *
+ * @category Image
+ * @package  FOGProject
+ * @author   Tom Elliott <tommygunsster@gmail.com>
+ * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
+ * @link     https://fogproject.org
+ */
+/**
+ * The image object
+ *
+ * @category Image
+ * @package  FOGProject
+ * @author   Tom Elliott <tommygunsster@gmail.com>
+ * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
+ * @link     https://fogproject.org
+ */
+class Image extends FOGController
+{
+    /**
+     * The image table
+     *
+     * @var string
+     */
+    protected $databaseTable = 'images';
+    /**
+     * The Image table fields and common names
+     *
+     * @var array
+     */
+    protected $databaseFields = array(
+        'id' => 'imageID',
+        'name' => 'imageName',
+        'description' => 'imageDesc',
+        'path' => 'imagePath',
+        'createdTime' => 'imageDateTime',
+        'createdBy' => 'imageCreateBy',
+        'building' => 'imageBuilding',
+        'size' => 'imageSize',
+        'imageTypeID' => 'imageTypeID',
+        'imagePartitionTypeID' => 'imagePartitionTypeID',
+        'osID' => 'imageOSID',
+        'size' => 'imageSize',
+        'deployed' => 'imageLastDeploy',
+        'format' => 'imageFormat',
+        'magnet' => 'imageMagnetUri',
+        'protected' => 'imageProtect',
+        'compress' => 'imageCompress',
+        'isEnabled' => 'imageEnabled',
+        'toReplicate' => 'imageReplicate',
+        'srvsize' => 'imageServerSize',
+    );
+    /**
+     * The required fields
+     *
+     * @var array
+     */
+    protected $databaseFieldsRequired = array(
+        'name',
+        'path',
+        'imageTypeID',
+        'osID',
+    );
+    /**
+     * Additional fields
+     *
+     * @var array
+     */
+    protected $additionalFields = array(
+        'hosts',
+        'hostsnotinme',
+        'storagegroups',
+        'storagegroupsnotinme',
+        'os',
+        'imagepartitiontype',
+        'imagetype',
+    );
+    /**
+     * Database -> Class field relationships
+     *
+     * @var array
+     */
+    protected $databaseFieldClassRelationships = array(
+        'OS' => array(
+            'id',
+            'osID',
+            'os'
+        ),
+        'ImagePartitionType' => array(
+            'id',
+            'imagePartitionTypeID',
+            'imagepartitiontype'
+        ),
+        'ImageType' => array(
+            'id',
+            'imageTypeID',
+            'imagetype'
+        )
+    );
+    /**
+     * Removes the item from the database
+     *
+     * @param string $key the key to remove
+     *
+     * @throws Exception
+     * @return object
+     */
+    public function destroy($key = 'id')
+    {
+        $find = array('imageID' => $this->get('id'));
+        self::getClass('HostManager')
+            ->update(
+                $find,
+                '',
+                array('imageID' => 0)
+            );
+        self::getClass('ImageAssociationManager')
+            ->destroy($find);
+        /**
+         * Cancel the tasks that were still going to use it.
+         *
+         * Resetting hosts.imageID and dropping the associations said nothing
+         * about `tasks`, so a queued or in-progress task kept pointing at an
+         * image row that no longer exists. taskStateID still resolves, so
+         * every "is this task live" test in the tree counts it as active, but
+         * the LEFT OUTER JOIN behind the Active Tasks list returns NULL for
+         * every image column and the row draws as "() -" with no type icon.
+         * No host can finish it either -- TaskingElement cannot build the
+         * Image -- and nothing reaps it, so it stays forever. Reported as
+         * "null tasks" in forum topics 18228 and 18230.
+         *
+         * Cancelled rather than deleted, unlike the host case: a host delete
+         * takes its task history with it because the subject of that history
+         * is gone, but the hosts survive an image delete and their finished
+         * tasks are still their imaging record. Only the live ones are stuck.
+         *
+         * Through TaskManager::cancel() rather than a bare state update: it
+         * also reissues the host's token, unwinds any multicast session
+         * behind the task and cancels the snapin jobs riding on it.
+         */
+        $activeImageTaskIDs = self::getSubObjectIDs(
+            'Task',
+            array(
+                'imageID' => $this->get('id'),
+                'stateID' => self::fastmerge(
+                    (array)self::getQueuedStates(),
+                    (array)self::getProgressState()
+                )
+            )
+        );
+        if (count($activeImageTaskIDs) > 0) {
+            self::getClass('TaskManager')->cancel($activeImageTaskIDs);
+        }
+        self::$HookManager
+            ->processEvent(
+                'DESTROY_IMAGE',
+                array(
+                    'Image' => &$this
+                )
+            );
+        return parent::destroy($key);
+    }
+    /**
+     * Stores data into the database
+     *
+     * @return bool|object
+     */
+    public function save()
+    {
+        parent::save();
+        // isDirty(), not isPopulated(): isPopulated() is also true when
+        // 'hosts' was merely lazy-loaded for reading, which would make an
+        // unrelated image save (e.g. renaming it) re-run this whole
+        // reassignment block for a no-op result. isDirty() only reports
+        // true when the caller actually set the host list.
+        if ($this->isDirty('hosts')) {
+            if (count($this->get('hosts')) > 0) {
+                $DBIDs = self::getSubObjectIDs(
+                    'Host',
+                    array('imageID' => $this->get('id'))
+                );
+            } else {
+                $RemIDs = self::getSubObjectIDs(
+                    'Host',
+                    array('imageID' => $this->get('id'))
+                );
+            }
+            if (!isset($RemIDs)) {
+                $DBCount = count($DBIDs);
+                $tokeep = count($this->get('hosts'));
+                if ($DBCount > 0
+                    && $DBCount != $tokeep
+                ) {
+                    $RemIDs = array_diff(
+                        (array)$DBIDs,
+                        (array)$this->get('hosts')
+                    );
+                }
+            }
+            $RemIDs = array_filter((array)$RemIDs);
+            if (count($RemIDs) > 0) {
+                self::getClass('HostManager')
+                    ->update(
+                        array(
+                            'imageID' => $this->get('id'),
+                            'id' => $RemIDs
+                        ),
+                        '',
+                        array('imageID' => 0)
+                    );
+                unset($RemIDs);
+            }
+            if (count($this->get('hosts')) < 1) {
+                return $this;
+            }
+            self::getClass('HostManager')
+                ->update(
+                    array('id' => $this->get('hosts')),
+                    '',
+                    array('imageID' => $this->get('id'))
+                );
+        }
+        $primary = self::getSubObjectIDs(
+            'ImageAssociation',
+            array(
+                'imageID' => $this->get('id'),
+                'primary' => 1
+            ),
+            'storagegroupID'
+        );
+        $this->assocSetter('Image', 'storagegroup');
+        if (count($primary) > 0) {
+            $primary = array_shift($primary);
+            $this->setPrimaryGroup($primary);
+        }
+        return $this->load();
+    }
+    /**
+     * Deletes the image file
+     *
+     * @return bool
+     */
+    public function deleteFile()
+    {
+        if ($this->get('protected')) {
+            throw new Exception(self::$foglang['ProtectedImage']);
+        }
+        Route::listem('storagenode');
+        $StorageNodes = json_decode(
+            Route::getData()
+        );
+        $StorageNodes = $StorageNodes->storagenodes;
+        foreach ($StorageNodes as &$StorageNode) {
+            if (!in_array($StorageNode->storagegroupID, $this->get('storagegroups'))
+                || !$StorageNode->isEnabled
+            ) {
+                continue;
+            }
+            $ftppath = trim(
+                $StorageNode->ftppath,
+                '/'
+            );
+            $deleteFile = sprintf(
+                '/%s/%s',
+                $ftppath,
+                $this->get('path')
+            );
+            $ip = $StorageNode->ip;
+            $user = $StorageNode->user;
+            // The storagenode payload carries no password (see
+            // Route::stripNodeSecrets()), so read it from the model.
+            $pass = (new StorageNode($StorageNode->id))->get('pass');
+            self::$FOGFTP
+                ->set('host', $ip)
+                ->set('username', $user)
+                ->set('password', $pass);
+            if (!self::$FOGFTP->connect()) {
+                continue;
+            }
+            self::$FOGFTP
+                ->delete($deleteFile)
+                ->close();
+            unset($StorageNode);
+        }
+    }
+    /**
+     * Loads hosts
+     *
+     * @return void
+     */
+    protected function loadHosts()
+    {
+        $hostids = self::getSubObjectIDs(
+            'Host',
+            array('imageID' => $this->get('id'))
+        );
+        $this->set('hosts', (array)$hostids);
+    }
+    /**
+     * Add hosts to image object
+     *
+     * @param array $addArray the items to add
+     *
+     * @return object
+     */
+    public function addHost($addArray)
+    {
+        return $this->addRemItem(
+            'hosts',
+            (array)$addArray,
+            'merge'
+        );
+    }
+    /**
+     * Remove hosts from image object
+     *
+     * @param array $removeArray the items to remove
+     *
+     * @return object
+     */
+    public function removeHost($removeArray)
+    {
+        return $this->addRemItem(
+            'hosts',
+            (array)$removeArray,
+            'diff'
+        );
+    }
+    /**
+     * Loads items not with this object
+     *
+     * @return void
+     */
+    protected function loadHostsnotinme()
+    {
+        $hosts = array_diff(
+            self::getSubObjectIDs('Host'),
+            $this->get('hosts')
+        );
+        $this->set('hostsnotinme', (array)$hosts);
+    }
+    /**
+     * Loads storage groups with this object
+     *
+     * @return void
+     */
+    protected function loadStoragegroups()
+    {
+        $groupids = self::getSubObjectIDs(
+            'ImageAssociation',
+            array('imageID' => $this->get('id')),
+            'storagegroupID'
+        );
+        $groupids = self::getSubObjectIDs(
+            'StorageGroup',
+            array('id' => $groupids)
+        );
+        $groupids = array_filter($groupids);
+        if (count($groupids) < 1) {
+            $groupids = self::getSubObjectIDs('StorageGroup');
+            $groupids = self::minId($groupids);
+        }
+        $this->set('storagegroups', (array)$groupids);
+    }
+    /**
+     * Adds groups to this object
+     *
+     * @param array $addArray the items to add
+     *
+     * @return object
+     */
+    public function addGroup($addArray)
+    {
+        return $this->addRemItem(
+            'storagegroups',
+            (array)$addArray,
+            'merge'
+        );
+    }
+    /**
+     * Removes groups from this object
+     *
+     * @param array $removeArray the items to remove
+     *
+     * @return object
+     */
+    public function removeGroup($removeArray)
+    {
+        return $this->addRemItem(
+            'storagegroups',
+            (array)$removeArray,
+            'diff'
+        );
+    }
+    /**
+     * Loads groups not with this image
+     *
+     * @return void
+     */
+    protected function loadStoragegroupsnotinme()
+    {
+        $find = array('id' => $this->get('storagegroups'));
+        $storagegroups = array_diff(
+            self::getSubObjectIDs('StorageGroup'),
+            $this->get('storagegroups')
+        );
+        $this->set('storagegroupsnotinme', (array)$storagegroups);
+    }
+    /**
+     * Gets the storage group
+     *
+     * @throws Exception
+     * @return object
+     */
+    public function getStorageGroup()
+    {
+        $groupids = $this->get('storagegroups');
+        if (is_array($groupids) && count($groupids) < 1) {
+            $groupids = self::getSubObjectIDs('StorageGroup');
+            $groupids = self::minId($groupids);
+            if ($groupids < 1) {
+                throw new Exception(_('No viable storage groups found'));
+            }
+        }
+        $primaryGroup = array();
+        foreach ((array)$groupids as &$groupid) {
+            if (!$this->getPrimaryGroup($groupid)) {
+                continue;
+            }
+            $primaryGroup[] = $groupid;
+            unset($groupid);
+        }
+        if (is_array($primaryGroup) && count($primaryGroup) < 1) {
+            $primaryGroup = self::minId((array) $groupids);
+        } else {
+            $primaryGroup = array_shift($primaryGroup);
+        }
+
+        return new StorageGroup($primaryGroup);
+    }
+    /**
+     * Gets the primary storage group.
+     *
+     * @return object
+     */
+    public function getPrimaryStorageGroup()
+    {
+        $groupids = self::getSubObjectIDs(
+            'ImageAssociation',
+            [
+                'imageID' => $this->get('id'),
+                'storagegroupID' => $this->get('storagegroups'),
+                'primary' => [1],
+            ],
+            'storagegroupID'
+        );
+        if (count($groupids ?: []) < 1) {
+            $groupid = self::minId($this->get('storagegroups'));
+        } else {
+            $groupid = self::minId($groupids);
+        }
+        return new StorageGroup($groupid);
+    }
+    /**
+     * Returns the OS object
+     *
+     * @return object
+     */
+    public function getOS()
+    {
+        return $this->get('os');
+    }
+    /**
+     * Returns the ImageType object
+     *
+     * @return object
+     */
+    public function getImageType()
+    {
+        return $this->get('imagetype');
+    }
+    /**
+     * Returns the ImagePartitionType object
+     *
+     * @return object
+     */
+    public function getImagePartitionType()
+    {
+        return $this->get('imagepartitiontype');
+    }
+    /**
+     * Returns the partition type
+     *
+     * @return string
+     */
+    public function getPartitionType()
+    {
+        return $this->getImagePartitionType()->get('type');
+    }
+    /**
+     * Gets the image's primary group
+     *
+     * @param int $groupID the group id to check
+     *
+     * @return bool
+     */
+    public function getPrimaryGroup($groupID)
+    {
+        $primaryCount = self::getClass('ImageAssociationManager')
+            ->count(
+                array(
+                    'imageID' => $this->get('id'),
+                    'primary' => 1
+                )
+            );
+        if ($primaryCount < 1) {
+            $primaryCount = self::getClass('ImageAssociationManager')
+                ->count(
+                    array('imageID' => $this->get('id'))
+                );
+        }
+        if ($primaryCount < 1) {
+            $groupid = self::getSubObjectIDs('StorageGroup');
+            $groupid = self::minId($groupid);
+            $this->setPrimaryGroup($groupid);
+        }
+        $assocID = self::getSubObjectIDs(
+            'ImageAssociation',
+            array(
+                'storagegroupID' => $groupID,
+                'imageID' => $this->get('id')
+            )
+        );
+        $assocID = count((array)$assocID ?: []) ? min($assocID) : 0;
+
+        return self::getClass('ImageAssociation', $assocID)->isPrimary();
+    }
+    /**
+     * Sets the primary group for the image
+     *
+     * @param int $groupID the id to set as primary
+     *
+     * @return array
+     */
+    public function setPrimaryGroup($groupID)
+    {
+        $exists = self::getSubObjectIDs(
+            'ImageAssociation',
+            array(
+                'imageID' => $this->get('id'),
+                'storagegroupID' => $groupID
+            ),
+            'storagegroupID'
+        );
+        if (count($exists) < 1) {
+            self::getClass('ImageAssociation')
+                ->set('imageID', $this->get('id'))
+                ->set('storagegroupID', $groupID)
+                ->save();
+        }
+        /**
+         * Unset all current groups to non-primary
+         */
+        self::getClass('ImageAssociationManager')
+            ->update(
+                array(
+                    'imageID' => $this->get('id'),
+                    'storagegroupID' => $this->get('storagegroups')
+                ),
+                '',
+                array('primary' => 0)
+            );
+        /**
+         * Set the passed group as primary
+         */
+        self::getClass('ImageAssociationManager')
+            ->update(
+                array(
+                    'imageID' => $this->get('id'),
+                    'storagegroupID' => $groupID
+                ),
+                '',
+                array('primary' => 1)
+            );
+    }
+}

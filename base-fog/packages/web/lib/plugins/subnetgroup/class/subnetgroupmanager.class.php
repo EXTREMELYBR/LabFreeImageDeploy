@@ -1,0 +1,77 @@
+<?php
+/**
+ * Manager class for subnetgroup
+ *
+ * PHP version 7.4+
+ *
+ * @category SubnetgroupManager
+ * @package  FOGProject
+ * @author   Tom Elliott <tommygunsster@gmail.com>
+ * @author   sctt <none@none>
+ * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
+ * @link     https://fogproject.org
+ */
+/**
+ * Manager class for subnetgroup
+ *
+ * @category SubnetgroupManager
+ * @package  FOGProject
+ * @author   Tom Elliott <tommygunsster@gmail.com>
+ * @author   sctt <none@none>
+ * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
+ * @link     https://fogproject.org
+ */
+class SubnetgroupManager extends FOGManagerController
+{
+    /**
+     * The base table name.
+     *
+     * @var string
+     */
+    public $tablename = 'subnetgroup';
+    /**
+     * Perform the database and plugin installation
+     *
+     * @return bool
+     */
+    public function install()
+    {
+        $this->uninstall();
+        $sql = $this->createTableSql(
+            $this->tablename,
+            true,
+            array(
+                'sgID',
+                'sgName',
+                'sgGroupID',
+                'sgSubnets'
+            ),
+            array(
+                'INTEGER',
+                'VARCHAR(255)',
+                'INTEGER',
+                'TEXT',
+            ),
+            array(
+                false,
+                false,
+                false,
+                false,
+            ),
+            array(
+                false,
+                false,
+                false,
+                false,
+            ),
+            array(
+                'sgID'
+            ),
+            'InnoDB',
+            'utf8',
+            'sgID',
+            'sgID'
+        );
+        return self::$DB->query($sql);
+    }
+}

@@ -1,0 +1,79 @@
+#!ipxe
+# Boot script for the EMBED-less EFI binaries in packages/tftp/autoexec/.
+#
+# iPXE 2.0.0's efi_autoexec_load() downloads "autoexec.ipxe" from the current
+# working URI -- i.e. the TFTP directory the .efi binary itself was loaded from
+# -- before any driver is connected, and runs it because first_image() then
+# finds no embedded image ahead of it. That is the whole point of this variant:
+# the boot logic lives in a text file the server can rewrite, instead of being
+# compiled into every binary. Changing the pre-DHCP sleep below no longer needs
+# a rebuild, which is why there is no autoexec equivalent of 10secdelay/.
+#
+# Keep this in step with src/ipxe/src/ipxescript -- the binaries that embed
+# that script and the ones that fetch this one must behave identically, or
+# which file a site is using becomes a variable in every bug report. Refs
+# GH-957.
+
+# PRE-DHCP DELAY -- uncomment the last two lines of this block if you need one.
+#
+# Some switches take several seconds to bring a port out of STP listening or out
+# of powersave, and iPXE's first DHCP attempt goes out before that. The symptom
+# is a client reporting no DHCP answer on a link that is perfectly fine a few
+# seconds later.
+#
+# The header above has always said the delay is an edit to this file rather than
+# a second set of binaries. It never shipped the lines to edit, so there was
+# nothing here to change and no indication of what to write. There is now.
+#
+# THIS FILE ONLY AFFECTS THE autoexec/ BINARIES -- the EMBED-less build, which is
+# the only one that reads a downloaded script, and which a site opts into with a
+# DHCP filename change. If your DHCP still hands out a boot file from the TFTP
+# ROOT, that binary has its script compiled in and cannot read this file at all:
+# point DHCP at 10secdelay/<the same filename> instead, which is the identical
+# build with a ten-second sleep embedded. That is the only route for legacy BIOS
+# either way, since BIOS has no efi_autoexec_load().
+#
+# THE EDIT IS LOST WHEN YOU RE-RUN installfog.sh, which copies its staged iPXE
+# tree over this one unconditionally. Keep a copy and re-apply it after an
+# upgrade.
+#echo Sleeping 10 seconds to wait for STP/Powersave to switchoff and on
+#sleep 10
+echo Checking net0 for DHCP...
+isset ${net0/mac} && ifopen net0 && dhcp net0 || goto dhcpnet1
+echo Received DHCP answer on interface net0 && goto proxycheck
+
+:dhcpnet1
+echo Checking net1 for DHCP...
+isset ${net1/mac} && ifopen net1 && dhcp net1 || goto dhcpnet2
+echo Received DHCP answer on interface net1 && goto proxycheck
+
+:dhcpnet2
+echo Checking net2 for DHCP...
+isset ${net2/mac} && ifopen net2 && dhcp net2 || goto dhcpall
+echo Received DHCP answer on interface net2 && goto proxycheck
+
+:dhcpall
+echo No DHCP answer on any interface, trying proxy DHCP...
+dhcp && goto proxycheck || goto dhcperror
+
+:dhcperror
+echo DHCP error!
+prompt --key s --timeout 10000 DHCP failed, hit 's' for the iPXE shell; reboot in 10 seconds && shell || reboot
+
+:proxycheck
+echo Trying proxy DHCP...
+isset ${proxydhcp/next-server} && set next-server ${proxydhcp/next-server} || goto nextservercheck
+
+:nextservercheck
+echo Checking for next-server...
+isset ${next-server} && goto netboot || goto setserv
+
+:setserv
+echo -n Please enter tftp server: && read next-server && goto netboot || goto setserv
+
+:chainloadfailed
+prompt --key s --timeout 10000 Chainloading failed, hit 's' for the iPXE shell; reboot in 10 seconds && shell || reboot
+
+:netboot
+echo starting netboot to default.ipxe...
+chain tftp://${next-server}/default.ipxe || goto chainloadfailed

@@ -5,6 +5,25 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.12.0] - 2026-10-27
+
+### Novo
+- **Sistema 100% autônomo**: o repositório e o pacote trazem a base (FOG 1.5.10.2518, em `base-fog/`) e tudo o que
+  ela baixaria da internet durante a instalação (`terceiros/`: sistema de clonagem com kernel e init, agente para
+  Windows, binários do iPXE e o código-fonte do iPXE), cada arquivo conferido por SHA-256. A instalação **não acessa
+  o GitHub nem o site do FOG**: se esses links deixarem de existir, o LabFree ImageDeploy continua instalável.
+  Testado com uma instalação do zero numa VM Ubuntu 24.04 com o GitHub e o fogproject.org bloqueados.
+- `docs/PLANO-LABFREE-ENGINE.md`: plano do sistema próprio (sem o FOG), em Go, licença fechada, com todas as funções
+  atuais e porte para Windows (guardado para quando for a hora).
+
+### Para quem mantém
+- `instalar.sh` → `preparar_terceiros`: copia `terceiros/` para `base-fog/tmp` (onde a base procura), confere os
+  SHA-256 e prepara `/opt/fog/ipxe` (scripts da FOG + fonte do iPXE v2.0.0 como repositório com a marca v2.0.0).
+- `base-fog/lib/common/functions.sh` (`downloadfiles`): usa o arquivo local quando o SHA-256 confere; ARM opcional
+  (não vem no pacote). Ajustes marcados com "LabFree ImageDeploy".
+- `ferramentas/empacotar.sh` não usa mais `/opt/fogproject-stable`: tudo vem do repositório (e confere os SHA-256).
+- `terceiros/LEIAME.md`: origem, versão e licença de cada componente e como atualizar.
+
 ## [0.11.0] - 2026-10-27
 
 ### Novo

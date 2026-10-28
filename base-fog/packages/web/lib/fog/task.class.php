@@ -1,0 +1,453 @@
+<?php
+/**
+ * Task handler class.
+ *
+ * PHP version 7.4+
+ *
+ * @category Task
+ * @package  FOGProject
+ * @author   Tom Elliott <tommygunsster@gmail.com>
+ * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
+ * @link     https://fogproject.org
+ */
+/**
+ * Task handler class.
+ *
+ * @category Task
+ * @package  FOGProject
+ * @author   Tom Elliott <tommygunsster@gmail.com>
+ * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
+ * @link     https://fogproject.org
+ */
+class Task extends TaskType
+{
+    /**
+     * The task table name.
+     *
+     * @var string
+     */
+    protected $databaseTable = 'tasks';
+    /**
+     * The task fields and common names.
+     *
+     * @var array
+     */
+    protected $databaseFields = array(
+        'id' => 'taskID',
+        'name' => 'taskName',
+        'checkInTime' => 'taskCheckIn',
+        'hostID' => 'taskHostID',
+        'stateID' => 'taskStateID',
+        'createdTime' => 'taskCreateTime',
+        'createdBy' => 'taskCreateBy',
+        'isForced' => 'taskForce',
+        'scheduledStartTime' => 'taskScheduledStartTime',
+        'typeID' => 'taskTypeID',
+        'pct' => 'taskPCT',
+        'bpm' => 'taskBPM',
+        'timeElapsed' => 'taskTimeElapsed',
+        'timeRemaining' => 'taskTimeRemaining',
+        'dataCopied' => 'taskDataCopied',
+        'percent' => 'taskPercentText',
+        'dataTotal' => 'taskDataTotal',
+        'storagegroupID' => 'taskNFSGroupID',
+        'storagenodeID' => 'taskNFSMemberID',
+        'NFSFailures' => 'taskNFSFailures',
+        'NFSLastMemberID' => 'taskLastMemberID',
+        'shutdown' => 'taskShutdown',
+        'passreset' => 'taskPassreset',
+        'isDebug' => 'taskIsDebug',
+        'imageID' => 'taskImageID',
+        'wol' => 'taskWOL',
+    );
+    /**
+     * The required fields.
+     *
+     * @var array
+     */
+    protected $databaseFieldsRequired = array(
+        'id',
+        'typeID',
+        'hostID',
+    );
+    /**
+     * Additional fields.
+     *
+     * @var array
+     */
+    protected $additionalFields = array(
+        'image',
+        'host',
+        'type',
+        'state',
+        'storagenode',
+        'storagegroup'
+    );
+    /**
+     * Database -> Class field relationships
+     *
+     * @var array
+     */
+    protected $databaseFieldClassRelationships = array(
+        'Image' => array(
+            'id',
+            'imageID',
+            'image'
+        ),
+        'Host' => array(
+            'id',
+            'hostID',
+            'host'
+        ),
+        'TaskType' => array(
+            'id',
+            'typeID',
+            'type'
+        ),
+        'TaskState' => array(
+            'id',
+            'stateID',
+            'state'
+        ),
+        'StorageNode' => array(
+            'id',
+            'storagenodeID',
+            'storagenode'
+        ),
+        'StorageGroup' => array(
+            'id',
+            'storagegroupID',
+            'storagegroup'
+        )
+    );
+    /**
+     * Return the checkin timeout or 180 if its less than 180.
+     *
+     * @return int
+     */
+    private static function fogCheckinTimeout()
+    {
+        $raw = (int) self::getSetting('FOG_CHECKIN_TIMEOUT');
+        return max($raw, 180); // enforce minimum of 180 seconds
+    }
+    /**
+     * Returns cutoff timing
+     *
+     * @reutrn DateTimeImmutable
+     */
+    private static function cutoff()
+    {
+        return (clone self::niceDate())
+            ->modify('-' . self::fogCheckinTimeout() . ' seconds');
+    }
+    /**
+     * Returns if the checkin time is expired.
+     *
+     * @param string $checkInTime The checkin time.
+     * @return bool
+     */
+    private static function isExpired(string $checkInTime)
+    {
+        if (!$checkInTime) {
+            return true;
+        }
+        $ci = self::niceDate($checkInTime);
+        if (!self::validDate($ci)) {
+            return true;
+        }
+        return ($ci < self::cutoff());
+    }
+    /**
+     * Returns if we are almost expired and should update.
+     *
+     * @param string $checkInTime  The checkin time.
+     * @param int    $graceSeconds The grace period in seconds.
+     *
+     * @return bool
+     */
+    private static function isAlmostExpired(string $checkInTime, int $graceSeconds = 30)
+    {
+        if (!$checkInTime) {
+            return true;
+        }
+        $ci = self::niceDate($checkInTime);
+        if (!self::validDate($ci)) {
+            return true;
+        }
+        $almostCutoff = (clone(self::cutoff()))->modify("+{$graceSeconds} seconds"); // timeout - grace
+        return $ci < $almostCutoff; // i.e., within grace window
+    }
+    /**
+     * Returns the in front of number.
+     *
+     * @return int
+     */
+    public function getInFrontOfHostCount()
+    {
+        $count = 0;
+        $myTaskID = (int) $this->get('id');
+        $myStStart = self::niceDate($this->get('scheduledStartTime'));
+        // My scheduled start validity, if not valid, set to now
+        if (!self::validDate($myStStart)) {
+            $myStStart = self::niceDate();
+        }
+
+        $used = explode(',', self::getSetting('FOG_USED_TASKS'));
+        $find = array(
+            'stateID' => self::getCheckedInState(),
+            'typeID' => $used,
+            'storagegroupID' => $this->get('storagegroupID'),
+            'storagenodeID' => $this->get('storagenodeID')
+        );
+
+        foreach ((array)$this->getManager()->find($find) as $Task) {
+            $tid = (int) $Task->get('id');
+            if ($tid === $myTaskID) {
+                continue;
+            }
+
+            // Liveness: if expired, it's getting re-queued to the back. Don't count
+            if (self::isExpired($Task->get('checkInTime') ?? '')) {
+                if ($Task->get('stateID') != self::getQueuedState()) {
+                    self::getClass('Task', $tid)
+                        ->set('stateID', self::getQueuedState())
+                        ->save();
+                }
+                continue;
+            }
+
+            $stStart = self::niceDate($Task->get('scheduledStartTime') ?? '');
+            // Scheduled start validity, if not valid, don't count
+            if (!self::validDate($stStart)) {
+                continue;
+            }
+
+            if ($stStart < $myStStart // Their scheduled start is before mine, they are ahead of me
+                || ($stStart == $myStStart && $tid < $myTaskID) // Break ties with taskID if scheduled start times are the same
+            ) {
+                ++$count;
+            }
+        }
+
+        return $count;
+    }
+    /**
+     * Cancels the task.
+     *
+     * @return object
+     */
+    public function cancel()
+    {
+        $SnapinJob = $this
+            ->getHost()
+            ->get('snapinjob');
+        if ($SnapinJob instanceof SnapinJob
+            && $SnapinJob->isValid()
+        ) {
+            self::getClass('SnapinTaskManager')
+                ->update(
+                    array(
+                        'jobID' => $SnapinJob->get('id')
+                    ),
+                    '',
+                    array(
+                        'complete' => self::niceDate()->format('Y-m-d H:i:s'),
+                        'stateID' => self::getCancelledState()
+                    )
+                );
+            $SnapinJob->set(
+                'stateID',
+                self::getCancelledState()
+            )->save();
+        }
+        if ($this->isMulticast()) {
+            $msIDs = self::getSubObjectIDs(
+                'MulticastSessionAssociation',
+                array(
+                    'taskID' => $this->get('id')
+                ),
+                'jobID'
+            );
+            self::getClass('MulticastSessionManager')
+                ->update(
+                    array('id' => $msIDs),
+                    '',
+                    array(
+                        'clients' => 0,
+                        'completetime' => self::formatTime('now', 'Y-m-d H:i:s'),
+                        'stateID' => self::getCancelledState()
+                    )
+                );
+        }
+        // Recorded only if the save actually happened, so the log cannot
+        // claim a transition the database never took. Before this, cancelling
+        // wrote nothing to taskLog at all: the row for the In-Progress
+        // transition stayed the last word on the task, so every reader of the
+        // log -- the REST API included -- showed a cancelled task as running.
+        if ($this->set('stateID', self::getCancelledState())->save()) {
+            TaskLog::recordState($this);
+        }
+
+        return $this;
+    }
+    /**
+     * Custom Set method.
+     *
+     * @param string $key   The key to set.
+     * @param mixed  $value The value to set.
+     *
+     * @return object
+     */
+    public function set($key, $value)
+    {
+        if (($this->key($key) == 'checkInTime' || $this->key($key) == 'scheduledStartTime')
+            && is_numeric($value)
+            && strlen($value) == 10
+        ) {
+            $value = self::niceDate($value)->format('Y-m-d H:i:s');
+        }
+
+        return parent::set($key, $value);
+    }
+    /**
+     * Updates the task checkin time, state, and scheduled start time as needed
+     *
+     * @return void
+     * @throws Exception
+     */
+    public function taskCheckIn()
+    {
+        $curState = $this->get('stateID');
+
+        // Timings
+        //
+        // `?? ''` is load bearing, not defensive. GH-1245 made taskCheckIn
+        // nullable (schema 284) and taught save() to write a real SQL NULL
+        // for an emptied date, so a task that has never checked in now reads
+        // back NULL where it used to read '0000-00-00 00:00:00'. This
+        // branch's FOGController::get() returns null for an unset key --
+        // working-1.6's returns '' -- and isExpired()/isAlmostExpired()
+        // declare `string`, which rejects null outright rather than coercing
+        // it. Without this the very first check-in of every task is an
+        // uncaught TypeError: a 500 with no body, which FOS reports only as
+        // "failed to check in". Matches the guard already on the other two
+        // call sites.
+        $checkInTime = $this->get('checkInTime') ?? '';
+        $curTime = self::niceDate();
+
+        $almost = $this->isAlmostExpired($checkInTime); // expiring in 30 seconds or less
+        $expire = $this->isExpired($checkInTime); // checkin time expired
+
+        $store_update = false;
+        $checkInState = self::getCheckedInState();
+
+        if ($curState != $checkInState || $expire) {
+            $this
+                ->set('stateID', $checkInState)
+                ->set('checkInTime', $curTime->format('Y-m-d H:i:s'))
+                ->set(
+                    'scheduledStartTime',
+                    $curTime->format('Y-m-d H:i:s')
+                );
+            $store_update = true;
+        } elseif ($almost && in_array($curState, self::getQueuedStates())) {
+            $this
+                ->set('checkInTime', $curTime->format('Y-m-d H:i:s'));
+            $store_update = true;
+        }
+        if ($store_update && !$this->save()) {
+            throw new Exception(_('Failed to update task'));
+        }
+    }
+    /**
+     * Returns the host object.
+     *
+     * @return object
+     */
+    public function getHost()
+    {
+        return $this->get('host');
+    }
+    /**
+     * Returns the storage group object.
+     *
+     * @return object
+     */
+    public function getStorageGroup()
+    {
+        return new StorageGroup($this->get('storagenode')->get('storagegroupID'));
+    }
+    /**
+     * Returns the storage node object.
+     *
+     * @return object
+     */
+    public function getStorageNode()
+    {
+        return $this->get('storagenode');
+    }
+    /**
+     * Returns the image object.
+     *
+     * @return object
+     */
+    public function getImage()
+    {
+        return $this->get('image');
+    }
+    /**
+     * Returns the task type object.
+     *
+     * @return object
+     */
+    public function getTaskType()
+    {
+        return $this->get('type');
+    }
+    /**
+     * Returns the the type text
+     *
+     * @return string
+     */
+    public function getTaskTypeText()
+    {
+        return $this->getTaskType()->get('name');
+    }
+    /**
+     * Returns the task state object.
+     *
+     * @return object
+     */
+    public function getTaskState()
+    {
+        return $this->get('state');
+    }
+    /**
+     * Returns the state text.
+     *
+     * @return string
+     */
+    public function getTaskStateText()
+    {
+        return $this->getTaskState()->get('name');
+    }
+    /**
+     * Returns if the task is forced or not.
+     *
+     * @return bool
+     */
+    public function isForced()
+    {
+        return (bool) ($this->get('isForced') > 0);
+    }
+    /**
+     * Returns if the task is a debug or not.
+     *
+     * @return bool
+     */
+    public function isDebug()
+    {
+        return (bool) (parent::isDebug()
+            || $this->get('isDebug'));
+    }
+}

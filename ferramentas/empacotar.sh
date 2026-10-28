@@ -1,27 +1,24 @@
 #!/bin/bash
 # LabFree ImageDeploy — gera o pacote de instalação (.tar.gz + .sha256).
-# Uso: ferramentas/empacotar.sh [PASTA_DA_BASE_FOG] [PASTA_DE_SAIDA]
-#   PASTA_DA_BASE_FOG: código do FOG 1.5.10 usado como base (padrão: /opt/fogproject-stable)
-#   PASTA_DE_SAIDA:    onde gravar o pacote (padrão: ./dist)
-# O pacote leva a base FOG embutida (versão travada, sem o histórico git e sem nada
-# desta instalação: logs, senhas e relatórios ficam de fora).
+# Uso: ferramentas/empacotar.sh [PASTA_DE_SAIDA]   (padrão: ./dist)
+# Tudo vem do próprio repositório: a base (base-fog/, FOG 1.5.10.2518 travado) e os componentes que ela baixaria da
+# internet (terceiros/: sistema de clonagem, agente para Windows, iPXE). Nenhum link externo é necessário.
 set -euo pipefail
 RAIZ=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
-BASE="${1:-/opt/fogproject-stable}"
-SAIDA="${2:-$RAIZ/dist}"
+SAIDA="${1:-$RAIZ/dist}"
 VERSAO=$(cat "$RAIZ/VERSION")
 NOME="LabFreeImageDeploy-$VERSAO"
-[ -x "$BASE/bin/installfog.sh" ] || { echo "Base FOG não encontrada em $BASE"; exit 1; }
-grep -q "1.5.10" "$BASE/packages/web/lib/fog/system.class.php" || echo "AVISO: a base em $BASE não parece ser o FOG 1.5.10"
+[ -x "$RAIZ/base-fog/bin/installfog.sh" ] || { echo "Falta base-fog/ no repositório"; exit 1; }
+for h in "$RAIZ"/terceiros/fos/*.sha256 "$RAIZ"/terceiros/fog-client/*.sha256 "$RAIZ"/terceiros/fog-ipxe/*.sha256; do
+    (cd "$(dirname "$h")" && sha256sum --quiet -c "$(basename "$h")") || { echo "terceiros/: $(basename "$h" .sha256) corrompido"; exit 1; }
+done
 
 tmp=$(mktemp -d)
 trap 'rm -rf -- "$tmp"' EXIT
 D="$tmp/$NOME"
 mkdir -p "$D"
 rsync -a --exclude '.git' --exclude 'dist' --exclude 'testes' --exclude '__pycache__' --exclude 'CLAUDE.md' --exclude 'docs/CUSTOMIZACOES-MAQUINA-ATUAL.md' "$RAIZ/" "$D/"
-rsync -a --exclude '.git' --exclude 'bin/error_logs' --exclude 'rpttmp' --exclude 'tests' --exclude 'CLAUDE.md' \
-      --exclude 'tmp/*.sql' --exclude 'tmp/*.sql.*' --exclude 'tmp/ipxe*' "$BASE/" "$D/base-fog/"
-cp "$BASE/LICENSE" "$D/LICENSE"
+cp "$RAIZ/base-fog/LICENSE" "$D/LICENSE"
 # confere que nenhum segredo desta máquina entrou no pacote
 if [ -r /opt/fog/.fogsettings ]; then
     # shellcheck disable=SC1091
