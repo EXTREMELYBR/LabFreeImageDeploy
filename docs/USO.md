@@ -33,7 +33,10 @@ Imagens de *tamanho fixo* só restauram em discos iguais ou maiores que o origin
 
 ## Ajustes depois de restaurar (Configurações → Nome e Windows)
 - **Renomear com o nome cadastrado (Windows e Linux)**: liga e pronto. O sistema de clonagem troca o nome logo depois
-  de gravar o disco, antes do primeiro boot (só máquinas cadastradas; o cadastro nunca repete um nome).
+  de gravar o disco, antes do primeiro boot. Máquina cadastrada recebe o nome do cadastro (que nunca se repete).
+  Máquina **não cadastrada** (restaurar rápido ou sessão de grupo pelo menu de boot) recebe `PC-` e o endereço da
+  placa de rede, ex.: `PC-00E04C880309` (15 caracteres, o limite do Windows): duas placas nunca têm o mesmo endereço,
+  então o nome também nunca se repete, e a mesma máquina recebe sempre o mesmo nome.
   - Windows: o nome vai para o registro.
   - Linux (Ubuntu, Mint, Debian, Fedora...): `/etc/hostname`, o nome antigo no `/etc/hosts`, um `machine-id` novo
     (com o mesmo id, o DHCP pode dar o mesmo IP a várias máquinas) e chaves de SSH novas. Abre partições comuns

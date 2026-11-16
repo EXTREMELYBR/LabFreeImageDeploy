@@ -1926,7 +1926,7 @@ async function abaWindows(corpo) {
   corpo.replaceChildren(el('div', { class: 'pilha' },
     el('div', { class: 'cartao' }, el('h2', { style: 'margin-bottom:12px' }, 'Depois de restaurar, em cada máquina'),
       el('label', { class: 'alternar' }, renomear, el('div', {}, el('strong', {}, 'Renomear com o nome cadastrado (Windows e Linux)'),
-        el('small', {}, 'Feito pelo próprio sistema de clonagem, logo depois de gravar o disco. Não precisa instalar nada. No Linux também troca o /etc/hosts, o machine-id (sem ele, o DHCP pode repetir o IP) e as chaves de SSH. Disco criptografado não é aberto: a tarefa avisa e o nome fica como estava. Só máquinas cadastradas (têm nome).'))),
+        el('small', {}, 'Feito pelo próprio sistema de clonagem, logo depois de gravar o disco. Não precisa instalar nada. No Linux também troca o /etc/hosts, o machine-id (sem ele, o DHCP pode repetir o IP) e as chaves de SSH. Disco criptografado não é aberto: a tarefa avisa e o nome fica como estava. Máquina não cadastrada (restaurar rápido ou sessão de grupo pelo menu de boot) recebe PC- e o endereço da placa de rede, ex.: PC-00E04C880309.'))),
       el('label', { class: 'alternar', style: 'margin-top:14px' }, dom, el('div', {}, el('strong', {}, 'Entrar no domínio'),
         el('small', {}, 'A máquina entra no domínio do Active Directory no primeiro boot (precisa do agente e de acesso ao servidor do domínio).'))),
       caixaDom,

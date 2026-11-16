@@ -7,7 +7,10 @@
 #   - gravar o nome cadastrado em /etc/hostname e trocar o nome antigo no /etc/hosts;
 #   - dar um /etc/machine-id novo (com o mesmo id, o DHCP pode dar o MESMO IP para varias maquinas);
 #   - criar chaves de SSH novas (as que ja existiam; cada maquina com as suas).
-# Vale com a mesma opcao do Windows (painel: "Renomear as maquinas com o nome cadastrado" = hostearly=1).
+# Vale com a mesma opcao do Windows (painel: "Renomear com o nome cadastrado" = hostearly=1).
+# Maquina NAO cadastrada (restaurar rapido, sessao de grupo: o FOG manda capone=1 e para antes de renomear): com a
+# opcao ligada, o servidor do LabFree manda hostearly=1 tambem, e ela ganha o nome PC-<MAC da placa de boot>
+# (Windows e Linux). A MAC e unica, entao o nome nunca repete; e a mesma maquina recebe sempre o mesmo nome.
 #
 # Disco criptografado (LUKS): o sistema de clonagem nao tem a senha, entao nada e trocado e a tarefa avisa
 # "disco criptografado" (no registro da maquina e no painel). LVM e btrfs (subvolumes @, root...) sao abertos.
@@ -221,6 +224,27 @@ labfreeRenomearLinux() {
     return 0
 }
 
+# Nome para maquina nao cadastrada: PC- + os 12 hexadecimais da MAC de boot = 15 caracteres (limite do Windows).
+# Sem MAC valida (nao deveria acontecer): 12 hexadecimais aleatorios.
+labfree_nome_sem_cadastro() {
+    local m
+    m=$(printf '%s' "${mac%%|*}" | tr -d ':-' | tr 'a-f' 'A-F')
+    [[ $m =~ ^[0-9A-F]{12}$ ]] || m=$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n' | tr 'a-f' 'A-F')
+    printf 'PC-%s' "$m"
+}
+
+# Nome do Windows: o changeHostname do FOG (registro) em cada NTFS dos discos restaurados
+labfreeRenomearWindows() {
+    [[ $osid == +([1-2]|4|[5-7]|9|10|11) ]] || return 0
+    for disk in $disks; do
+        getPartitions "$disk"
+        for part in $parts; do
+            fsTypeSetting "$part"
+            [[ $fstype == ntfs ]] && changeHostname "$part"
+        done
+    done
+}
+
 # Igual ao completeTasking do FOG 1.5.10, com o nome do Linux trocado antes de avisar o servidor que terminou.
 completeTasking() {
     case $type in
@@ -235,16 +259,17 @@ completeTasking() {
                 postdownpath="/images/postdownloadscripts/"
                 . ${postdownpath}fog.postdownload
             fi
-            [[ $capone -eq 1 ]] && exit 0
-            if [[ $osid == +([1-2]|4|[5-7]|9|10|11) ]]; then
-                for disk in $disks; do
-                    getPartitions "$disk"
-                    for part in $parts; do
-                        fsTypeSetting "$part"
-                        [[ $fstype == ntfs ]] && changeHostname "$part"
-                    done
-                done
+            if [[ $capone -eq 1 ]]; then
+                # maquina nao cadastrada: o FOG termina aqui; antes, o nome PC-<MAC> (se a opcao estiver ligada)
+                if [[ $hostearly -eq 1 && -z $hostname ]]; then
+                    hostname=$(labfree_nome_sem_cadastro)
+                    echo " * Maquina nao cadastrada: nome $hostname"
+                    labfreeRenomearWindows
+                    [[ $osid != 8 ]] && labfreeRenomearLinux
+                fi
+                exit 0
             fi
+            labfreeRenomearWindows
             [[ $osid != 8 ]] && labfreeRenomearLinux
             . /bin/fog.imgcomplete
             ;;

@@ -5,6 +5,26 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.16.0] - 2026-11-16
+
+Precisa reinstalar por cima (`sudo ./instalar.sh` do pacote novo): o sistema de clonagem é reconstruído (~10 min).
+
+### Novo
+- **Máquina não cadastrada também ganha nome** (Windows e Linux). Quem restaura pelo menu de boot sem cadastrar
+  (*Restaurar rápido* ou *sessão de grupo*) recebe `PC-` e o endereço da placa de rede de boot, ex.:
+  `PC-00E04C880309` — 15 caracteres, o limite do Windows. Duas placas nunca têm o mesmo endereço, então o nome nunca
+  se repete (nem com os cadastrados, que seguem o padrão do painel), e a mesma máquina recebe sempre o mesmo nome.
+  Vale com a mesma opção "Renomear com o nome cadastrado (Windows e Linux)". Antes, a base terminava a tarefa da
+  máquina não cadastrada sem trocar nome nenhum.
+
+### Para quem mantém
+- Servidor: troca nova em `BOOTMENU_TROCAS` (ajudante root) no `falseTasking` da base: manda `hostearly=1` para
+  máquina não cadastrada quando `FOG_CHANGE_HOSTNAME_EARLY` está ligado.
+- FOS (`labfree-nome.sh`): no `completeTasking`, antes do `exit 0` do `capone=1`, com `hostearly=1` e sem
+  `hostname`, dá o nome `PC-<MAC>` (`labfree_nome_sem_cadastro`; sem MAC válida, 12 hexadecimais aleatórios) e chama
+  `labfreeRenomearWindows` (o laço do `changeHostname` da base, agora em função) e `labfreeRenomearLinux`.
+- `testes/teste_nome_linux.sh`: casos de máquina não cadastrada (105 conferências).
+
 ## [0.15.0] - 2026-11-16
 
 Precisa reinstalar por cima (`sudo ./instalar.sh` do pacote novo): o sistema de clonagem é reconstruído (~10 min).

@@ -77,6 +77,8 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
 28. (16/11) "Renomear as máquinas implantadas, Windows e Linux, automaticamente, sem nomes repetidos; identificar
     quando for criptografado; teste e reteste" — feito na 0.15.0 (seção 7l). Versão Windows do servidor: o usuário
     disse que não precisa ("só funcionar bem no Linux está ótimo").
+29. (16/11) "Mesmo a máquina não estando cadastrada, poder ter nome aleatório" — feito na 0.16.0: `PC-<MAC>` (único
+    e sempre o mesmo para a máquina; aleatório só se faltar a MAC).
 25. (28/10) "Crie um MD para eu rodar em outra Claude e instalar o sistema em outro computador" + "suba com um novo
     release" — `docs/PROMPT-INSTALAR.md` na 0.14.1 (só documentação).
 
@@ -248,7 +250,7 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
   `/opt/fog/sessions` com `$_SESSION['FOG_USER']=1; $_SESSION['PAINEL_TOKEN']='tokteste'` e apague no fim.
   Variáveis `TELAS`, `TEMAS`, `MOCKS` (interceptar chamadas que dependem do sudo).
 - **Nome do Linux depois de restaurar** (root): `sudo bash testes/teste_nome_linux.sh [init.xz]` (`SOBREPOR=1` usa os
-  arquivos de `marca/fos` do repositório por cima do `init.xz`) — 15 discos de teste, deve terminar "0 falha(s)".
+  arquivos de `marca/fos` do repositório por cima do `init.xz`) — 15 discos de teste (inclui máquina não cadastrada), deve terminar "0 falha(s)".
 - **Boot PXE real em VM** (QEMU/KVM instalados): `RAIZ_TFTP=/tftpboot testes/boot_vm.sh bios|uefi PASTA "segundos"`.
   FOS direto: `qemu-system-x86_64 -kernel bzImage -initrd init.xz -append "... mode=sysinfo|manreg"`; teclas via monitor `sendkey`.
 - **Instalação do zero SEM o GitHub/FOG (prova de autonomia)**: VM própria (overlay da imagem cloud do Ubuntu 24.04,
@@ -434,6 +436,11 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
 - Testado com `testes/teste_nome_linux.sh` (88/88, duas vezes: com `SOBREPOR=1` e depois com o `init.xz`
   reconstruído pelo instalador). **Não testado numa máquina real pela rede** (não havia cabo/máquina Linux; o QEMU
   não pôde ser instalado nesta sessão). O caminho até o `completeTasking` é o mesmo do Windows, já usado.
+
+- 0.16.0: máquina não cadastrada (`falseTasking` da base: *Restaurar rápido* e *sessão de grupo*, `capone=1`) ganha
+  `PC-<MAC>`. O servidor manda `hostearly=1` nesse caso (troca em `BOOTMENU_TROCAS`); o FOS dá o nome antes do
+  `exit 0`. Conferido de ponta a ponta no servidor: pedido de *Restaurar rápido* de uma MAC desconhecida (usuário e
+  imagem temporários, apagados depois) → linha do kernel com `capone=1` e `hostearly=1`.
 
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,

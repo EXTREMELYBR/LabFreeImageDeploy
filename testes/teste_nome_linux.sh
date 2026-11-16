@@ -4,7 +4,8 @@
 # Roda o completeTasking de verdade DENTRO do sistema de clonagem (o init.xz aberto num chroot isolado: mesmos
 # bash, awk, blkid, lvm, ssh-keygen das maquinas), contra discos de teste em arquivos (loop): Ubuntu/Mint comum,
 # LVM, btrfs (@ e estilo openSUSE), xfs (Fedora), LUKS, LVM + LUKS, Windows + Linux, BitLocker, dois discos,
-# disco sem particoes, sem Linux, links apontando para fora, nome invalido, opcao desligada, repeticao.
+# disco sem particoes, sem Linux, links apontando para fora, nome invalido, opcao desligada, repeticao, maquina nao
+# cadastrada (capone=1: nome PC-<MAC>).
 #
 # Uso (root):  sudo bash testes/teste_nome_linux.sh [init.xz]
 #   init.xz padrao: o do servidor (/var/www/html/fog/service/ipxe/init.xz).
@@ -58,16 +59,16 @@ cat > "$W/raiz/teste/caso.sh" <<'EOF'
 getPartitions() { local disk="$1"; [[ -z $disk ]] && disk="$hd"; parts=$(lsblk -lpno KNAME,TYPE $disk | awk '{if ($2 ~ /part/ || $2 ~ /md/) print $1}' | sort -V | uniq); }
 if [[ -z $TELA ]]; then handleWarning() { echo " * AVISO-TESTE: $1"; }; else usleep() { :; }; fi
 killStatusReporter() { :; }; debugPause() { :; }
-type=down; imgType=n; capone=""; web=""
+type=down; imgType=n; capone="$CAPONE"; mac="$MAC"; web=""
 hostname="$NOME"; hostearly="$HOSTEARLY"; osid="$OSID"; disks="$DISCOS"; hd="${DISCOS%% *}"
 completeTasking
 EOF
-rodar() { # NOME HOSTEARLY OSID "DISCOS" [TELA] -> saida em $SAIDA
+rodar() { # NOME HOSTEARLY OSID "DISCOS" [TELA] -> saida em $SAIDA (variaveis CAPONE e MAC: maquina nao cadastrada)
     SAIDA=$(unshare -m --propagation private bash -c '
         R="$1"; mount -t proc proc "$R/proc"; mount --rbind /sys "$R/sys"; mount --rbind /dev "$R/dev"
         mount -t tmpfs tmpfs "$R/run"; mount -t tmpfs tmpfs "$R/tmp"
-        NOME="$2" HOSTEARLY="$3" OSID="$4" DISCOS="$5" TELA="$6" chroot "$R" /bin/bash /teste/caso.sh 2>&1
-    ' - "$W/raiz" "$1" "$2" "$3" "$4" "${5:-}")
+        NOME="$2" HOSTEARLY="$3" OSID="$4" DISCOS="$5" TELA="$6" CAPONE="$7" MAC="$8" chroot "$R" /bin/bash /teste/caso.sh 2>&1
+    ' - "$W/raiz" "$1" "$2" "$3" "$4" "${5:-}" "${CAPONE:-}" "${MAC:-}")
     printf '%s\n' "$SAIDA" | sed 's/^/      | /'
 }
 abre() { mount -o ro${3:+,$3} "$1" "$W/t" && R="$W/t/${2:-}"; }   # DEV [SUBPASTA] [opcoes]
@@ -282,7 +283,20 @@ saida_tem "mostra o nome antigo e o novo" "LAB-101 -> LAB-102"
 abre "${D_UBUNTU}p2"; confere "uma unica linha 127.0.1.1" [ "$(grep -c '^127.0.1.1' "$R/etc/hosts")" -eq 1 ]
 confere "hosts com o nome mais novo" grep -q "^127.0.1.1	LAB-102$" "$R/etc/hosts"; fecha
 
-echo; echo "== 17. Cada maquina com um machine-id diferente"
+echo; echo "== 17. Maquina nao cadastrada (restaurar rapido / sessao de grupo: capone=1)"
+CAPONE=1 MAC=00:e0:4c:88:03:09 rodar "" 1 50 "$D_UBUNTU"
+saida_tem "nao cadastrada: informa o nome" "Maquina nao cadastrada: nome PC-00E04C880309"
+saida_sem "nao cadastrada: termina como o FOG (sem fog.imgcomplete)" "FIM-DA-TAREFA"
+renomeado "nao cadastrada" PC-00E04C880309 "${D_UBUNTU}p2"
+CAPONE=1 MAC=00:e0:4c:88:03:09 rodar "" "" 50 "$D_BTRFS"
+abre "${D_BTRFS}p2" @; confere "nao cadastrada com a opcao desligada: nome nao muda" [ "$(cat "$R/etc/hostname")" == LAB-003 ]; fecha
+CAPONE=1 MAC="a4:bb:6d:01:02:0f|00:11:22:33:44:55" rodar "" 1 9 "$D_DUAL"
+saida_tem "nao cadastrada, Windows + Linux: usa a primeira MAC" "nome PC-A4BB6D01020F"
+renomeado "nao cadastrada dual" PC-A4BB6D01020F "${D_DUAL}p2"
+CAPONE=1 MAC="" rodar "" 1 50 "$D_M1 $D_M2"
+abre "${D_M2}p1"; confere "nao cadastrada sem MAC: nome aleatorio PC-<12 hex>" bash -c "[[ \$(cat '$R/etc/hostname') =~ ^PC-[0-9A-F]{12}$ ]]"; fecha
+
+echo; echo "== 18. Cada maquina com um machine-id diferente"
 confere "${#IDS[@]} machine-ids, todos diferentes" [ "$(printf '%s\n' "${IDS[@]}" | sort -u | wc -l)" -eq "${#IDS[@]}" ]
 
 echo; echo "== Resultado: $OK ok, $FALHAS falha(s)"

@@ -1554,6 +1554,20 @@ BOOTMENU_TROCAS = [
     ("'echo That session has already started and can no longer '\n                . 'be joined.',",
      "'echo Essa sessao ja comecou a transmitir: nao da mais para entrar. '\n                . 'Crie outra sessao no painel.',"),
     ('"echo Invalid login!",', '"echo Usuario ou senha incorretos!",'),
+    # máquina não cadastrada (restaurar rápido, sessão de grupo): com a opção de renomear ligada, o sistema de
+    # clonagem dá a ela o nome PC-<MAC> (marca/fos/usr/share/fog/lib/labfree-nome.sh)
+    ("""            array(
+                'value' => "capone=1",
+                'active' => !self::$Host || !self::$Host->isValid(),
+            ),""", """            array(
+                'value' => "capone=1", // LabFree: maquina nao cadastrada
+                'active' => !self::$Host || !self::$Host->isValid(),
+            ),
+            array(
+                'value' => 'hostearly=1', // LabFree: nome PC-<MAC> para maquina nao cadastrada
+                'active' => (!self::$Host || !self::$Host->isValid())
+                    && (int)self::getSetting('FOG_CHANGE_HOSTNAME_EARLY') > 0,
+            ),"""),
     # o texto do iPXE (menu, login) não pode ser desenhado em cima do rodapé com o logo do fundo
     ('. "--right 80 && goto console_set || goto alt_console",', '. "--right 80 --bottom 120 && goto console_set || goto alt_console",'),
 ]
