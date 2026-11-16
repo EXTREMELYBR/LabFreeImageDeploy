@@ -52,7 +52,7 @@ if git rev-parse --verify -q "refs/tags/$TAG" >/dev/null; then
 fi
 
 echo "== Conferindo sintaxe"
-for f in instalar.sh sbin/* ferramentas/*.sh ferramentas/LabFreeImageDeploy-recompilar-ipxe sistema/networkmanager/* marca/fos/bin/*; do
+for f in instalar.sh sbin/* ferramentas/*.sh ferramentas/LabFreeImageDeploy-recompilar-ipxe sistema/networkmanager/* marca/fos/bin/* marca/fos/etc/init.d/S99fog marca/fos/usr/share/fog/lib/*.sh; do
     bash -n "$f" || erro "erro de sintaxe em $f"
 done
 python3 -m py_compile lib/LabFreeImageDeploy-root lib/LabFreeImageDeploy-udp-sender lib/LabFreeImageDeploy-otimizar lib/LabFreeImageDeploy-copias lib/*.py testes/*.py || erro "erro de sintaxe em Python"

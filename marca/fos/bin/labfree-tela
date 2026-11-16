@@ -478,7 +478,7 @@ while :; do
     tela_final
     if [[ -n $ESPERA ]]; then
         limpa "$LIN"; pos "$LIN" 3; printf '%sDesligando em %s s (aperte qualquer tecla para cancelar)%s' "$AMARELO" "$ESPERA" "$Z"
-        if read -rsn1 -t 1 -u 3 tecla; then ESPERA=""; else ESPERA=$((ESPERA - 1)); (( ESPERA <= 0 )) && poweroff -f; continue; fi
+        if read -rsn1 -t 1 -u 3 tecla; then ESPERA=""; else ESPERA=$((ESPERA - 1)); (( ESPERA <= 0 )) && { sync; poweroff -f; }; continue; fi
     else
         rodape "Escolha uma opção (aperte a letra)"
         read -rsn1 -u 3 tecla || sleep 1

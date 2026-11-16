@@ -19,6 +19,7 @@ carregador.exec_module(m)
 T = tempfile.mkdtemp()
 m.ESTADO, m.LOG, m.IDADE_MIN, m.PEDACO, m.CHECAR_A_CADA = f'{T}/estado.json', f'{T}/otimizar.log', 0, 4 * 1024 * 1024, 0
 RAIZ = f'{T}/images'
+m.RAIZ_IMAGENS = RAIZ
 IMAGENS = [('1', 'Unica', 'Única', '1'), ('2', 'Pedacos', 'Em pedaços', '1'), ('3', 'SoConferir', 'Só conferir', '0'),
            ('4', 'Estragada', 'Estragada', '1')]
 reg = {}

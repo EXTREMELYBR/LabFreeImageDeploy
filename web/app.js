@@ -685,6 +685,12 @@ function cartaoSessao(s, detalhado) {
     })) : null);
 }
 
+/** Depois de iniciar/cancelar uma sessão: no assistente (#/grupo) a tela de "Sessão criada!" seria trocada por um
+ * assistente novo (e um clique a mais criaria outra sessão); o acompanhamento continua em Tarefas. */
+function depoisDaSessao() {
+  if (location.hash.startsWith('#/grupo')) location.hash = '#/tarefas'; else navegar();
+}
+
 async function iniciarSessao(s) {
   const g = s.grupo;
   const n = g.conectadas.length;
@@ -693,7 +699,7 @@ async function iniciarSessao(s) {
   const texto = `${plural(n, 'máquina vai', 'máquinas vão')} ter o disco apagado e receber a imagem ${s.imagem || ''}. `
     + (n >= esperadas ? 'Depois do início, nenhuma outra máquina entra nesta sessão.' : `As ${esperadas - n} que faltam não poderão mais entrar nesta sessão (crie outra para elas).`);
   if (!await confirmar(titulo, texto, 'Iniciar transmissão', true)) return;
-  try { aviso((await api('iniciar_multicast', { id: s.id })).msg); navegar(); } catch (e) { aviso(e.message, true); }
+  try { aviso((await api('iniciar_multicast', { id: s.id })).msg); depoisDaSessao(); } catch (e) { aviso(e.message, true); }
 }
 
 /** Cartão antigo (servidor sem o porteiro do envio): quantas entraram e o andamento de cada máquina cadastrada. */
@@ -737,7 +743,7 @@ async function cancelarTarefa(t) {
 }
 async function cancelarSessao(s) {
   if (!await confirmar('Cancelar a sessão em grupo?', `A sessão ${nomeSessao(s)} será encerrada para todas as máquinas.`, 'Cancelar sessão', true)) return;
-  try { aviso((await api('cancelar_multicast', { id: s.id })).msg); navegar(); } catch (e) { aviso(e.message, true); }
+  try { aviso((await api('cancelar_multicast', { id: s.id })).msg); depoisDaSessao(); } catch (e) { aviso(e.message, true); }
 }
 
 function linhaHistorico(h) {

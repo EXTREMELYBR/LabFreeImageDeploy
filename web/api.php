@@ -122,6 +122,11 @@ final class Painel
         if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 1048576) {
             self::erro('Pedido grande demais.', 413);
         }
+        // só JSON de verdade: um formulário ou fetch "simples" de outro site (text/plain, sem pré-verificação do
+        // navegador) não chega aqui (login forjado, bloqueio do IP do laboratório por tentativas)
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && stripos((string)($_SERVER['CONTENT_TYPE'] ?? ''), 'application/json') !== 0) {
+            self::erro('Pedido inválido.', 415);
+        }
         $j = json_decode((string)file_get_contents('php://input', false, null, 0, 1048576), true);
         return is_array($j) ? $j : [];
     }
@@ -1947,8 +1952,12 @@ final class Painel
             return;
         }
         $dominio = self::lfConfig('LABFREE_WIN_DOMINIO') === '1' ? 1 : 0;
-        $pendentes = self::q('SELECT hostID FROM hosts WHERE hostID IN (' . implode(',', $hostIds) . ') AND (hostUseAD <> ? OR (? = 1 AND hostProductKey = \'\') OR hostID NOT IN
-            (SELECT m.msHostID FROM moduleStatusByHost m JOIN modules mo ON mo.id = m.msModuleID WHERE mo.short_name = \'hostnamechanger\'))', [$dominio, self::lfConfig('LABFREE_WIN_LICENCA') === '1' ? 1 : 0]);
+        // chave em branco só é pendência se houver chave padrão (sem ela, '' é o valor certo e a máquina seria
+        // regravada a cada atualização do painel durante a clonagem); idem o módulo, se ele não existir na base
+        $faltaChave = self::lfConfig('LABFREE_WIN_LICENCA') === '1' && self::lfConfig('LABFREE_WIN_CHAVE_PADRAO') !== '' ? 1 : 0;
+        $temModulo = FOGCore::getSubObjectIDs('Module', ['shortName' => 'hostnamechanger']) ? 1 : 0;
+        $pendentes = self::q('SELECT hostID FROM hosts WHERE hostID IN (' . implode(',', $hostIds) . ') AND (hostUseAD <> ? OR (? = 1 AND hostProductKey = \'\') OR (? = 1 AND hostID NOT IN
+            (SELECT m.msHostID FROM moduleStatusByHost m JOIN modules mo ON mo.id = m.msModuleID WHERE mo.short_name = \'hostnamechanger\')))', [$dominio, $faltaChave, $temModulo]);
         foreach ($pendentes as $p) {
             $Host = new Host((int)$p['hostID']);
             if ($Host->isValid()) {

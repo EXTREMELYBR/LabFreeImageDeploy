@@ -20,6 +20,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -109,9 +110,24 @@ def parado():
     return n == '0'
 
 
+RAIZ_IMAGENS = '/images'
+
+
 def raiz_imagens():
-    r = mysql("SELECT ngmRootPath FROM nfsGroupMembers WHERE ngmIsMasterNode='1' ORDER BY ngmID LIMIT 1").strip()
-    return r or '/images'
+    # Sempre /images (o instalador fixa essa pasta). O caminho do banco não é usado: o www-data e o fogproject podem
+    # alterá-lo e apontar o root (este programa) para uma pasta deles.
+    return RAIZ_IMAGENS
+
+
+def criar_exclusivo(caminho):
+    """Arquivo novo, nunca seguindo link simbólico (a pasta das imagens é gravável pelo fogproject e pelo NFS)."""
+    try:
+        if os.path.islink(caminho) or os.path.exists(caminho):
+            os.unlink(caminho)
+    except IsADirectoryError:
+        raise RuntimeError(f'{caminho} é uma pasta; otimização cancelada')
+    fd = os.open(caminho, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    return os.fdopen(fd, 'wb')
 
 
 def ler_estado():
@@ -240,7 +256,10 @@ def otimizar_grupo(img_id, nome_img, base, pecas, total_img, feito_antes):
             ultimo_reg[0] = time.time()
 
     dec = subprocess.Popen(['zstd', '-dcq', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    saida = open(tmp, 'wb')
+    for p in pecas:  # só arquivos comuns (um link poderia fazer o root ler ou gravar fora das imagens)
+        if not stat.S_ISREG(os.lstat(p).st_mode):
+            raise RuntimeError(f'{os.path.basename(p)} não é um arquivo comum; otimização cancelada')
+    saida = criar_exclusivo(tmp)
     comp = subprocess.Popen(['zstd', '-q', '-T0', '-c', *NIVEL, '-'], stdin=subprocess.PIPE, stdout=saida)
     h = hashlib.sha256()
     erro = []
@@ -286,7 +305,7 @@ def otimizar_grupo(img_id, nome_img, base, pecas, total_img, feito_antes):
             return antes, antes, sha
         if not parado():
             raise Ocupado()
-        st = os.stat(pecas[0])
+        st = os.lstat(pecas[0])
         novos = []
         if em_pedacos:  # refaz os pedaços de 200 MB (.000, .001, …) como o FOG grava
             with open(tmp, 'rb') as f:
@@ -295,23 +314,30 @@ def otimizar_grupo(img_id, nome_img, base, pecas, total_img, feito_antes):
                     if not b:
                         break
                     nome = os.path.join(pasta, f'.labfree-otimizando-{base}.{len(novos):03d}')
-                    with open(nome, 'wb') as o:
+                    with criar_exclusivo(nome) as o:
                         o.write(b)
                     novos.append(nome)
             os.remove(tmp)
         else:
             novos = [tmp]
-        for n in novos:
-            os.chown(n, st.st_uid, st.st_gid)
-            os.chmod(n, st.st_mode & 0o7777)
-            with open(n, 'rb') as f:
-                os.fsync(f.fileno())
+        for n in novos:  # dono, permissões e data pelo descritor: nunca por um link trocado no meio do caminho
+            fd = os.open(n, os.O_RDONLY | os.O_NOFOLLOW)
+            try:
+                os.fchown(fd, st.st_uid, st.st_gid)
+                os.fchmod(fd, st.st_mode & 0o7777)
+                os.fsync(fd)
+            finally:
+                os.close(fd)
         # troca: novos pedaços no lugar dos antigos; sobra de pedaços antigos sai. Confere de novo "servidor
         # parado" logo antes (escrever os pedaços leva tempo) e mantém a data da captura (o painel mostra "capturada há")
         if not parado():
             raise Ocupado()
         for n in novos:
-            os.utime(n, ns=(st.st_atime_ns, st.st_mtime_ns))
+            fd = os.open(n, os.O_RDONLY | os.O_NOFOLLOW)
+            try:
+                os.utime(fd, ns=(st.st_atime_ns, st.st_mtime_ns))
+            finally:
+                os.close(fd)
         finais = [os.path.join(pasta, f'{base}.{i:03d}') for i in range(len(novos))] if em_pedacos else [pecas[0]]
         for n, f in zip(novos, finais):
             os.replace(n, f)

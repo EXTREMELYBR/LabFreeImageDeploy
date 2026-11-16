@@ -31,7 +31,7 @@ agente para Windows): a instalação não baixa nada do projeto FOG. Acrescenta:
 ## Instalação (3 passos)
 
 Você precisa de: um computador com **Ubuntu 22.04/24.04, Linux Mint 21/22 ou Debian 12** (64 bits, com
-NetworkManager), **internet** durante a instalação e **uma placa de rede com cabo só para a rede de clonagem**
+NetworkManager), **internet** durante a instalação e **uma placa de rede com fio só para a rede de clonagem**
 (pode ser um adaptador USB-Ethernet, ligado ao switch das máquinas a clonar).
 
 ```bash

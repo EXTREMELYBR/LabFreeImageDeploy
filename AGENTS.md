@@ -1,7 +1,7 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 28/10/2026 (versão 0.14.1). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
-> Código no GitHub, repositório **privado** (remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
+> Atualizado em 16/11/2026 (versão 0.14.2). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Código no GitHub (github.com/EXTREMELYBR/LabFreeImageDeploy; remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
 > Ao terminar qualquer mudança: (1) atualize a documentação afetada (README, docs/, este arquivo);
@@ -70,8 +70,16 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     pelo usuário (a permissão automática negou contornar o bloqueio) e entrou na 0.13.7: **código do FOS completo**.
 24. (28/10) "Os 3": expirar tarefas esquecidas, registro ao vivo no painel, limpar sobras em `/images/dev` — feito
     na 0.14.0 (seção 7j). Precisa do instalador na produção.
+26. (16/11) Em outro computador (notebook Lenovo, Mint 22.3): "revisar completamente, fazer funcionar e corrigir no
+    GitHub" — feito na 0.14.2 (instalação sem cabo, instalação retomada, troca de adaptador, 3 revisões de código).
 25. (28/10) "Crie um MD para eu rodar em outra Claude e instalar o sistema em outro computador" + "suba com um novo
     release" — `docs/PROMPT-INSTALAR.md` na 0.14.1 (só documentação).
+
+## 2b. Segunda máquina (16/11/2026): notebook "labfree-lenovo5", Linux Mint 22.3, PHP 8.4 (PPA ondrej)
+- Internet pelo Wi-Fi `wlp1s0`; rede de clonagem num adaptador USB RTL8153 **`enx00e04c880309`**, 192.168.31.1/24
+  (a instalação de 29/10 usou outro adaptador, `enx00e04c2803a7`, e falhou; ver CHANGELOG 0.14.2).
+- `/opt/LabFreeImageDeploy` é o repositório git (o `.git` veio de um clone do GitHub sobre a cópia do pacote).
+- 0.14.2 instalada e "Tudo certo." no `verificar`; nenhuma máquina/imagem cadastrada ainda; senha do admin já trocada pelo usuário no primeiro acesso (16/11).
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -188,6 +196,16 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
     O pacote `fog` do Buildroot baixa de www.fogproject.org, que o próprio LabFree bloqueia em `/etc/hosts`.
 42. O FOS de 64 bits usa o compilador pronto da Bootlin: a glibc/libstdc++ dentro do `init.xz` são as dele (versões
     no `summary.csv` do tarball), não as do `gcc`/`glibc` que o Buildroot baixa (essas são do de 32 bits).
+43. **NetworkManager 1.46**: o `ignore-carrier` de `[device-…]` só vale para o dispositivo quando ele é criado; depois
+    de `nmcli general reload conf` uma placa já presente e sem cabo continua "não disponível" (estado 20) e sem IP.
+    `nmcli device set PLACA managed no` + `managed yes` aplica (o ajudante só faz isso com a placa no estado 20).
+44. A base FOG usa `https://$ipaddress/` no `checkWebTier` e no `updateDB`: sem o IP de clonagem ativo a instalação
+    falha. O instalador põe o IP no `lo` durante a base (trap EXIT tira).
+45. A base cria o `config.class.php` e o banco cedo (antes de DHCP, boot, NFS, serviços): "existe config.class.php"
+    não quer dizer base instalada. Use o marcador `/var/lib/LabFreeImageDeploy/base-instalada` (ajudante e instalador).
+46. O `/etc/kea/kea-dhcp4.conf` do pacote tem comentários `//` (o `json.load` falha) até a base gravar o dela.
+47. Pastas em `/images` são do `fogproject` (e `/images/dev` é NFS gravável pela rede de clonagem): o root nunca abre,
+    dá `chown`/`chmod`/`utime` por caminho ali; use `O_NOFOLLOW|O_EXCL`, `dir_fd` e `fchown`/`fchmod`/`utime(fd)`.
 22. Nunca escreva um heredoc de bash contendo outro `EOF` dentro (o bash fecha no primeiro e executa o resto): scripts de
     edição vão em arquivo (Write) e rodam com `python3 -I arquivo`.
 

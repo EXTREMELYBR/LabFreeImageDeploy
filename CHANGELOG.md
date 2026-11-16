@@ -5,6 +5,58 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.14.2] - 2026-11-16
+
+Correções da instalação num computador novo + revisão completa do código (3 revisões: painel, programas root,
+instalador/FOS). Quem já tem o sistema: rode `sudo ./instalar.sh` (faz backup antes; reconstrói o sistema de
+clonagem por causa do desligamento automático: ~15 min, sem clonagem em andamento).
+
+### Correções — instalação
+- **Instalação com a placa de clonagem sem cabo falhava** em "Checking web server serves FOG": a base confere o site e
+  atualiza o banco por `https://IP-da-rede-de-clonagem/`, e sem cabo o NetworkManager não ativava o IP. Agora o IP
+  fica ativo mesmo sem cabo (o `ignore-carrier` só vale para o dispositivo depois de recriado: o ajudante recria a
+  placa parada) e, durante a instalação da base, o IP também é posto temporariamente no `lo` (sempre retirado).
+- **Rodar o instalador de novo depois de uma falha não terminava nunca**: a troca de rede recusava a configuração de
+  exemplo do pacote do Kea (com comentários) e considerava a base "instalada" só por existir o `config.class.php`.
+  Agora a base só conta como instalada com o marcador do instalador, e o Kea fica para depois da base.
+- Uma instalação nova que parou depois de criar o banco virava "atualização" na vez seguinte e deixava a base pela
+  metade (sem DHCP/boot/NFS/serviços): marcador `base-em-andamento`.
+- **Adaptador USB trocado por outro**: `sudo ./instalar.sh --placa NOME` numa máquina já instalada agora troca a placa
+  (antes a opção era ignorada); sem `--placa` e com a placa antiga ausente, o instalador avisa.
+- `--sim` com mais de uma placa possível recusa escolher sozinho (poderia pôr DHCP na rede da escola/empresa).
+- Código do iPXE preparado pela metade (interrupção) é refeito em vez de travar toda instalação seguinte.
+- Mensagens de erro claras ao ler as placas e calcular a faixa de IPs.
+
+### Correções — segurança (programas que rodam como root)
+- **Otimizador de imagens**: o arquivo temporário era criado seguindo link simbólico e recebia dono/permissões por
+  caminho, na pasta da imagem (gravável pelo usuário `fogproject` e pelo NFS da rede de clonagem): um link plantado
+  ali fazia o root sobrescrever e entregar qualquer arquivo do sistema. Agora: criação exclusiva sem seguir link,
+  dono/permissões/data pelo descritor, só arquivos comuns, e a pasta das imagens é sempre `/images` (não a do banco).
+- **Cópias (importar/exportar)**: importação grava e ajusta dono pela pasta já aberta (trocar a pasta por um link no
+  meio não leva mais o root para fora dela); exportação recusa imagem que seja link e pasta de destino que seja link.
+- Desfazer uma alteração não faz mais `chmod` seguindo link.
+
+### Correções — funcionamento
+- Trocar a rede de clonagem (IP/rede) agora atualiza o `dhcp.json` guardado: antes o próximo `reaplicar` recusava a
+  faixa antiga e parava antes da marca, dos serviços e do NAT; desligar o NAT depois de trocar de rede falhava sempre.
+- Regra udev do adaptador USB não é mais apagada quando o `reaplicar` roda com o adaptador desconectado.
+- Pedidos grandes ao ajudante (muitas reservas de IP) aceitos até 1 MB, com mensagem clara acima disso.
+- Painel: "Iniciar transmissão"/"Cancelar" na tela "Sessão criada!" levavam a um assistente novo (um clique a mais
+  criava outra sessão); agora vão para Tarefas.
+- Painel: com ativação de licença ligada e sem chave padrão, as máquinas em clonagem eram regravadas a cada
+  atualização da tela.
+- Painel: pedidos POST precisam ser JSON (`Content-Type: application/json`): um site qualquer não consegue mais
+  forjar login nem bloquear o IP do laboratório por "tentativas erradas".
+- Tela da máquina: o desligamento automático no fim grava o disco (`sync`) antes de desligar.
+
+### Para quem mantém
+- `/opt/LabFreeImageDeploy` desta máquina passou a ser o repositório (git) — publicação pelo `ferramentas/publicar.sh`.
+- `publicar.sh` confere também a sintaxe de `S99fog` e `usr/share/fog/lib/*.sh` do FOS. `LICENSE` (GPL v3) no repositório.
+- Pendências encontradas na revisão e não corrigidas (precisam de teste com máquinas reais): o serviço de multicast da
+  base pode regravar `msSenderStart` e reabrir a entrada de máquinas depois do "Iniciar"; a importação de cópias
+  confirma ao ajudante também caminhos que não foram cadastrados (nome de pasta com 59–60 letras); troca de pedaços
+  `.000/.001` pelo otimizador não é atômica entre pedaços.
+
 ## [0.14.1] - 2026-10-28
 
 Só documentação: não precisa rodar o instalador em quem já tem a 0.14.0.

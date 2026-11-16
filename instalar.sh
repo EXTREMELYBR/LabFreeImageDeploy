@@ -18,6 +18,7 @@ VERSAO=$(cat "$ORIGEM/VERSION" 2>/dev/null || echo dev)
 LOG=/var/log/LabFreeImageDeploy/instalacao.log
 AJUDANTE=/usr/local/lib/LabFreeImageDeploy/LabFreeImageDeploy-root
 BASE_OK=/var/lib/LabFreeImageDeploy/base-instalada   # só existe depois que a base FOG terminou de instalar
+BASE_ANDAMENTO=/var/lib/LabFreeImageDeploy/base-em-andamento   # existe enquanto a base instala (e se ela parar no meio)
 if [ "$(id -u)" -ne 0 ]; then echo "Rode como root: sudo ./instalar.sh"; exit 1; fi
 mkdir -p /var/log/LabFreeImageDeploy
 
@@ -34,6 +35,8 @@ passo()  { printf "  … %s" "$*"; echo "  … $*" >>"$LOG"; }
 feito()  { printf "\r  ${V}✔${Z} %s\n" "$*"; }
 rodar()  { "$@" >>"$LOG" 2>&1; }
 trap 'falha "Erro inesperado na linha $LINENO (comando: $BASH_COMMAND)."' ERR
+IP_TEMPORARIO=""   # IP da rede de clonagem posto no lo durante a instalação da base (placa sem cabo); sempre retirado
+trap '[ -n "$IP_TEMPORARIO" ] && ip addr del "$IP_TEMPORARIO" dev lo 2>/dev/null; true' EXIT
 
 ajuda() {
     cat <<EOF
@@ -138,7 +141,9 @@ checagens() {
     if [ ! -e "$BASE_OK" ] && [ -f /var/www/html/fog/lib/fog/config.class.php ] && ! mysql -N -e 'SELECT 1' >/dev/null 2>&1; then
         falha "O banco de dados não está respondendo, mas o sistema parece instalado. Inicie o banco (sudo systemctl start mariadb) e rode de novo."
     fi
-    if [ ! -e "$BASE_OK" ] && [ -f /var/www/html/fog/lib/fog/config.class.php ] \
+    # (instalações antigas, sem o marcador; nunca uma instalação desta versão que parou no meio: a base cria o banco
+    # cedo, antes do DHCP, boot, NFS e serviços)
+    if [ ! -e "$BASE_OK" ] && [ ! -e "$BASE_ANDAMENTO" ] && [ -f /var/www/html/fog/lib/fog/config.class.php ] \
        && mysql -N fog -e 'SELECT 1 FROM users LIMIT 1' >/dev/null 2>&1 && mysql -N fog -e 'SELECT 1 FROM globalSettings LIMIT 1' >/dev/null 2>&1; then
         mkdir -p "$(dirname "$BASE_OK")"; date > "$BASE_OK"
     fi
@@ -161,7 +166,8 @@ checagens() {
 escolher_rede() {
     titulo "Rede de clonagem"
     ajudante origem rede-listar; local lista="$SAIDA"
-    local candidatas; candidatas=$(echo "$lista" | json "'\n'.join(p['nome'] for p in d['placas'] if p['pode_usar'])")
+    local candidatas; candidatas=$(echo "$lista" | json "'\n'.join(p['nome'] for p in d['placas'] if p['pode_usar'])") \
+        || falha "Não foi possível ler a lista de placas de rede (veja $LOG)."
     echo "  Placas de rede encontradas:"
     echo "$lista" | python3 -I -c '
 import json,sys
@@ -173,6 +179,8 @@ for p in json.load(sys.stdin)["placas"]:
     if [ -z "$PLACA" ]; then
         local primeira; primeira=$(echo "$candidatas" | head -1)
         if [ "$(echo "$candidatas" | wc -l)" -gt 1 ]; then
+            # sem perguntas, escolher sozinho poderia pôr IP fixo e DHCP na rede da escola/empresa
+            [ "$SIM" = 1 ] && falha "Há mais de uma placa que pode atender a rede de clonagem ($(echo $candidatas | tr ' ' '/')). Informe qual com --placa NOME."
             perguntar "Qual placa vai atender a rede de clonagem? ($(echo $candidatas | tr ' ' '/'))" "$primeira"
             PLACA="$RESP"
         else
@@ -187,7 +195,8 @@ for p in json.load(sys.stdin)["placas"]:
     ajudante origem rede-simular "$(json_rede)"
     ok "Endereço do servidor: $IP/$PREFIXO"
     # faixa: a mesma regra do ajudante (nunca inclui o IP do servidor); a informada em --faixa é conferida
-    FAIXA=$(python3 -I "$ORIGEM/lib/faixa.py" "$ORIGEM/lib/LabFreeImageDeploy-root" "$IP/$PREFIXO" "$FAIXA")
+    FAIXA=$(python3 -I "$ORIGEM/lib/faixa.py" "$ORIGEM/lib/LabFreeImageDeploy-root" "$IP/$PREFIXO" "$FAIXA") \
+        || falha "Não foi possível calcular a faixa de IPs para $IP/$PREFIXO (veja $LOG)."
     [[ "$FAIXA" == ERRO:* ]] && falha "Faixa de IPs: ${FAIXA#ERRO: }"
     ok "Faixa de IPs para as máquinas: $FAIXA"
 }
@@ -319,13 +328,18 @@ migrar_nomes_antigos() {
 # ------------------------------------------------------------------ 5. rede + base
 
 configurar_rede() {
-    if [ "$MODO" = atualizar ] && [ -s /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf ] && grep -q '^FOG_IFACE=.\+' /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf; then
+    if [ "$MODO" = atualizar ] && [ "$TROCAR_REDE" = 0 ] && [ -s /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf ] && grep -q '^FOG_IFACE=.\+' /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf; then
         ok "rede de clonagem já configurada ($(. /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf; echo "$FOG_IFACE, $FOG_IP"))"
-        return
+        local atual; atual=$(. /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf; echo "$FOG_IFACE")
+        [ -d "/sys/class/net/$atual" ] || aviso "a placa $atual não está conectada agora. Se o adaptador foi trocado por outro, rode de novo com --placa NOME (ou troque em Configurações → Placa de rede)."
+        return 0
     fi
     passo "configurando a placa $PLACA com $IP/$PREFIXO"
     ajudante instalado rede-aplicar "$(json_rede)"
     feito "placa $PLACA configurada com $IP/$PREFIXO"
+    # instalação nova: o DHCP inicial (faixa escolhida). Numa troca de placa em atualização o ajudante já guardou o
+    # DHCP atual (com as reservas) e ele não pode ser apagado
+    [ "$MODO" = nova ] || return 0
     python3 -I -c 'import json,sys; ini,fim=sys.argv[1].split("-"); print(json.dumps({"ativo": True, "inicio": ini, "fim": fim, "gateway": "", "dns": [], "dominio": "", "concessao_horas": 6, "reservas": []}))' \
         "$FAIXA" > /etc/LabFreeImageDeploy/dhcp.json
 }
@@ -346,7 +360,8 @@ preparar_terceiros() { # $1 = pasta base-fog que será usada
     # o script da base buscaria o iPXE no GitHub (sem prazo) antes de compilar: o código já está aqui, na versão marcada
     sed -i '/git fetch --tags --force \${IPXEGIT}/d' /opt/fog/ipxe/buildipxe.sh
     for d in ipxe ipxe-efi; do
-        [ -d "/opt/fog/ipxe/build/$d/.git" ] && continue
+        # pula só se a cópia estiver completa (com a marca v2.0.0): uma preparação interrompida é refeita
+        git -C "/opt/fog/ipxe/build/$d" rev-parse -q --verify refs/tags/v2.0.0 >/dev/null 2>&1 && continue
         tmpd=$(mktemp -d)
         tar -xzf "$t/ipxe/ipxe-v2.0.0-fonte.tar.gz" -C "$tmpd" || falha "Não foi possível abrir o código do iPXE do pacote."
         mkdir -p /opt/fog/ipxe/build && rm -rf "/opt/fog/ipxe/build/$d" && mv "$tmpd/ipxe" "/opt/fog/ipxe/build/$d" && rmdir "$tmpd"
@@ -408,9 +423,19 @@ EOF
         [ -x "$base/installfog.sh" ] || falha "Extraia o pacote numa pasta sem espaços no nome (ex.: /root/LabFreeImageDeploy) e rode de novo."
     fi
     preparar_terceiros "$(dirname "$base")"
-    ( cd "$base" && ./installfog.sh -y ) >>"$LOG" 2>&1 || falha "A instalação da base falhou. Veja o final de $LOG. Rodar sudo ./instalar.sh de novo continua de onde parou."
+    # A base confere o site e atualiza o banco por https://$IP/. Sem cabo na placa de clonagem o NetworkManager não
+    # ativa o IP e a base falhava em "Checking web server serves FOG". Enquanto ela instala, o IP fica também no lo.
+    if ! ip -4 -o addr show | awk '{print $4}' | grep -q "^${IP//./\\.}/"; then
+        ip addr add "$IP/32" dev lo && IP_TEMPORARIO="$IP/32" && echo "  (IP $IP posto temporariamente no lo: placa sem cabo)" >>"$LOG"
+    fi
+    local rc=0
+    mkdir -p "$(dirname "$BASE_ANDAMENTO")"; date > "$BASE_ANDAMENTO"
+    ( cd "$base" && ./installfog.sh -y ) >>"$LOG" 2>&1 || rc=$?
+    [ -n "$IP_TEMPORARIO" ] && { ip addr del "$IP_TEMPORARIO" dev lo 2>/dev/null || true; IP_TEMPORARIO=""; }
+    [ "$rc" = 0 ] || falha "A instalação da base falhou. Veja o final de $LOG. Rodar sudo ./instalar.sh de novo continua de onde parou."
     [ -d /var/www/html/fog/lib/fog ] || falha "A base não foi instalada corretamente (falta /var/www/html/fog)."
     date > "$BASE_OK"
+    rm -f "$BASE_ANDAMENTO"
     ok "base instalada"
 }
 
@@ -540,8 +565,17 @@ backup_antes() { # atualização: sempre um backup do estado atual antes de mexe
 }
 
 checagens
-# servidor FOG comum (sem o LabFree configurado): também precisa escolher a placa da rede de clonagem
-if [ "$MODO" = nova ] || ! grep -qs '^FOG_IFACE=.\+' /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf /etc/labfree/labfree.conf /etc/fogfacil/fogfacil.conf; then
+# servidor FOG comum (sem o LabFree configurado): também precisa escolher a placa da rede de clonagem.
+# Atualização com --placa/--ip (ex.: adaptador USB trocado por outro): reconfigura a rede de clonagem.
+TROCAR_REDE=0
+if [ "$MODO" = atualizar ] && { [ -n "$PLACA" ] || [ -n "$IP" ]; } && grep -qs '^FOG_IFACE=.\+' /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf; then
+    TROCAR_REDE=1
+    # o que não foi informado continua como está
+    [ -n "$IP" ] || IP=$(. /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf; echo "$FOG_IP")
+    [ -n "$PREFIXO" ] || PREFIXO=$(. /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf; echo "${FOG_PREFIXO:-24}")
+    [ -n "$PLACA" ] || PLACA=$(. /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf; echo "$FOG_IFACE")
+fi
+if [ "$MODO" = nova ] || [ "$TROCAR_REDE" = 1 ] || ! grep -qs '^FOG_IFACE=.\+' /etc/LabFreeImageDeploy/LabFreeImageDeploy.conf /etc/labfree/labfree.conf /etc/fogfacil/fogfacil.conf; then
     escolher_rede
 fi
 confirmar_tudo

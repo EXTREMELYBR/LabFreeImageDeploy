@@ -265,12 +265,16 @@ def trabalho_rodando():
 
 # ------------------------------------------------------------------ cópia conferida
 
-def copiar_conferido(origem, destino, est, esperado=None):
+def copiar_conferido(origem, destino, est, esperado=None, dir_fd=None):
     """Copia calculando o SHA-256, grava no disco (fsync), descarta o cache e lê de volta do destino.
-    Devolve o SHA-256. Levanta Erro se o lido de volta (ou o esperado) não bater."""
+    Devolve o SHA-256. Levanta Erro se o lido de volta (ou o esperado) não bater.
+    O destino nunca é um link simbólico; com dir_fd, `destino` é o nome dentro dessa pasta já aberta."""
     h = hashlib.sha256()
     fo_fd = os.open(origem, os.O_RDONLY | os.O_NOFOLLOW)
-    with os.fdopen(fo_fd, 'rb') as fo, open(destino, 'wb') as fd:
+    if dir_fd is not None:
+        destino = os.path.basename(destino)
+    fd_d = os.open(destino, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600, dir_fd=dir_fd)
+    with os.fdopen(fo_fd, 'rb') as fo, os.fdopen(fd_d, 'wb') as fd:
         while True:
             if est.d.get('cancelar'):
                 raise Cancelado()
@@ -289,7 +293,7 @@ def copiar_conferido(origem, destino, est, esperado=None):
     est.d['fase'] = 'conferindo'
     est.gravar(True)
     h2 = hashlib.sha256()
-    with open(destino, 'rb') as f:
+    with os.fdopen(os.open(destino, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dir_fd), 'rb') as f:
         try:
             os.posix_fadvise(f.fileno(), 0, 0, os.POSIX_FADV_DONTNEED)  # ler do disco, não da memória
         except OSError:
@@ -304,8 +308,12 @@ def copiar_conferido(origem, destino, est, esperado=None):
     if h2.hexdigest() != sha:
         raise Erro(f'A conferência de {os.path.basename(destino)} falhou: o que foi gravado não é igual ao original. Troque o disco/cabo e tente de novo.')
     try:
-        st = os.stat(origem)
-        os.utime(destino, ns=(st.st_atime_ns, st.st_mtime_ns))
+        st = os.stat(origem, follow_symlinks=False)
+        fd_t = os.open(destino, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dir_fd)
+        try:
+            os.utime(fd_t, ns=(st.st_atime_ns, st.st_mtime_ns))
+        finally:
+            os.close(fd_t)
     except OSError:
         pass
     est.d['fase'] = 'copiando'
@@ -324,13 +332,15 @@ def espaco_livre(pasta):
 
 def exportar(raiz, imagens, est):
     base = os.path.join(raiz, PASTA_DESTINO)
+    if os.path.islink(base):  # um disco preparado poderia levar a gravação para fora dele
+        raise Erro(f'{PASTA_DESTINO} no destino é um atalho (link), não uma pasta. Use outro disco ou apague esse atalho.')
     os.makedirs(base, exist_ok=True)
     total = 0
     planos = []
     for img in imagens:
         caminho = img['caminho']
         origem = os.path.join(IMAGENS, caminho)
-        if not RE_PASTA.match(caminho) or not os.path.isdir(origem):
+        if not RE_PASTA.match(caminho) or os.path.islink(origem) or not os.path.isdir(origem):
             raise Erro(f"A imagem {img.get('nome', caminho)} não tem arquivos no servidor.")
         arqs = arquivos_da_imagem(origem)
         tam = sum(os.path.getsize(os.path.join(origem, a)) for a in arqs)
@@ -418,15 +428,28 @@ def importar(raiz, pastas, est):
             nova = f'{p}-{n}'
             n += 1
         parcial = os.path.join(IMAGENS, f'.{nova}.importando')
+        if os.path.islink(parcial):
+            os.unlink(parcial)
         shutil.rmtree(parcial, ignore_errors=True)
-        os.makedirs(parcial)
-        for a, info in sorted(man['arquivos'].items()):
-            dst = os.path.join(parcial, a)
-            copiar_conferido(os.path.join(pasta, a), dst, est, esperado=info.get('sha256'))
-            os.chown(dst, st.st_uid, st.st_gid)
-            os.chmod(dst, 0o775)
-        os.chown(parcial, st.st_uid, st.st_gid)
-        os.chmod(parcial, 0o775)
+        os.mkdir(parcial, 0o700)
+        # /images é do fogproject (e exportada por NFS): tudo é feito pela pasta já aberta, para que trocar a pasta por
+        # um link no meio da cópia não leve o root a gravar ou mudar o dono de arquivos fora dela
+        dfd = os.open(parcial, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            if os.fstat(dfd).st_uid != os.geteuid():
+                raise Erro('A pasta temporária da importação foi trocada durante a cópia; importação cancelada.')
+            for a, info in sorted(man['arquivos'].items()):
+                copiar_conferido(os.path.join(pasta, a), a, est, esperado=info.get('sha256'), dir_fd=dfd)
+                fa = os.open(a, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dfd)
+                try:
+                    os.fchown(fa, st.st_uid, st.st_gid)
+                    os.fchmod(fa, 0o775)
+                finally:
+                    os.close(fa)
+            os.fchown(dfd, st.st_uid, st.st_gid)
+            os.fchmod(dfd, 0o775)
+        finally:
+            os.close(dfd)
         os.rename(parcial, os.path.join(IMAGENS, nova))
         man['caminho'] = nova
         man.pop('arquivos', None)

@@ -6,7 +6,7 @@
 |---|---|
 | Sistema | Ubuntu 22.04 ou 24.04, Linux Mint 21 ou 22, Debian 12 — 64 bits (x86_64) |
 | Rede do servidor | **NetworkManager** ativo (padrão em Ubuntu/Mint desktop) |
-| Placa de clonagem | Uma placa **com cabo**, só para a rede de clonagem (adaptador USB-Ethernet serve). Não pode ser a placa que leva o servidor à internet, nem Wi-Fi |
+| Placa de clonagem | Uma placa de rede com fio, só para a rede de clonagem (adaptador USB-Ethernet serve). Não pode ser a placa que leva o servidor à internet, nem Wi-Fi. O cabo pode ser ligado depois da instalação |
 | Internet | Necessária durante a instalação só para os pacotes do sistema (Ubuntu/Debian). Todo o resto vem no pacote: o LabFree ImageDeploy não baixa nada do projeto FOG nem do GitHub |
 | Memória | 4 GB ou mais |
 | Disco | Espaço para as imagens: cada uma ocupa de 10 a 60 GB (ficam em `/images`) |
@@ -81,8 +81,10 @@ Caminhos herdados da base FOG que **não mudam** (as máquinas clientes dependem
 
 | Mensagem | O que fazer |
 |---|---|
-| "Nenhuma placa com cabo disponível" | Conecte um adaptador USB-Ethernet (ou outra placa). A placa da internet não pode ser usada |
+| "Nenhuma placa com cabo disponível" (nenhuma placa com fio além da da internet) | Conecte um adaptador USB-Ethernet (ou outra placa). A placa da internet não pode ser usada |
 | "A rede … conflita com a placa …" | O IP escolhido está na mesma faixa de outra rede do servidor: use `--ip 10.10.10.1` |
 | "Sem internet" | A instalação precisa baixar pacotes; conecte o servidor à internet pela outra placa |
-| "A instalação da base falhou" | Veja o fim de `/var/log/LabFreeImageDeploy/instalacao.log`. Rodar `sudo ./instalar.sh` de novo continua de onde parou |
+| "A instalação da base falhou" | Veja o fim de `/var/log/LabFreeImageDeploy/instalacao.log`. Rodar `sudo ./instalar.sh` de novo continua de onde parou (a base é instalada de novo até terminar; o marcador `/var/lib/LabFreeImageDeploy/base-em-andamento` indica uma instalação que parou no meio) |
+| Adaptador USB trocado por outro (nome `enx…` diferente) | Pelo painel: Configurações → Placa de rede. Ou no servidor: `sudo ./instalar.sh --placa NOME_NOVO` (o resto continua igual) |
+| "Há mais de uma placa que pode atender a rede de clonagem" (com `--sim`) | Informe qual com `--placa NOME` |
 | Máquinas não recebem IP | `sudo LabFreeImageDeploy verificar`; confira o cabo e se não há outro servidor DHCP na rede de clonagem |

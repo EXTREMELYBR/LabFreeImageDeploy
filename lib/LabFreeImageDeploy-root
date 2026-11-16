@@ -47,6 +47,7 @@ FOGSETTINGS = '/opt/fog/.fogsettings'
 DEFAULT_IPXE = '/tftpboot/default.ipxe'
 APACHE_FOG = '/etc/apache2/sites-available/001-fog.conf'
 FOG_CONFIG_PHP = '/var/www/html/fog/lib/fog/config.class.php'
+BASE_OK = '/var/lib/LabFreeImageDeploy/base-instalada'  # gravado pelo instalador quando a base FOG termina de instalar
 CHRONY_FOG = '/etc/chrony/conf.d/LabFreeImageDeploy.conf'
 KEA_DROPIN = '/etc/systemd/system/kea-dhcp4-server.service.d/10-LabFreeImageDeploy.conf'
 UDEV_REGRA = '/etc/udev/rules.d/90-LabFreeImageDeploy-usb-nic.rules'
@@ -292,9 +293,7 @@ class Instantaneo:
                     if os.path.islink(caminho):
                         os.remove(caminho)
                     with open(destino, 'rb') as f:
-                        gravar_atomico(caminho, f.read(), modo, (uid, gid))
-                    os.chown(caminho, uid, gid, follow_symlinks=False)
-                    os.chmod(caminho, modo)
+                        gravar_atomico(caminho, f.read(), modo, (uid, gid))  # dono e permissões pelo descritor
                 elif os.path.lexists(caminho):
                     os.remove(caminho)
             except (OSError, Erro) as e:
@@ -758,7 +757,9 @@ def nm_configurar(p, conf, desfazer):
         if dev == p['iface'] and u != uuid:
             sh(['nmcli', 'con', 'down', u], verificar=False)
             desfazer.setdefault('derrubadas', []).append(u)
-    if ler_sys(f"/sys/class/net/{p['iface']}/carrier") == '1':
+    # com o ignore-carrier a conexão (IP fixo) sobe mesmo sem cabo; se a placa não estiver pronta, o NM só recusa
+    estado = sh(['nmcli', '-g', 'GENERAL.STATE', 'device', 'show', p['iface']], verificar=False).stdout.strip()
+    if ler_sys(f"/sys/class/net/{p['iface']}/carrier") == '1' or not estado.startswith('20'):
         sh(['nmcli', '--wait', '20', 'con', 'up', uuid], verificar=False)
     return uuid
 
@@ -803,6 +804,8 @@ RestartSec=10
 
 
 def escrever_udev(iface, inst):
+    if not iface_existe(iface):
+        return  # adaptador desconectado agora: mantém a regra que já existe (senão o autosuspend volta ao plugar)
     inst.guardar(UDEV_REGRA)
     usb = info_usb(iface)
     if not usb:
@@ -827,6 +830,14 @@ match-device=interface-name:{iface}
 ignore-carrier=yes
 """)
     sh(['nmcli', 'general', 'reload', 'conf'], verificar=False)
+    # O NM (1.46) só aplica o ignore-carrier a um dispositivo quando ele é criado: uma placa já presente e sem cabo
+    # continuava "não disponível" e sem o IP (a base FOG e o painel não respondiam em https://IP/). Recriar o
+    # dispositivo resolve; só é feito com a placa parada (estado 20), nunca numa placa em uso.
+    estado = sh(['nmcli', '-g', 'GENERAL.STATE', 'device', 'show', iface], verificar=False).stdout.strip()
+    if iface_existe(iface) and estado.startswith('20'):
+        sh(['nmcli', 'device', 'set', iface, 'managed', 'no'], verificar=False)
+        time.sleep(1)
+        sh(['nmcli', 'device', 'set', iface, 'managed', 'yes'], verificar=False)
 
 
 def escrever_chrony(rede, inst):
@@ -1060,7 +1071,9 @@ def rede_aplicar(e):
     nm_desfazer = {}
     anotar = lambda: diario({'dir': inst.dir, 'velho_conf': velho_conf, 'nm': nm_desfazer, 'banco': banco_antes})
     anotar()
-    fog_instalado = os.path.exists(FOG_CONFIG_PHP)
+    # Base completa = site + marcador do instalador. Uma instalação nova que parou no meio já tem o config.class.php,
+    # mas não tem o banco nem o painel: tratá-la como pronta fazia a troca de rede falhar (e o instalador nunca terminar).
+    fog_instalado = os.path.exists(FOG_CONFIG_PHP) and os.path.exists(BASE_OK)
     log(f"rede-aplicar: {if_v} {ip_v}/{p['velho']['prefixo']} -> {if_n} {ip_n}/{p['prefixo']}")
     try:
         inst.guardar(CONF)
@@ -1075,8 +1088,17 @@ def rede_aplicar(e):
         escrever_chrony(p['rede'], inst)
         sh(['systemctl', 'daemon-reload'], verificar=False)
         sh(['udevadm', 'control', '--reload'], verificar=False)
+        cfg = None
         if os.path.exists(KEA):
-            cfg = kea_ler()
+            try:
+                cfg = kea_ler()
+            except Erro:
+                # Base ainda não instalada (instalação nova retomada): o arquivo é o exemplo do pacote do Kea, com
+                # comentários. A base grava o dela e o reaplicar do instalador aplica o DHCP depois; não é erro.
+                if fog_instalado:
+                    raise
+                log('rede-aplicar: configuração do Kea ainda é a do pacote (base não instalada); DHCP fica para depois')
+        if cfg is not None:
             d = p['dhcp']
             if not d:  # configuração do DHCP ilegível: recomeça com a faixa padrão da rede nova
                 ini, fim = faixa_padrao(p['rede'], p['ip'])
@@ -1086,6 +1108,10 @@ def rede_aplicar(e):
                               'dominio': d['dominio'], 'concessao_horas': d['concessao_horas'], 'reservas': d['reservas'],
                               'ativo': d['ativo']}, p['rede'], p['ip'])
             kea_instalar(kea_montar(cfg, v, p['rede'], p['ip'], if_n), inst)
+            # o dhcp.json salvo acompanha a rede nova: o reaplicar (instalador, restauração) usa ele e recusaria a
+            # faixa da rede antiga, parando antes da marca, dos serviços e do NAT
+            inst.guardar(DHCP_SALVO)
+            salvar_dhcp(v)
         pares = [(ip_v, ip_n), (if_v, if_n)]
         for arq in (DEFAULT_IPXE, APACHE_FOG, FOG_CONFIG_PHP):
             substituir_em_arquivo(arq, pares, inst)
@@ -1104,7 +1130,7 @@ def rede_aplicar(e):
             if p['mudou_ip']:
                 reemitir_certificado(ip_n, inst)
         reiniciar_servicos_fog()
-        aviso = kea_reiniciar(nova_conf) if os.path.exists(KEA) else ''
+        aviso = kea_reiniciar(nova_conf) if cfg is not None else ''
         alvo_teste = ip_n if any(c.startswith(ip_n + '/') for c in ips_da_iface(if_n)) else '127.0.0.1'
         if fog_instalado and not web_ok(alvo_teste):
             raise Erro('o sistema parou de responder depois da troca')
@@ -1307,6 +1333,11 @@ def nat_aplicar(e):
                 sh(['sysctl', '-q', '-w', 'net.ipv4.ip_forward=0'], verificar=False)
             ant = antes.get('dhcp_anterior') or {}
             gw = ant.get('gateway', '') if ant.get('gateway', '') != conf.get('FOG_IP') else ''
+            try:  # gateway de antes de uma troca de rede: fora da rede atual não é aceito (desligar o NAT falharia sempre)
+                if gw and ipaddress.IPv4Address(gw) not in ipaddress.IPv4Network(f"{conf.get('FOG_IP')}/{conf.get('FOG_PREFIXO', 24)}", strict=False):
+                    gw = ''
+            except ValueError:
+                gw = ''
             dhcp_aplicar({**dhcp_atual, 'gateway': gw, 'dns': ant.get('dns') or []})
             dhcp_mudou = True
             gravar_atomico(NAT_CONF, json.dumps({'ligado': False}) + '\n', 0o600)
@@ -1862,7 +1893,10 @@ def main():
     if os.environ.get('SUDO_USER') == 'www-data' and acao not in ACOES_PAINEL:
         print(json.dumps({'erro': 'Ação não permitida pelo painel.'}, ensure_ascii=False))
         return 1
-    bruto = '' if sys.stdin.isatty() else sys.stdin.read(65536)
+    bruto = '' if sys.stdin.isatty() else sys.stdin.read(1 << 20)
+    if len(bruto) >= 1 << 20:
+        print(json.dumps({'erro': 'Pedido grande demais (mais de 1 MB).'}, ensure_ascii=False))
+        return 1
     if acao == 'rede-aplicar' and not os.environ.get('LABFREE_DESTACADO') and shutil.which('systemd-run'):
         # roda numa unidade própria do systemd: reiniciar o Apache/PHP durante a troca não mata o ajudante
         # no meio (o que deixaria a rede meio trocada e sem desfazer)
