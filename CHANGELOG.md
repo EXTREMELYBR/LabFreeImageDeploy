@@ -5,7 +5,26 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.14.4] - 2026-11-16
+
+**Use esta versão em vez da 0.14.3** (o pacote da 0.14.3 saiu incompleto). Quem já tem o sistema instalado não precisa
+fazer nada.
+
+### Correções
+- **Pacote de instalação incompleto quando gerado de um clone do GitHub**: o `.gitignore` da própria base FOG ignora
+  `*Image*`, `*.gz`, `*.exe`, `languages/` e `packages/tftp/`, então o repositório nunca teve 107 arquivos da base:
+  os serviços `FOGImageReplicator`/`FOGImageSize`, o código do udpcast (envio em grupo), o `grub.exe`, as traduções
+  do FOG e os binários de boot de `packages/tftp`. Os pacotes até a 0.14.2 os tinham porque foram gerados de uma pasta
+  instalada; a 0.14.3 foi a primeira gerada de um clone limpo. Os arquivos (da base 1.5.10.2518, iguais aos dos
+  pacotes anteriores) entraram no git com `git add -f`, e o `empacotar.sh` agora recusa gerar o pacote sem eles.
+  Conferido: a lista de arquivos do pacote é idêntica à do pacote 0.14.2 (que instalou do zero nesta máquina).
+- O pacote não leva mais os registros de instalação da base (`base-fog/bin/error_logs`) quando é gerado numa
+  máquina onde o sistema já foi instalado (a 0.14.2 levou os desta máquina, sem senhas).
+
 ## [0.14.3] - 2026-11-16
+
+> **Pacote incompleto: não use** (ver 0.14.4).
+
 
 Só o instalador e a documentação: quem já tem o sistema instalado não precisa fazer nada.
 

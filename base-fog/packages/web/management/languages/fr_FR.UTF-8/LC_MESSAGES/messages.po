@@ -1,0 +1,7521 @@
+# French translations for PACKAGE package
+# Traductions françaises du paquet PACKAGE.
+# Copyright (C) 2016 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Automatically generated, 2016.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2021-05-04 13:13-0500\n"
+"PO-Revision-Date: 2021-06-24 15:48+0200\n"
+"Last-Translator: Bristow\n"
+"Language-Team: none\n"
+"Language: fr_FR.UTF-8\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid " * Image replication is globally disabled"
+msgstr " * La réplication d'image est globalement désactivée"
+
+msgid " * Image size is globally disabled"
+msgstr " * La taille de l'image est désactivée globalement"
+
+msgid " * Multicast service is globally disabled"
+msgstr " * Le service multicast est globalement désactivé"
+
+msgid " * Ping hosts is globally disabled"
+msgstr " * Le ping des machines est globalement désactivé"
+
+msgid " * Snapin hash is globally disabled"
+msgstr " * Le hachage des Snapins est globalement désactivé"
+
+msgid " * Snapin replication is globally disabled"
+msgstr " * La réplication de Snapin est globalement désactivée"
+
+msgid " * Task Scheduler is globally disabled"
+msgstr " * Le planificateur de tâches est globalement désactivé"
+
+msgid " No open slots "
+msgstr " Pas de slots ouverts "
+
+msgid " Task state has been updated, now the task is queued!"
+msgstr " L'état de la tâche a été mis à jour, désormais, elle est en file d'attente !"
+
+msgid " | This is not the master node"
+msgstr " | Ce n'est pas le nœud principal"
+
+msgid " | Unable to find image path"
+msgstr " | Impossible de trouver le chemin de l'image"
+
+msgid "$_POST variable is empty, check apache error log."
+msgstr "La variable $_POST est vide, consultez le journal des erreurs Apache."
+
+#, fuzzy, php-format
+msgid "%s Advanced Actions"
+msgstr "Actions avancées"
+
+#, php-format
+msgid "%s ID %d is not valid"
+msgstr "%s ID %d non valide"
+
+#, php-format
+msgid "%s ID %s is not valid"
+msgstr "%s ID %s n'est pas valide"
+
+#, php-format
+msgid "%s Manager"
+msgstr "%s gestionnaire"
+
+#, php-format
+msgid "%s Menu"
+msgstr "%s Menu"
+
+#, fuzzy, php-format
+msgid "%s Name"
+msgstr " Nom"
+
+#, php-format
+msgid "%s can only be run on one host at a time"
+msgstr ""
+
+#, php-format
+msgid "%s is required"
+msgstr "%s est requis"
+
+#, fuzzy, php-format
+msgid "%s successfully updated!"
+msgstr "a été mis à jour avec succès"
+
+msgid "1 Hour"
+msgstr "1 heure"
+
+msgid "10 Minutes"
+msgstr "10 minutes"
+
+msgid "2 Minutes"
+msgstr "2 minutes"
+
+msgid "30 Minutes"
+msgstr "30 minutes"
+
+msgid "<p>Dependencies: port TCP 445 open in the client side"
+msgstr "<p>Dépendances : port TCP 445 ouvert côté client"
+
+msgid "<p>Possible status: Windows, Linux, FOS and Unknown"
+msgstr "<p>État possible : Windows, Linux, FOS et Inconnu"
+
+msgid "<p>Version 1.5.5"
+msgstr "<p>Version 1.5.5"
+
+msgid "A LDAP setup already exists with this name!"
+msgstr "Une configuration LDAP existe déjà avec ce nom !"
+
+msgid "A Windows Key already exists with this name!"
+msgstr "Une clé Windows portant ce nom existe déjà !"
+
+msgid "A broadcast address is required"
+msgstr "Une adresse de broadcast est requise"
+
+msgid "A broadcast already exists with this name!"
+msgstr "Un broadcast existe déjà avec ce nom !"
+
+msgid "A description needs to be set"
+msgstr "Une description doit être réglée"
+
+msgid "A file"
+msgstr "Un fichier"
+
+msgid "A group already exists with this name!"
+msgstr "Un groupe existe déjà avec ce nom !"
+
+msgid "A group is required for a location"
+msgstr "Un groupe est nécessaire pour un emplacement"
+
+msgid "A group is required!"
+msgstr "Un groupe est requis !"
+
+msgid "A group must be selected."
+msgstr "Un group doit être sélectionné."
+
+msgid "A group name is required!"
+msgstr "Un nom de groupe est nécessaire !"
+
+msgid "A host already exists with this name!"
+msgstr "Une machine avec ce nom existe déjà !"
+
+msgid "A host name is required!"
+msgstr "Un nom de machine est nécessaire !"
+
+msgid "A host with that name already exists"
+msgstr "Une machine avec ce nom existe déjà"
+
+msgid "A host with this mac already exists with name"
+msgstr "Une machine avec cette adresse mac existe déjà avec le nom"
+
+msgid "A location with that name already exists."
+msgstr "Un emplacement avec ce nom existe déjà."
+
+msgid "A mac address is required!"
+msgstr "Une adresse MAC est nécessaire !"
+
+msgid "A name is required!"
+msgstr "Un nom est requis !"
+
+msgid "A name must be defined if using the \"name\" property"
+msgstr ""
+
+msgid "A name must be set"
+msgstr "Un nom doit être défini"
+
+msgid "A password is required!"
+msgstr "Un mot de passe est nécessaire !"
+
+msgid "A printer already exists with this name!"
+msgstr "Une imprimante existe déjà sous ce nom !"
+
+msgid "A printer name is required!"
+msgstr "Un nom d'imprimante est nécessaire !"
+
+msgid "A role already exists with this name!"
+msgstr "Un rôle avec ce nom existe déjà !"
+
+#, fuzzy
+msgid "A rule already exists with this name"
+msgstr "Une règle existe déjà avec ce nom."
+
+#, fuzzy
+msgid "A scheduled time is required"
+msgstr "Un nom d'utilisateur est requis !"
+
+msgid "A site already exists with this name!"
+msgstr "Un site existe déjà sous ce nom !"
+
+msgid "A snapin already exists with this name!"
+msgstr "Un Snapin existe déjà avec ce nom !"
+
+msgid "A snapin name is required!"
+msgstr "Un nom de Snapin est nécessaire !"
+
+#, fuzzy
+msgid "A storage group is required!"
+msgstr "Un groupe est requis !"
+
+msgid "A subnet group already exists with this name!"
+msgstr "Un groupe de sous-réseaux existe déjà avec ce nom !"
+
+msgid "A subnet group is already using this group."
+msgstr "Un groupe de sous-réseaux utilise déjà ce groupe."
+
+msgid "A subnetgroup already exists with this name!"
+msgstr "Un groupe de sous-réseau existe déjà avec ce nom !"
+
+msgid "A task already exists for this host at the scheduled tasking"
+msgstr "Une tâche existe déjà pour cette machine au moment de la planification de la tâche"
+
+msgid "A task state already exists with this name!"
+msgstr "Un état de tâche existe déjà avec ce nom !"
+
+msgid "A task type already exists with this name!"
+msgstr "Un type de tâche existe déjà avec ce nom !"
+
+msgid "A user already exists with this name"
+msgstr "Un utilisateur existe déjà avec ce nom"
+
+msgid "A user name is required!"
+msgstr "Un nom d'utilisateur est requis !"
+
+msgid "A username already exists with this name!"
+msgstr "Un nom d'utilisateur existe déjà avec ce nom !"
+
+msgid "A valid database connection could not be made"
+msgstr "Une connexion valide à la base de données n'a pas pu être établie"
+
+msgid "AD Domain"
+msgstr "AD Domain"
+
+msgid "AD Join"
+msgstr "Jonction AD"
+
+msgid "AD OU"
+msgstr "AD OU"
+
+msgid "API Settings"
+msgstr "Paramètres de l'API"
+
+msgid "API?"
+msgstr "API ?"
+
+msgid "About FOG Reports"
+msgstr "À propos des rapports de FOG"
+
+msgid "Accepted"
+msgstr "Accepté"
+
+msgid "Access"
+msgstr "Accès"
+
+msgid "Access Control Management"
+msgstr "Gestion des contrôles d'accès"
+
+msgid "Access Control Role General"
+msgstr "Généralités sur les rôles de contrôle d'accès"
+
+msgid "Access Control Rule"
+msgstr "Règle de contrôle d'accès"
+
+msgid "Access Control Rule General"
+msgstr "Généralités sur les règles de contrôle d'accès"
+
+msgid "Access Control Rules"
+msgstr "Règles de contrôle d'accès"
+
+msgid "Access Controls"
+msgstr "Contrôles d'accès"
+
+#, fuzzy
+msgid "Access Denied"
+msgstr "Jeton d'accès"
+
+msgid "Access Token"
+msgstr "Jeton d'accès"
+
+msgid "Access level is still 0 or false"
+msgstr "Le niveau d'accès est toujours 0 ou false"
+
+msgid "Accessed By"
+msgstr "Consulté par"
+
+msgid "Account already linked"
+msgstr "Compte déjà lié"
+
+msgid "Account linked to FOG GUI at"
+msgstr "Compte lié à l'interface graphique de FOG à"
+
+msgid "Account name to reset"
+msgstr "Nom du compte à réinitialiser"
+
+msgid "Account removed from FOG GUI at"
+msgstr "Compte retiré de l'interface FOG à"
+
+msgid "Account successfully added!"
+msgstr "Compte ajouté avec succès !"
+
+msgid "Action"
+msgstr "Action"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "Activate Plugins"
+msgstr "Activation des greffons"
+
+msgid "Active"
+msgstr "Actif"
+
+msgid "Active Directory"
+msgstr "Active Directory"
+
+msgid "Active Multicast Tasks"
+msgstr "Tâches Multicast actives"
+
+msgid "Active Snapin Tasks"
+msgstr "Tâches Snapin actives"
+
+msgid "Active Tasks"
+msgstr "Tâches actives"
+
+msgid "Add"
+msgstr "Ajouter"
+
+msgid "Add Directory"
+msgstr "Ajouter dossier"
+
+msgid "Add Event"
+msgstr "Ajouter un évènement"
+
+msgid "Add Hosts"
+msgstr "Ajouter des machines"
+
+msgid "Add LDAP server failed!"
+msgstr "L'ajout du serveur LDAP a échoué !"
+
+msgid "Add MAC"
+msgstr "Ajouter MAC"
+
+msgid "Add New Printer"
+msgstr "Ajouter une nouvelle imprimante"
+
+msgid "Add Printers"
+msgstr "Ajout d'Imprimantes"
+
+msgid "Add Pushbullet Account"
+msgstr "Ajout compte Pushbullet"
+
+msgid "Add Rules"
+msgstr "Ajouter des règles"
+
+msgid "Add Slack Account"
+msgstr "Ajouter un compte Slack"
+
+msgid "Add Snapins"
+msgstr "Ajouter Snapins"
+
+msgid "Add Storage Group"
+msgstr "Ajouter un groupe de stockage"
+
+msgid "Add Storage Groups"
+msgstr "Ajouter un groupe de stockage"
+
+msgid "Add Storage Node"
+msgstr "Ajouter un nœud de stockage"
+
+msgid "Add Subnetgroup failed!"
+msgstr "L'ajout de groupe de sous-réseau a échoué !"
+
+msgid "Add User"
+msgstr "Ajouter un utilisateur"
+
+msgid "Add Users"
+msgstr "Ajouter des utilisateurs"
+
+msgid "Add Windows Key failed!"
+msgstr "L'ajout de la clé Windows a échoué !"
+
+msgid "Add any custom text you would like"
+msgstr "Ajoutez le texte personnalisé que vous souhaitez"
+
+msgid "Add broadcast failed!"
+msgstr "Échec de l'ajout du broadcast !"
+
+msgid "Add failed"
+msgstr "Ajout a échoué"
+
+msgid "Add group failed!"
+msgstr "L'ajout de groupe a échoué !"
+
+msgid "Add host failed!"
+msgstr "L'ajout d'une machine a échoué !"
+
+msgid "Add image failed!"
+msgstr "L'ajout d'une image a échoué !"
+
+msgid "Add location failed!"
+msgstr "L'ajout de l'emplacement a échoué !"
+
+#, php-format
+msgid "Add new role"
+msgstr "Ajouter un nouveau rôle"
+
+#, php-format
+msgid "Add new rule"
+msgstr "Ajouter une nouvelle règle"
+
+msgid "Add printer failed!"
+msgstr "L'ajout de l'imprimante a échoué !"
+
+msgid "Add role failed!"
+msgstr "L'ajout de rôle a échoué !"
+
+msgid "Add rule failed!"
+msgstr "L'ajout de règle a échoué !"
+
+#, fuzzy, php-format
+msgid "Add selected %s"
+msgstr "Ajouter les machines sélectionnées"
+
+msgid "Add selected hosts"
+msgstr "Ajouter les machines sélectionnées"
+
+msgid "Add selected images"
+msgstr "Ajouter les images sélectionnées"
+
+msgid "Add selected printers"
+msgstr "Ajouter les imprimantes sélectionnées"
+
+msgid "Add selected rules"
+msgstr "Ajouter les règles sélectionnées"
+
+msgid "Add selected snapins"
+msgstr "Ajouter les Snapins sélectionnés"
+
+msgid "Add selected storage groups"
+msgstr "Ajouter les groupes de stockage sélectionnés"
+
+msgid "Add selected users"
+msgstr "Ajouter les utilisateurs sélectionnés"
+
+msgid "Add site failed!"
+msgstr "Échec dans l'ajout du site !"
+
+msgid "Add snapin failed!"
+msgstr "L'ajout de Snapin a échoué !"
+
+msgid "Add storage node failed!"
+msgstr "L'ajout d'un nœud de stockage a échoué !"
+
+msgid "Add task state failed!"
+msgstr "Échec de l'ajout d'état de tâche !"
+
+msgid "Add task type failed!"
+msgstr "L'ajout du type de tâche a échoué !"
+
+msgid "Add to group"
+msgstr "Ajouter au groupe"
+
+msgid "Add user failed!"
+msgstr "L'ajout d'un utilisateur a échoué !"
+
+#, php-format
+msgid "Adding FOGPage: %s, Node: %s"
+msgstr "Ajout FOGPage : %s , Nœud : %s"
+
+msgid "Adding Key"
+msgstr "Ajout de la clé"
+
+msgid "Additional Icon elements"
+msgstr "Éléments d'icônes supplémentaires"
+
+msgid "Additional MACs"
+msgstr "MACs supplémentaires"
+
+msgid "Admin Group"
+msgstr "Groupe admin"
+
+msgid "Advanced"
+msgstr "Avancé"
+
+msgid "Advanced Actions"
+msgstr "Actions avancées"
+
+msgid "Advanced Login Required"
+msgstr "Connexion avancée requise"
+
+msgid "Advanced Menu Login"
+msgstr "Menu Avancé Connexion"
+
+msgid "Advanced Menu settings"
+msgstr "Paramètres du menu avancé"
+
+msgid "Advanced Options"
+msgstr "Options avancées"
+
+msgid "Advanced Settings"
+msgstr "Réglages avancés"
+
+msgid "Advanced menu command"
+msgstr "Commande avancée du menu"
+
+msgid "After image Action"
+msgstr "Action après image"
+
+msgid "Ago must be boolean"
+msgstr "Ago doit être un booléen"
+
+msgid "All"
+msgstr "Tout"
+
+#, fuzzy, php-format
+msgid "All %s"
+msgstr "Lister tous les %s"
+
+msgid "All Groups"
+msgstr "Tous les groupes"
+
+msgid "All Hosts"
+msgstr "Toutes les machines"
+
+msgid "All Pending MACs approved"
+msgstr "Tous les MACs en attente approuvés"
+
+msgid "All Storage Groups"
+msgstr "Tous les groupes de stockage"
+
+msgid "All Storage Nodes"
+msgstr "Tous les nœuds de stockage"
+
+msgid "All files synced for this item."
+msgstr "Tous les fichiers synchronisés pour cet élément."
+
+msgid "All methods of binding have failed"
+msgstr "Toutes les méthodes de liaison ont échoué"
+
+msgid "All snapins"
+msgstr "Tous les Snapins"
+
+msgid "Allows editing/creating of Task States fog currently has."
+msgstr "Permet d'éditer/créer les états de tâches que possède actuellement FOG."
+
+msgid "Allows editing/creating of Task Types fog currently has."
+msgstr "Permet d'éditer/créer les types de tâches que possède actuellement FOG."
+
+msgid "Already created"
+msgstr "Déjà créé"
+
+msgid "Already registered as"
+msgstr "Déjà inscrit comme"
+
+msgid "Also confirm that the database is indeed running"
+msgstr "Confirmez également que la base de données fonctionne bien"
+
+msgid "Although there are multiple levels already"
+msgstr "Bien qu'il y ait déjà plusieurs niveaux"
+
+msgid "An image already exists with this name!"
+msgstr "Une image existe déjà avec ce nom !"
+
+msgid "Annually"
+msgstr "Annuellement"
+
+msgid "Applications"
+msgstr "Applications"
+
+msgid "Approve"
+msgstr "Approuver"
+
+msgid "Approve All Pending MACs for All Hosts"
+msgstr "Approuver tous les MACs en attente pour toutes les machines"
+
+msgid "Approve Host"
+msgstr "Approuver cette machine"
+
+msgid "Approve MAC"
+msgstr "Approuver les MACs"
+
+msgid "Approve Selected MACs"
+msgstr "Approuver les MACs sélectionnés"
+
+msgid "Approve Success"
+msgstr "Succès"
+
+msgid "Approve all pending macs"
+msgstr "Approuver toutes les MAC en attente"
+
+msgid "Approve all pending? "
+msgstr "Approuver tout ce qui est en attente ? "
+
+msgid "Approve selected hosts"
+msgstr "Approuver les machines sélectionnés"
+
+msgid "Approve this host?"
+msgstr "Approuver cette machine ?"
+
+msgid "Approved"
+msgstr "Approuvée"
+
+msgid "Architecture"
+msgstr ""
+
+msgid "Are you sure you wish to"
+msgstr "Êtes-vous sûr de vouloir"
+
+msgid "Array"
+msgstr "Tableau"
+
+msgid "Assigned Image"
+msgstr "Image assignée"
+
+msgid "Assignment saved successfully"
+msgstr "L'affectation a été sauvegardée avec succès"
+
+msgid "Associate rule failed!"
+msgstr "Association de la règle a échoué !"
+
+msgid "Associated Sites"
+msgstr "Sites associés"
+
+msgid "Associates the files on nodes"
+msgstr "Associe les fichiers sur les nœuds"
+
+msgid "Attempting to perform"
+msgstr "Tentative d'exécution"
+
+msgid "Attempting to ping"
+msgstr "Tenter de faire un ping"
+
+msgid "Auto"
+msgstr "Auto"
+
+msgid "Auto Log Out Time (in minutes)"
+msgstr "Temps de déconnexion automatique (en minutes)"
+
+msgid "Available Snapins"
+msgstr "Snapins disponibles"
+
+msgid "BIOS Date"
+msgstr "Date du BIOS"
+
+msgid "BIOS Vendor"
+msgstr "Vendeur du BIOS"
+
+msgid "BIOS Version"
+msgstr "Version du BIOS"
+
+msgid "Bandwidth"
+msgstr "Bande passante"
+
+msgid "Bandwidth should be numeric and greater than 0"
+msgstr "La bande passante doit être numérique et supérieur à 0"
+
+msgid "Barcode Numbers"
+msgstr "Numéros de codes à barres"
+
+msgid "Base Only"
+msgstr "Base seulement"
+
+msgid "Basic Settings"
+msgstr "Paramètres basiques"
+
+msgid "Basic Tasks"
+msgstr "Tâches basiques"
+
+msgid "Bind DN"
+msgstr "Lier DN"
+
+msgid "Bind Password"
+msgstr "Lier le mot de passe"
+
+msgid "Bitrate"
+msgstr "Bitrate"
+
+msgid "Blank for default"
+msgstr "Vide par défaut"
+
+msgid "Boot Exit settings"
+msgstr "Paramètres de sortie de boot"
+
+msgid "Boot Key Sequence"
+msgstr "Séquence des touches de démarrage"
+
+msgid "Boot Options"
+msgstr "Options de démarrage"
+
+msgid "Boot the client from a stock Ubuntu or Debian live image with Secure Boot left ON. Those images boot under Secure Boot on their own signed shim, so no firmware changes are needed."
+msgstr ""
+
+msgid "Broadcast Create Fail"
+msgstr "Échec de la création du broadcast"
+
+msgid "Broadcast Create Success"
+msgstr "Réussite de la création du broadcast"
+
+msgid "Broadcast IP"
+msgstr "IP de broadcast"
+
+msgid "Broadcast Name"
+msgstr "Nom de broadcast"
+
+msgid "Broadcast Update Fail"
+msgstr "Échec de la mise à jour du Broadcast"
+
+msgid "Broadcast Update Success"
+msgstr "Succès de la mise à jour du Broadcast"
+
+msgid "Broadcast added!"
+msgstr "Broadcast ajouté !"
+
+msgid "Broadcast update failed!"
+msgstr "La mise à jour du Broadcast a échoué !"
+
+msgid "Broadcast updated!"
+msgstr "Broadcast mis à jour !"
+
+msgid "Browse"
+msgstr "Parcourir"
+
+msgid "CPU Cache"
+msgstr "Cache du CPU"
+
+msgid "CPU Count"
+msgstr "Nombre de CPU"
+
+msgid "CPU Manufacturer"
+msgstr "Fabricant du CPU"
+
+msgid "CPU Max Speed"
+msgstr "Vitesse max CPU"
+
+msgid "CPU Model"
+msgstr "Modèle CPU"
+
+msgid "CPU Normal Speed"
+msgstr "Vitesse normale CPU"
+
+msgid "CPU Speed"
+msgstr "Vitesse CPU"
+
+msgid "CPU Type"
+msgstr "Type de processeur"
+
+msgid "CPU Version"
+msgstr "Version CPU"
+
+msgid "CUPS Printer"
+msgstr "Imprimante Serveur CUPS"
+
+msgid "Call"
+msgstr "Appel"
+
+#, fuzzy
+msgid "Can be a comma separated list."
+msgstr "Peut être une liste séparée par des virgules."
+
+msgid "Can not redeclare route"
+msgstr "Impossible de redéclarer la route"
+
+msgid "Cancelled due to new tasking."
+msgstr "Annulé en raison de nouvelles tâches."
+
+msgid "Cancelled task"
+msgstr "Tâche annulée"
+
+msgid "Cannot add Primary mac as additional mac"
+msgstr "Vous ne pouvez pas ajouter un MAC primaire comme une MAC supplémentaire"
+
+msgid "Cannot add a pre-existing primary mac"
+msgstr "Impossible d'ajouter une MAC primaire pré-existante"
+
+msgid "Cannot bind to the LDAP server"
+msgstr "Impossible de se lier au serveur LDAP"
+
+msgid "Cannot cancel tasks this way"
+msgstr "Vous ne pouvez pas annuler les tâches de cette façon"
+
+msgid "Cannot change image when in tasking"
+msgstr "Impossible de changer d'image durant une tâche"
+
+msgid "Cannot connect to"
+msgstr "Impossible de se connecter à"
+
+msgid "Cannot connect to database"
+msgstr "Impossible de se connecter à la base de données"
+
+msgid "Cannot connect to ftp server"
+msgstr "Impossible de se connecter au serveur FTP"
+
+msgid "Cannot create tasking as image is not enabled"
+msgstr "Impossible de créer une tâche car l'image n'est pas activée"
+
+msgid "Cannot set tasking as image is not enabled"
+msgstr "Impossible de définir le multitâche que l'image ne soit pas activée"
+
+msgid "Cannot set tasking to invalid hosts"
+msgstr "Impossible d'attribuer des tâches à des machines non valides"
+
+msgid "Cannot set tasking to pending hosts"
+msgstr "Impossible de définir des tâches pour les machines en attente"
+
+msgid "Cannot view from browser"
+msgstr "Impossible de visualiser à partir du navigateur"
+
+msgid "Capone Deploy"
+msgstr "Déployer Capone"
+
+msgid "Capture"
+msgstr "Capture"
+
+msgid "Captured"
+msgstr "Capturée"
+
+msgid "Certificate SHA-1"
+msgstr ""
+
+msgid "Certificate SHA-256"
+msgstr ""
+
+msgid "Change password"
+msgstr "Changer le mot de passe"
+
+msgid "Channel call is invalid"
+msgstr "Appel de canal est invalide"
+
+msgid "Chassis Asset"
+msgstr "Actif du châssis"
+
+msgid "Chassis Manufacturer"
+msgstr "Fabricant du châssis"
+
+msgid "Chassis Serial"
+msgstr "Numéro de série du châssis"
+
+msgid "Chassis Version"
+msgstr "Version du châssis"
+
+msgid "Chat is also available on the forums for more realtime help"
+msgstr "Le chat est également disponible sur les forums pour une aide en temps réel"
+
+#, fuzzy, php-format
+msgid "Check here to see what %s can be added"
+msgstr "Vérifiez ici pour voir quelles machines peuvent être ajoutées"
+
+msgid "Check here to see what hosts can be added"
+msgstr "Vérifiez ici pour voir quelles machines peuvent être ajoutées"
+
+msgid "Check here to see what images can be added"
+msgstr "Vérifiez ici pour voir quelles images peuvent être ajoutées"
+
+msgid "Check here to see what printers can be added"
+msgstr "Vérifiez ici pour voir ce que les imprimantes peuvent être ajoutés"
+
+msgid "Check here to see what rules can be added"
+msgstr "Vérifiez ici pour voir quelles règles peuvent être ajoutées"
+
+msgid "Check here to see what snapins can be added"
+msgstr "Vérifiez ici pour voir ce que Snapins peuvent être ajoutés"
+
+msgid "Check here to see what storage groups can be added"
+msgstr "Vérifiez ici pour voir quels groupes de stockage peuvent être ajoutés"
+
+msgid "Check here to see what users can be added"
+msgstr "Vérifiez ici pour voir quels utilisateurs peuvent être ajoutés"
+
+msgid "Check that database is running"
+msgstr "Vérifiez que la base de données est en cours d'exécution"
+
+msgid "Check the capture folder is owned by and writable to the storage node user"
+msgstr ""
+
+#, fuzzy
+msgid "Check the password stored for this node"
+msgstr "Aucune classe FOGPage n'a été trouvée pour ce nœud"
+
+msgid "Check this value matches what the enrolment script prints before confirming. That comparison is what stops the wrong key being trusted."
+msgstr ""
+
+msgid "Checkin Time"
+msgstr "Heure d'enregistrement"
+
+msgid "Checking for tasks that can never run..."
+msgstr ""
+
+msgid "Checking if I am the group manager"
+msgstr "Vérifier si je suis le gestionnaire du groupe"
+
+msgid "Checksum"
+msgstr "Somme de contrôle"
+
+msgid "Checksums"
+msgstr "Sommes de contrôle"
+
+msgid "City/State/Zip"
+msgstr "Ville / État / Zip"
+
+msgid "Class"
+msgstr "Classe"
+
+msgid "Class is not extended from FOGPage"
+msgstr "La classe n'est pas étendue à partir de FOGPage"
+
+msgid "Class must extend event"
+msgstr "Classe doit prolonger l'événement"
+
+msgid "Class must extend hook"
+msgstr "La classe doit étendre le crochet"
+
+msgid "Class name must be a string"
+msgstr "Le nom de la classe doit être une chaîne de caractères"
+
+msgid "Clear"
+msgstr "Effacer"
+
+msgid "Clear Fields"
+msgstr "Effacer les champs"
+
+msgid "Clear all fields?"
+msgstr "Effacer tous les champs ?"
+
+msgid "Clear all history"
+msgstr "Effacer tout l'historique"
+
+msgid "Click"
+msgstr "Cliquez"
+
+msgid "Click Here"
+msgstr "Cliquez ici"
+
+msgid "Client"
+msgstr "Client"
+
+msgid "Client Count"
+msgstr "Nombre de clients"
+
+msgid "Client Management"
+msgstr "Gestion des clients"
+
+msgid "Client Modules Change Fail"
+msgstr "Échec de la modification des modules clients"
+
+msgid "Client Modules Change Success"
+msgstr "Succès dans le changement des modules du client"
+
+msgid "Client Settings"
+msgstr "Paramètres du client"
+
+msgid "Client Updater"
+msgstr "Mise à jour du client"
+
+msgid "Client Version"
+msgstr "Version Client"
+
+msgid "Clients"
+msgstr "Clients"
+
+msgid "Column type lookup failed"
+msgstr ""
+
+msgid "Command"
+msgstr "Commande"
+
+msgid "Compare the SHA-256 it prints against the one shown above. If they differ, stop -- that comparison is the whole security of this step."
+msgstr ""
+
+msgid "Complete"
+msgstr "Achevé"
+
+msgid "Complete Time"
+msgstr "Durée totale"
+
+msgid "Completed"
+msgstr "Terminé"
+
+msgid "Compression"
+msgstr "Compression"
+
+msgid "Computer Information"
+msgstr "Informations sur l'ordinateur"
+
+msgid "Computer Model"
+msgstr "Modèle d'ordinateur"
+
+msgid "Config File"
+msgstr "Fichier de configuration"
+
+msgid "Configuration"
+msgstr "Configuration"
+
+msgid "Configuration Import/Export"
+msgstr "Configuration Import / Export"
+
+msgid "Configuration Save"
+msgstr "Enregistrer la configuration"
+
+msgid "Confirm tasking"
+msgstr "Confirmer l'affectation des tâches"
+
+msgid "Conflicting path/file"
+msgstr "Conflit de chemin / fichier"
+
+msgid "Copy all three files onto a USB stick, boot the client from a stock Ubuntu or Debian live image with Secure Boot left ON, and run the launcher"
+msgstr ""
+
+msgid "Copy from existing"
+msgstr "Copie de l'existant"
+
+msgid "Copy the three files above onto a USB stick, keeping them in the same folder -- the script expects MOK.der beside it."
+msgstr ""
+
+msgid "Could not find a Storage Node in this group"
+msgstr "Impossible de trouver un nœud de stockage dans ce groupe"
+
+msgid "Could not find a Storage Node is"
+msgstr "Impossible de trouver un nœud de stockage est"
+
+msgid "Could not find any"
+msgstr "Impossible de trouver un"
+
+msgid "Could not find temp filename"
+msgstr "Impossible de trouver le nom du fichier temporaire"
+
+msgid "Could not notify"
+msgstr "Impossible de notifier"
+
+msgid "Could not read snapin file"
+msgstr "Impossible de lire le fichier Snapin"
+
+msgid "Could not read tmp file."
+msgstr "Impossible de lire le fichier tmp."
+
+msgid "Could not register"
+msgstr "Impossible d'enregistrer"
+
+#, fuzzy
+msgid "Count failed"
+msgstr "La connexion a échoué"
+
+msgid "Create"
+msgstr "Créer"
+
+msgid "Create Image"
+msgstr "Créer une image"
+
+#, php-format
+msgid "Create New %s"
+msgstr "Créer un nouveau %s"
+
+msgid "Create New Access Control Role"
+msgstr "Créer un nouveau rôle de contrôle d'accès"
+
+msgid "Create New Group"
+msgstr "Créer un nouveau groupe"
+
+msgid "Create New Host"
+msgstr "Créer une nouvelle machine"
+
+msgid "Create New Image"
+msgstr "Créer une nouvelle image"
+
+msgid "Create New Key"
+msgstr "Créer une nouvelle clé"
+
+msgid "Create New LDAP"
+msgstr "Créer un nouveau LDAP"
+
+msgid "Create New Location"
+msgstr "Créer un nouvel emplacement"
+
+msgid "Create New Printer"
+msgstr "Créer une nouvelle imprimante"
+
+msgid "Create New Snapin"
+msgstr "Créer un nouveau Snapin"
+
+msgid "Create New Storage Group"
+msgstr "Créer un nouveau groupe de stockage"
+
+msgid "Create New Storage Node"
+msgstr "Créer un nouveau nœud de stockage"
+
+msgid "Create New SubnetGroup?"
+msgstr "Créer un nouveau groupe de sous-réseau ?"
+
+msgid "Create New User"
+msgstr "Créer un nouvel utilisateur"
+
+msgid "Create New iPXE Menu Entry"
+msgstr "Créer une nouvelle entrée du menu iPXE"
+
+msgid "Create Report?"
+msgstr "Créer un rapport ?"
+
+msgid "Create Rule?"
+msgstr "Créer une règle ?"
+
+msgid "Create Site"
+msgstr "Créer un site"
+
+msgid "Create Storage Group"
+msgstr "Créer un groupe de stockage"
+
+msgid "Create Storage Node"
+msgstr "Créer un nœud de stockage"
+
+msgid "Create Task state"
+msgstr "État de création de tâche"
+
+msgid "Create Task type"
+msgstr "Créer un type de tâche"
+
+msgid "Create WOL Broadcast?"
+msgstr "Création d'un WOL Broadcast ?"
+
+msgid "Create new PM Schedule"
+msgstr "Créer une nouvelle programmation de gestion de l'alimentation"
+
+msgid "Create new group"
+msgstr "Créer un nouveau groupe"
+
+msgid "Create user?"
+msgstr "Créer un utilisateur ?"
+
+msgid "Created By"
+msgstr "Créé par"
+
+msgid "Created Tasks For"
+msgstr "Tâches créées pour"
+
+msgid "Created by FOG Reg on"
+msgstr "Créé par FOG Reg sur"
+
+msgid "Credits"
+msgstr "Crédits"
+
+msgid "Cron"
+msgstr "Cron"
+
+msgid "Cron Schedule"
+msgstr "Programmation par cron"
+
+msgid "Cross platform"
+msgstr "Multiplateforme"
+
+msgid "Current Associations"
+msgstr "Associations actuelles"
+
+msgid "Current Power Management settings"
+msgstr "Paramètres actuels de gestion de l'alimentation"
+
+msgid "Current Records"
+msgstr "Enregistrements courants"
+
+msgid "Current Sessions"
+msgstr "Sessions en cours"
+
+msgid "Current files"
+msgstr "Fichiers en cours"
+
+msgid "Current settings"
+msgstr "Paramètres actuels"
+
+msgid "DMI Field"
+msgstr "Champ DMI"
+
+msgid "DMI Key"
+msgstr "Clé DMI"
+
+msgid "DMI Result"
+msgstr "Résultat DMI"
+
+msgid "Daily"
+msgstr "Quotidien"
+
+msgid "Dashboard"
+msgstr "Tableau de bord"
+
+msgid "Data is blank"
+msgstr "Les données sont vides"
+
+msgid "Data must be an array or a callable item."
+msgstr "Les données doivent être un tableau ou un élément appelable."
+
+msgid "Database"
+msgstr "Base de données"
+
+msgid "Database Failure"
+msgstr "Défaillance de la base de données"
+
+msgid "Database Reverted"
+msgstr "Base de données restaurée"
+
+msgid "Database SQL"
+msgstr "Base de données SQL"
+
+msgid "Database Schema Installer / Updater"
+msgstr "Installation / Mise à jour du schéma de la base de données"
+
+msgid "Database Update Failed"
+msgstr "Mise à jour de base de données a échoué"
+
+msgid "Database changes reverted!"
+msgstr "Les modifications de la base de données ont été rétablies !"
+
+msgid "Database imported and added successfully!"
+msgstr "Base de données importée et ajoutée avec succès !"
+
+#, fuzzy
+msgid "Database load failed"
+msgstr "La sauvegarde de la base de données a échoué"
+
+msgid "Database not available"
+msgstr "Base de données non disponible"
+
+msgid "Database save failed"
+msgstr "La sauvegarde de la base de données a échoué"
+
+msgid "Date"
+msgstr "Date"
+
+msgid "Date and Time"
+msgstr "Date et heure"
+
+msgid "Date of checkout"
+msgstr "Date de sortie"
+
+msgid "Day of month value is not valid"
+msgstr "La valeur du jour du mois n'est pas valide"
+
+msgid "Day of week value is not valid"
+msgstr "La valleur du jour de la semaine n'est pas valide"
+
+msgid "Debug"
+msgstr "Déboguer"
+
+msgid "Debug Options"
+msgstr "Options de débogage"
+
+msgid "Default"
+msgstr "Défaut"
+
+msgid "Default Height"
+msgstr "Hauteur par défaut"
+
+msgid "Default Item"
+msgstr "Élément par défaut"
+
+msgid "Default Refresh Rate"
+msgstr "Taux de rafraîchissement par défaut"
+
+msgid "Default Width"
+msgstr "Largeur par défaut"
+
+msgid "Default is disabled"
+msgstr "La valeur par défaut est désactivée"
+
+msgid "Default log out time (in minutes)"
+msgstr "Temps de déconnexion par défaut (en minutes)"
+
+msgid "Delayed"
+msgstr "Différé"
+
+msgid "Delayed Start"
+msgstr "Démarrage retardé"
+
+msgid "Delete"
+msgstr "Effacer"
+
+msgid "Delete Fail"
+msgstr "Échec de la suppression"
+
+msgid "Delete MACs"
+msgstr "Supprimer MACs"
+
+msgid "Delete Menu Item"
+msgstr "Supprimer l'élément de menu"
+
+msgid "Delete Selected"
+msgstr "Supprimer la sélection"
+
+msgid "Delete Selected Items"
+msgstr "Supprimer tous les éléments sélectionnés"
+
+msgid "Delete Selected MACs"
+msgstr "Supprimer les MACs sélectionnés"
+
+msgid "Delete Success"
+msgstr "Succès"
+
+msgid "Delete all PM tasks?"
+msgstr "Supprimer toutes les tâches de gestion de l'alimentation ?"
+
+msgid "Delete files"
+msgstr "Supprimer les fichiers"
+
+msgid "Delete hosts within"
+msgstr "Supprimer les machines dans"
+
+msgid "Delete selected"
+msgstr "Supprimer la sélection"
+
+msgid "Delete selected hosts"
+msgstr "Supprimer les machines sélectionnés"
+
+msgid "Deleted"
+msgstr "Supprimé"
+
+msgid "Deleted Success"
+msgstr "Réussite de la suppression"
+
+msgid "Deleting remote file"
+msgstr "Suppression d'un fichier distant"
+
+msgid "Deploy"
+msgstr "Déployer"
+
+msgid "Deploy Method"
+msgstr "Méthode de déploiement"
+
+msgid "Deploy/Capture"
+msgstr "Déployer / Capturer"
+
+msgid "Description"
+msgstr "Description"
+
+msgid "Destroy failed"
+msgstr "Échec de la destruction"
+
+msgid "Destroyed assignment"
+msgstr "Affectation détruite"
+
+msgid "Destroyed assignments"
+msgstr "Affectations détruites"
+
+msgid "Detailed documentation"
+msgstr "Documentation détaillée"
+
+msgid "Device must be a string"
+msgstr "Le dispositif doit être une chaîne de caractères"
+
+msgid "Diff parameter must be numeric"
+msgstr "Le paramètre diff doit être numérique"
+
+msgid "Directories"
+msgstr "Dossiers"
+
+msgid "Directory"
+msgstr "Dossier"
+
+msgid "Directory Already Exists"
+msgstr "Dossier existe déjà"
+
+msgid "Directory Cleaner"
+msgstr "Nettoyeur de dossier"
+
+msgid "Disabled"
+msgstr "Désactivé"
+
+msgid "Display"
+msgstr "Afficher"
+
+msgid "Do not list on menu"
+msgstr "Ne pas inscrire sur le menu"
+
+msgid "Domain Password"
+msgstr "Mot de passe du domaine"
+
+msgid "Domain Password Legacy"
+msgstr "Mot de passe du domaine hérité"
+
+msgid "Domain Username"
+msgstr "Nom d'utilisateur du domaine"
+
+msgid "Domain name"
+msgstr "Nom de domaine"
+
+msgid "Donate to FOG"
+msgstr "Donner au projet FOG"
+
+msgid "Done"
+msgstr "Terminé"
+
+msgid "Done, Failed to create tasking"
+msgstr "Fait, Impossible de créer une tâche"
+
+msgid "Done, with imaging!"
+msgstr "Fait, avec un clonage !"
+
+msgid "Done, without imaging!"
+msgstr "C'est fait, sans clonage !"
+
+#, fuzzy
+msgid "Done, without imaging! Invalid Login!"
+msgstr "C'est fait, sans clonage !"
+
+#, fuzzy
+msgid "Done, without imaging! No image assigned!"
+msgstr "Fait, Pas d'image attribué!"
+
+#, fuzzy
+msgid "Dot in Filename not allowed!"
+msgstr "Nom de fichier non autorisé !"
+
+#, fuzzy
+msgid "Download"
+msgstr "Échec du téléchargement"
+
+msgid "Download Failed"
+msgstr "Échec du téléchargement"
+
+msgid "Downloaded file is not a bootable kernel image"
+msgstr ""
+
+#, fuzzy
+msgid "Downloading Initrd"
+msgstr "Téléchargement du noyau"
+
+msgid "Downloading Kernel"
+msgstr "Téléchargement du noyau"
+
+msgid "Dropped"
+msgstr "Abandonné"
+
+msgid "Duration"
+msgstr "Durée"
+
+msgid "ESC is defaulted"
+msgstr "ESC est par défaut"
+
+msgid "Each client needs this certificate enrolled once, by someone physically at the machine"
+msgstr ""
+
+msgid "Edit"
+msgstr "Modifier"
+
+msgid "Edit Host"
+msgstr "Modifier la machine"
+
+msgid "Edit Image"
+msgstr "Modifier l'image"
+
+msgid "Edit Node"
+msgstr "Modifier le nœud"
+
+msgid "Edit User"
+msgstr "Modifier l'utilisateur"
+
+#, fuzzy
+msgid "Editable"
+msgstr "Modifier"
+
+msgid "Either reboot or shutdown action must be used."
+msgstr "L'action de redémarrage ou d'arrêt doit être utilisée."
+
+msgid "Email"
+msgstr "Courriel"
+
+msgid "Enable Nested Group Matching (Active Directory only)"
+msgstr ""
+
+msgid "Enable location Sending"
+msgstr "Activer l'envoi de localisation"
+
+msgid "Enabled"
+msgstr "Activé"
+
+msgid "Enabled as default"
+msgstr "Activé par défaut"
+
+msgid "End"
+msgstr "Fin"
+
+msgid "End Date"
+msgstr "Date de fin"
+
+msgid "End Time"
+msgstr "Heure de fin"
+
+msgid "Engineer"
+msgstr "Ingénieur"
+
+msgid "Enrolment kit"
+msgstr ""
+
+msgid "Enter a group name to search for"
+msgstr "Entrez un nom de groupe à rechercher"
+
+msgid "Enter a hostname to search for"
+msgstr "Entrez un nom de machine pour rechercher"
+
+msgid "Enter a location name to search for"
+msgstr "Entrez un nom de lieu à rechercher"
+
+msgid "Enter a model name to search for"
+msgstr "Entrez un nom de modèle à rechercher"
+
+msgid "Enter a one-time password twice when asked. It only proves at the next reboot that you are the same person; it is not stored and does not need to be strong."
+msgstr ""
+
+msgid "Enter a site name to search for"
+msgstr "Entrez un nom de lieu à rechercher"
+
+msgid "Enter a snapin name to search for"
+msgstr "Entrez un nom de Snapin à rechercher"
+
+msgid "Enter a term to search for"
+msgstr "Entrez un terme à rechercher"
+
+msgid "Enter a username to search for"
+msgstr "Entrez un nom d'utilisateur pour rechercher"
+
+msgid "Enter an image name to search for"
+msgstr "Entrez un nom d'image à rechercher"
+
+msgid "Enter an user name to search for"
+msgstr "Entrez un nom d'utilisateur pour rechercher"
+
+msgid "Equipment Loan"
+msgstr "Prêt d'équipement"
+
+msgid "Error"
+msgstr "Erreur"
+
+msgid "Error Code"
+msgstr "Code d'erreur"
+
+msgid "Error Message"
+msgstr "Message d'erreur"
+
+msgid "Error Opening DB File"
+msgstr "Erreur d'ouverture du fichier DB"
+
+msgid "Error multiple hosts returned for list of mac addresses"
+msgstr "Erreur : plusieurs machines retournées pour la liste des adresses MAC"
+
+msgid "Error performing query"
+msgstr "Erreur requête effectuant"
+
+msgid "Error: Could not lock the Secure Boot staging directory"
+msgstr ""
+
+#, fuzzy
+msgid "Error: Could not stage the kernel for signing"
+msgstr "Erreur : Impossible de télécharger le noyau"
+
+#, fuzzy
+msgid "Error: Failed to download initrd"
+msgstr "Erreur : Impossible de télécharger le noyau"
+
+msgid "Error: Failed to download kernel"
+msgstr "Erreur : Impossible de télécharger le noyau"
+
+msgid "Error: Failed to open temp file"
+msgstr "Erreur : Impossible d'ouvrir le fichier temporaire"
+
+#, fuzzy
+msgid "Error: Failed to sign the kernel for Secure Boot"
+msgstr "Erreur : Impossible de télécharger le noyau"
+
+msgid "Errors"
+msgstr "Erreurs"
+
+msgid "Errors on revert detected!"
+msgstr "Erreurs sur la restauration détectées !"
+
+msgid "Especially when your organization has many hosts"
+msgstr "Surtout quand votre organisation a de nombreuses machines"
+
+msgid "Estimated FOG Sites"
+msgstr "Serveurs FOG estimés "
+
+msgid "Event"
+msgstr "Événement"
+
+msgid "Event Data must be an array"
+msgstr "Les données de l'événement doivent être un tableau"
+
+msgid "Event and data are not set"
+msgstr "L'événement et les données ne sont pas définis"
+
+msgid "Event must be a string"
+msgstr "Événement doit être une chaîne de caractères"
+
+msgid "Every configured multicast port is already in use"
+msgstr ""
+
+#, fuzzy
+msgid "Existence check failed"
+msgstr "La clé privée a échoué"
+
+msgid "Exists item must be boolean"
+msgstr "L'élément Exists doit être booléen"
+
+msgid "Exit to Hard Drive Type"
+msgstr "Sortie pour type de disque dur"
+
+msgid "Exit to Hard Drive Type(EFI)"
+msgstr "Sortie pour type de disque dur (EFI)"
+
+msgid "Expand All"
+msgstr "Tout développer"
+
+msgid "Export"
+msgstr "Exportation"
+
+msgid "Export Accesscontrols"
+msgstr "Exportation des contrôles d'accès"
+
+msgid "Export CSV"
+msgstr "Export CSV"
+
+msgid "Export Checksums"
+msgstr "Exportation des sommes de contrôle"
+
+msgid "Export Complete"
+msgstr "Exportation terminée"
+
+msgid "Export Configuration"
+msgstr "Exporter la configuration"
+
+msgid "Export Database"
+msgstr "Exporter la base de données"
+
+msgid "Export Database?"
+msgstr "Exporter la base de données ?"
+
+msgid "Export Groups"
+msgstr "Exporter les groupes"
+
+msgid "Export Hosts"
+msgstr "Exporter les machines"
+
+msgid "Export Images"
+msgstr "Exporter les images"
+
+msgid "Export LDAPs"
+msgstr "Exportation LDAP"
+
+msgid "Export Locations"
+msgstr "Export des emplacements"
+
+msgid "Export PDF"
+msgstr "Export en PDF"
+
+msgid "Export Printers"
+msgstr "Exporter les imprimantes"
+
+msgid "Export Sites"
+msgstr "Exportation de sites"
+
+msgid "Export Snapins"
+msgstr "Exporter les SnapIns"
+
+msgid "Export Subnetgroups"
+msgstr "Exportation de groupes de sous-réseau"
+
+msgid "Export Task States"
+msgstr "Exportation des états de la tâche"
+
+msgid "Export Task Types"
+msgstr "Exportation des types de tâches"
+
+msgid "Export Users"
+msgstr "Exporter les utilisateurs"
+
+msgid "Export WOLBroadcasts"
+msgstr "Exportation des WOL Broadcasts"
+
+msgid "Export Windows Keys"
+msgstr "Exportation des clés Windows"
+
+msgid "Extension"
+msgstr "Extension"
+
+msgid "FOG"
+msgstr "FOG"
+
+msgid "FOG 1.2.0 and earlier"
+msgstr "FOG 1.2.0 et antérieurs"
+
+msgid "FOG 1.2.0 and earlier."
+msgstr "FOG 1.2.0 et antérieur."
+
+msgid "FOG Client"
+msgstr "Client FOG"
+
+msgid "FOG Client Download"
+msgstr "Téléchargement du Client FOG"
+
+msgid "FOG Client Installer"
+msgstr "Installateur du client FOG"
+
+msgid "FOG Client Service Updater"
+msgstr "Mise à jour du service client FOG"
+
+msgid "FOG Client Wiki"
+msgstr "Wiki concernant les clients FOG"
+
+msgid "FOG Client on Github"
+msgstr "Client FOG sur Github"
+
+msgid "FOG Configuration"
+msgstr "Configuration FOG"
+
+msgid "FOG Crypt"
+msgstr "FOG Crypt"
+
+msgid "FOG Equipment Loan Form"
+msgstr "Équipement FOG Formulaire de prêt"
+
+msgid "FOG Forums"
+msgstr "Forums FOG"
+
+msgid "FOG General Help"
+msgstr "Aide générale FOG"
+
+msgid "FOG History - Search"
+msgstr "Historique de recherche FOG"
+
+msgid "FOG Home Page"
+msgstr "Page d'accueil de FOG"
+
+msgid "FOG Host - Search"
+msgstr "Machines FOG - Recherche"
+
+msgid "FOG Host Inventory - Search"
+msgstr "Inventaire des machines FOG - Recherche"
+
+msgid "FOG Host and Users - Search"
+msgstr "Machines et utilisateurs de FOG - Recherche"
+
+msgid "FOG Hosts and Users Login"
+msgstr "Connexion des machines et des utilisateurs du FOG"
+
+msgid "FOG Imaging - Search"
+msgstr "Clonage FOG - Recherche"
+
+msgid "FOG Imaging Log"
+msgstr "Journaux clonage FOG"
+
+msgid "FOG License Information"
+msgstr "Informations sur la licence de FOG"
+
+msgid "FOG Log Viewer"
+msgstr "Visionneuse de journaux FOG"
+
+msgid "FOG Managed Printers"
+msgstr "Imprimantes gérées par FOG"
+
+msgid "FOG PXE Boot Menu Configuration"
+msgstr "Configuration du menu FOG PXE Boot"
+
+msgid "FOG Project"
+msgstr "Projet FOG"
+
+msgid "FOG Project on Github"
+msgstr "Projet FOG sur Github"
+
+msgid "FOG Reports exist to give you information about what"
+msgstr "Les rapports FOG vous fournissent des informations sur ce qui"
+
+msgid "FOG Settings"
+msgstr "Paramètres de FOG"
+
+msgid "FOG Snapin - Search"
+msgstr "Snapin FOG - Recherche"
+
+msgid "FOG Sourceforge Page"
+msgstr "Page sourceforge de FOG"
+
+msgid "FOG System Settings"
+msgstr "Paramètres système FOG"
+
+msgid "FOG User tracking - Search"
+msgstr "Suivi des utilisateurs FOG - Recherche"
+
+msgid "FOG User tracking history"
+msgstr "Historique du suivi des utilisateurs FOG"
+
+msgid "FOG Version"
+msgstr "Version FOG"
+
+msgid "FOG Version Information"
+msgstr "Informations de version FOG"
+
+msgid "FOG Virus Summary"
+msgstr "Résumé FOG Virus"
+
+msgid "FOG Wiki"
+msgstr "Pages Wiki FOG"
+
+msgid "FOG database you can do so using"
+msgstr "la base de données FOG, vous pouvez le faire en utilisant"
+
+msgid "FOG did is now called Power Management"
+msgstr "Écolo s'appelle désormais Gestion de l'énergie"
+
+msgid "FOG is unable to communicate with the database"
+msgstr "Le FOG ne parvient pas à communiquer avec la base de données"
+
+msgid "FOG server defaulting under the folder"
+msgstr "serveur FOG se trouvant par défaut dans le dossier"
+
+msgid "FOS kernels on this server are signed for UEFI Secure Boot"
+msgstr ""
+
+msgid "FTP Connection has failed"
+msgstr "Connexion FTP a échoué"
+
+msgid "FTP Path"
+msgstr "Chemin FTP"
+
+msgid "FTP connection failed"
+msgstr "La connexion FTP a échoué"
+
+msgid "FTP login rejected by"
+msgstr ""
+
+msgid "Fail to destroy"
+msgstr "Impossible à détruire"
+
+msgid "Failed"
+msgstr "Échoué"
+
+msgid "Failed to"
+msgstr "Échec de"
+
+#, php-format
+msgid "Failed to Render Page: Node: %s, Error: %s"
+msgstr "Échec du rendu de la Page : Nœud : %s , Erreur : %s"
+
+msgid "Failed to add snapin"
+msgstr "Impossible d'ajouter le Snapin"
+
+msgid "Failed to add/update snapin file"
+msgstr "Impossible d'ajouter ou mettre à jour le fichier Snapin"
+
+msgid "Failed to connect"
+msgstr "Échec de connexion"
+
+msgid "Failed to create"
+msgstr "Échec de la création"
+
+msgid "Failed to create Host"
+msgstr "Impossible de créer la machine"
+
+msgid "Failed to create Session"
+msgstr "Échec de la création Session"
+
+msgid "Failed to create Snapin Job"
+msgstr "Échec de la création d'un job Snapin"
+
+msgid "Failed to create inventory for this host"
+msgstr "Échec de la création de l'inventaire pour cette machine"
+
+msgid "Failed to create new Group"
+msgstr "Impossible de créer un nouveau groupe"
+
+msgid "Failed to create scheduled tasking"
+msgstr "Échec de la création d'une tâche planifiée"
+
+#, fuzzy
+msgid "Failed to create snapin path on Master Node"
+msgstr "Échec de la création d'un job Snapin"
+
+msgid "Failed to create task"
+msgstr "Impossible de créer la tâche"
+
+msgid "Failed to create tasking"
+msgstr "Échec de la création d'une tâche"
+
+msgid "Failed to decrypt data on server"
+msgstr "Échec du déchiffrement des données sur le serveur"
+
+msgid "Failed to delete file"
+msgstr "Impossible de supprimer le fichier"
+
+msgid "Failed to delete image files"
+msgstr "Échec de la suppression des fichiers d'image"
+
+msgid "Failed to destroy"
+msgstr "Impossible de détruire"
+
+msgid "Failed to destroy Storage Group"
+msgstr "Impossible de détruire le groupe de stockage"
+
+msgid "Failed to destroy Storage Node"
+msgstr "Impossible de détruire le nœud de stockage"
+
+msgid "Failed to install plugin"
+msgstr "Impossible d'installer le greffon"
+
+#, fuzzy
+msgid "Failed to record task state changes"
+msgstr "Échec de la création d'une tâche"
+
+#, fuzzy
+msgid "Failed to record why tasks were reaped"
+msgstr "Échec du déchiffrement des données sur le serveur"
+
+msgid "Failed to save assignment"
+msgstr "Échec de l'enregistrement de l'affectation"
+
+msgid "Failed to save plugin"
+msgstr "Impossible d'enregistrer le greffon"
+
+msgid "Failed to start tasking type"
+msgstr "Échec du démarrage du type de tâche"
+
+msgid "Failed to update"
+msgstr "Impossible de mettre à jour"
+
+msgid "Failed to update Host"
+msgstr "Impossible de mettre à jour la machine"
+
+msgid "Failed to update Session"
+msgstr "Impossible de mettre à jour la session"
+
+msgid "Failed to update Task"
+msgstr "Impossible de mettre à jour la tâche"
+
+msgid "Failed to update imaging log"
+msgstr "Impossible de mettre à jour le rapport des clonages"
+
+msgid "Failed to update task"
+msgstr "Impossible de mettre à jour la tâche"
+
+msgid "Failed to update task log"
+msgstr "Impossible de mettre à jour le rapport des tâches"
+
+msgid "Failed to update/create image log"
+msgstr "Journaux Impossible de mettre à jour / créer une image"
+
+msgid "Failed to update/create task log"
+msgstr "Journaux Impossible de mettre à jour / créer des tâches"
+
+#, fuzzy, php-format
+msgid "Failed to upload \"%s\" to Master Node"
+msgstr "Impossible de détruire le nœud de stockage"
+
+msgid "Failed to write file to disk"
+msgstr "Impossible d'écrire le fichier sur le disque"
+
+msgid "Fields and types must have equal count"
+msgstr "Les champs et les types doivent avoir un nombre égal"
+
+msgid "Fields not defined for this class"
+msgstr "Champs non définis pour cette classe"
+
+msgid "File"
+msgstr "Fichier"
+
+#, fuzzy
+msgid "File Integrity Management"
+msgstr "Gestion des imprimantes"
+
+#, fuzzy
+msgid "File Not Found"
+msgstr "Fichier icône introuvable"
+
+msgid "File System Information"
+msgstr "Informations sur les fichiers système"
+
+#, fuzzy, php-format
+msgid "File at index %d has an empty filename"
+msgstr "Impossible de trouver le nom du fichier temporaire"
+
+msgid "File does not exist"
+msgstr "Fichier n'existe pas"
+
+msgid "File hash mismatch"
+msgstr "Incompatibilité de hachage de fichier"
+
+msgid "File must be a csv"
+msgstr "Le fichier doit être un CSV"
+
+msgid "File or path cannot be reached"
+msgstr "Fichier ou chemin ne peut pas être atteint"
+
+#, fuzzy
+msgid "File or path does not exist"
+msgstr "Fichier n'existe pas"
+
+msgid "File size mismatch"
+msgstr "Incohérence sur la taille du fichier"
+
+msgid "File upload stopped by an extension"
+msgstr "Téléchargement de fichier arrêté par une extension"
+
+msgid "Filesize"
+msgstr "Taille du fichier"
+
+msgid "Filter"
+msgstr "Filtrer"
+
+#, fuzzy
+msgid "Find failed"
+msgstr "La connexion a échoué"
+
+msgid "Finding any images associated"
+msgstr "Trouver les images associées"
+
+msgid "Finding any snapins associated"
+msgstr "Trouver les Snapins associés"
+
+msgid "For example, a GPO policy to push"
+msgstr "Par exemple, une GPO à pousser"
+
+msgid "Forbidden (disallowed Origin)"
+msgstr ""
+
+msgid "Forbidden (disallowed Referer)"
+msgstr ""
+
+msgid "Forbidden (invalid CSRF token)"
+msgstr ""
+
+msgid "Force"
+msgstr "Obliger"
+
+msgid "Force task to start"
+msgstr "Task force pour commencer"
+
+msgid "Form"
+msgstr "Formulaire"
+
+msgid "Forums are the most common and fastest method of getting"
+msgstr "Les forums sont la méthode la plus courante et la plus rapide pour obtenir de l'"
+
+msgid "Found"
+msgstr "Trouvé"
+
+msgid "Found a scheduled task that should run."
+msgstr "J'ai trouvé une tâche planifiée qui devrait être exécutée."
+
+msgid "Found a wake on lan task that should run."
+msgstr "J'ai trouvé une tâche \"Wake On Lan\" qui devrait être exécutée."
+
+msgid "Found login information"
+msgstr "Informations de connexion trouvées"
+
+msgid "Found snapin information"
+msgstr "Informations trouvée sur le Snapin"
+
+msgid "Free"
+msgstr "Libre"
+
+msgid "Free Disk Space"
+msgstr "Espace disque libre"
+
+msgid "Free Memory"
+msgstr "Mémoire libre"
+
+msgid "Friendly Name"
+msgstr "Nom usuel"
+
+msgid "Full History Export"
+msgstr "Exportation de l'historique complet"
+
+msgid "Full Inventory Export"
+msgstr "Export complet Inventaire"
+
+msgid "Function"
+msgstr "Fonction"
+
+msgid "Function does not exist"
+msgstr "Fonction n'existe pas"
+
+#, fuzzy
+msgid "GNU General Public License"
+msgstr "GNU General Public License"
+
+#, fuzzy
+msgid "GPU Products"
+msgstr "Groupe clé de produit"
+
+#, fuzzy
+msgid "GPU Vendors"
+msgstr "Vendeur du BIOS"
+
+#, fuzzy, php-format
+msgid "GPU-%d Product"
+msgstr "Groupe clé de produit"
+
+#, fuzzy, php-format
+msgid "GPU-%d Vendor"
+msgstr "Vendeur du BIOS"
+
+msgid "General"
+msgstr "Général"
+
+msgid "General Information"
+msgstr "Informations générales"
+
+msgid "Generate"
+msgstr "Générer"
+
+msgid "Generic LDAP"
+msgstr "LDAP générique"
+
+msgid "Getting image size for"
+msgstr "Obtenir la taille de l'image pour"
+
+msgid "Getting snapin hash and size for"
+msgstr "Obtention du hachage et de la taille du Snapin pour"
+
+msgid "Got in line at"
+msgstr ""
+
+msgid "Goto task list"
+msgstr "Aller à la liste des tâches"
+
+msgid "Graph Enabled"
+msgstr "Graphique activé"
+
+msgid "Graphical"
+msgstr "Graphique"
+
+msgid "Green FOG"
+msgstr "Écolo FOG"
+
+msgid "Group"
+msgstr "Groupe"
+
+msgid "Group Associations"
+msgstr "Associations de groupes"
+
+msgid "Group Auto Logout"
+msgstr "Déconnexion automatique du groupe"
+
+msgid "Group Bios Exit Type"
+msgstr "Groupe Bios Type de sortie"
+
+msgid "Group Create Fail"
+msgstr "Échec de la création du groupe"
+
+msgid "Group Create Success"
+msgstr "Succès de la création du groupe"
+
+msgid "Group Description"
+msgstr "Description du groupe"
+
+msgid "Group EFI Exit Type"
+msgstr "Groupe EFI Type de sortie"
+
+msgid "Group FOG Client Module configuration"
+msgstr "Configuration du module groupe de client FOG"
+
+msgid "Group Kernel"
+msgstr "Groupe Kernel"
+
+msgid "Group Kernel Arguments"
+msgstr "Arguments Groupe Kernel"
+
+msgid "Group Management"
+msgstr "Gestion des groupes"
+
+msgid "Group Member Attribute"
+msgstr "Attribut de membre du groupe"
+
+msgid "Group Name"
+msgstr "Nom de groupe"
+
+msgid "Group Power Management Remove"
+msgstr "Supprimer la gestion de l'alimentation du groupe"
+
+msgid "Group Primary Disk"
+msgstr "Groupe Disque primaire"
+
+msgid "Group Printers"
+msgstr "Groupe Imprimantes"
+
+msgid "Group Product Key"
+msgstr "Groupe clé de produit"
+
+msgid "Group Quick Deploy"
+msgstr "Déploiement rapide d'un groupe"
+
+msgid "Group Screen Resolution"
+msgstr "Groupe Résolution de l'écran"
+
+msgid "Group Search DN"
+msgstr "Recherche de groupe DN"
+
+msgid "Group Snapins"
+msgstr "Groupe de SnapIns"
+
+msgid "Group Update Fail"
+msgstr "Échec de la mise à jour du groupe"
+
+msgid "Group Update Success"
+msgstr "Succès de la mise à jour du groupe"
+
+msgid "Group added!"
+msgstr "Groupe ajouté !"
+
+msgid "Group general"
+msgstr "Groupe Général"
+
+msgid "Group image"
+msgstr "Image du groupe"
+
+msgid "Group image association"
+msgstr "Association d'images du groupe"
+
+msgid "Group is not valid"
+msgstr "Groupe est non valide"
+
+#, fuzzy
+msgid "Group membership search returned no results"
+msgstr "La recherche de groupe DN n'a donné aucun résultat"
+
+msgid "Group module settings"
+msgstr "Paramètres du module de groupe"
+
+msgid "Group update failed!"
+msgstr "La mise à jour du groupe a échoué !"
+
+msgid "Group updated!"
+msgstr "Groupe mis à jour !"
+
+msgid "Groups"
+msgstr "Groupes"
+
+msgid "Groups are not allowed to schedule upload tasks"
+msgstr "Les groupes ne sont pas autorisés à programmer des tâches de téléchargement"
+
+msgid "HD Device"
+msgstr "Périphérique Disque dur"
+
+msgid "HD Firmware"
+msgstr "Firmware disque dur"
+
+msgid "HD Model"
+msgstr "Modèle disque dur"
+
+msgid "HD Serial"
+msgstr "Numérie de série disque dur"
+
+msgid "Hard Disk Firmware"
+msgstr "Firmware Disque dur"
+
+msgid "Hard Disk Model"
+msgstr "Modèle Disque dur"
+
+msgid "Hard Disk Serial Number"
+msgstr "Numéro de Disque dur"
+
+msgid "Hardware Information"
+msgstr "Informations sur le matériel"
+
+msgid "Hash"
+msgstr "Hash"
+
+msgid "Have not locked the host for access"
+msgstr ""
+
+msgid "Height must be 120 pixels."
+msgstr "La hauteur doit être de 120 pixels."
+
+msgid "Help and Guide"
+msgstr "Aide et Guide"
+
+msgid "Hide Menu"
+msgstr "Masquer le menu"
+
+msgid "Hide Menu Timeout"
+msgstr "Masquer le menu Timeout"
+
+msgid "History Graph"
+msgstr "Graphique de l'historique"
+
+msgid "History ID"
+msgstr "Historique ID"
+
+msgid "History IP"
+msgstr "Historique des IP"
+
+msgid "History Info"
+msgstr "Historique des informations"
+
+#, fuzzy
+msgid "History Report"
+msgstr "Historique des utilisateurs"
+
+msgid "History Time"
+msgstr "Historique des horaires"
+
+msgid "History User"
+msgstr "Historique des utilisateurs"
+
+msgid "Home"
+msgstr "Accueil"
+
+msgid "Home Address"
+msgstr "Adresse du domicile"
+
+msgid "Home Phone"
+msgstr "Téléphone fixe"
+
+msgid "Host"
+msgstr "Machine"
+
+#, php-format
+msgid "Host %1$s failed imaging %2$s: %3$s"
+msgstr ""
+
+msgid "Host AD Domain"
+msgstr "Domaine AD machine"
+
+msgid "Host AD Join"
+msgstr "Host AD Join"
+
+msgid "Host AD OU"
+msgstr "Host AD OU"
+
+msgid "Host Add to Group Fail"
+msgstr "Échec lors de l'ajout de la machine dans le groupe"
+
+msgid "Host Add to Group Success"
+msgstr "Succès lors de l'ajout de la machine dans le groupe"
+
+msgid "Host Associated"
+msgstr "Aucun nœud associé"
+
+msgid "Host Associated Snapins"
+msgstr "Aucun nœud associé"
+
+msgid "Host Auto Logout"
+msgstr "Déconnexion automatique de la machine"
+
+msgid "Host Bios Exit Type"
+msgstr "Type de sortie Bios de la machine"
+
+msgid "Host Create Fail"
+msgstr "Échec dans la création de la machine"
+
+msgid "Host Create Success"
+msgstr "Succès dans la création de la machine"
+
+msgid "Host Created"
+msgstr "Machine créée"
+
+msgid "Host Desc"
+msgstr "Machine Desc"
+
+msgid "Host Description"
+msgstr "Description de la machine"
+
+msgid "Host EFI Exit Type"
+msgstr "Type de sortie EFI de la machine"
+
+msgid "Host FOG Client Module configuration"
+msgstr "Configuration du module client FOG de la machine"
+
+msgid "Host HD Device"
+msgstr "Périphérique HD machine"
+
+msgid "Host Hardware Inventory"
+msgstr "Inventaire du matériel de la machine"
+
+msgid "Host ID"
+msgstr "ID de machine"
+
+msgid "Host Image"
+msgstr "Image machine"
+
+msgid "Host Imaging History"
+msgstr "Historique des clonages de la machine"
+
+msgid "Host Init"
+msgstr "Host Init"
+
+#, fuzzy
+msgid "Host Invalid"
+msgstr "Host Init"
+
+msgid "Host Kernel"
+msgstr "Noyau de la machine"
+
+msgid "Host Kernel Arguments"
+msgstr "Arguments Kernel Machine"
+
+msgid "Host List"
+msgstr "Liste des machines"
+
+msgid "Host Listing Export"
+msgstr "Hôte Liste Export"
+
+msgid "Host Location"
+msgstr "Emplacement de la machine"
+
+msgid "Host Login History"
+msgstr "Historique des connexions de la machine"
+
+msgid "Host MAC"
+msgstr "MAC machine"
+
+msgid "Host Management"
+msgstr "Gestion des machines"
+
+msgid "Host Membership"
+msgstr "Adhésions aux groupes de la machine"
+
+msgid "Host Memory"
+msgstr "Mémoire machine"
+
+msgid "Host Name"
+msgstr "Nom de machine"
+
+msgid "Host Pending MAC"
+msgstr "Hôte en attente MAC"
+
+msgid "Host Primary Disk"
+msgstr "Disque primaire Machine"
+
+msgid "Host Primary MAC"
+msgstr "Hôte MAC primaire"
+
+msgid "Host Printers"
+msgstr "Imprimantes de la machine"
+
+msgid "Host Product Key"
+msgstr "Clé de produit de la machine"
+
+msgid "Host Product Keys"
+msgstr "Clés du produit de la machine"
+
+msgid "Host Registration"
+msgstr "Enregistrement machine"
+
+msgid "Host Screen Resolution"
+msgstr "Hôte Résolution de l'écran"
+
+msgid "Host Site"
+msgstr "Site de la machine"
+
+msgid "Host Snapin History"
+msgstr "Historique Snapin de la machine"
+
+msgid "Host Snapins"
+msgstr "Snapins de la machine"
+
+msgid "Host Status"
+msgstr "Statut machine"
+
+msgid "Host Status is a plugin that adds a new entry in the Host edit Page"
+msgstr "Host Status est un greffon qui ajoute une nouvelle entrée dans la page d'édition de la machine"
+
+msgid "Host Unassociated Snapins"
+msgstr "Aucun nœud associé"
+
+msgid "Host Update Fail"
+msgstr "Mise à jour de la machine échouée"
+
+msgid "Host Update Failed"
+msgstr "Mise à jour de la machine a échoué"
+
+msgid "Host Update Success"
+msgstr "Succès de la mise à jour de la machine"
+
+msgid "Host Virus History"
+msgstr "Historique des virus de la machine"
+
+msgid "Host added!"
+msgstr "Machine ajoutée !"
+
+msgid "Host approval failed."
+msgstr "Approbation de la machine échouée."
+
+msgid "Host approved"
+msgstr "Machine approuvée"
+
+msgid "Host description"
+msgstr "Description machine"
+
+msgid "Host general"
+msgstr "Généralités sur la machine"
+
+msgid "Host has no active task to cancel"
+msgstr ""
+
+msgid "Host is already a member of an active task"
+msgstr "La machine est déjà membre d'une tâche active"
+
+msgid "Host is not valid"
+msgstr "Machine non valide"
+
+msgid "Host module settings"
+msgstr "Paramètres du module de la machine"
+
+msgid "Host name"
+msgstr "Nom de machine"
+
+msgid "Host pairings"
+msgstr "Associations des machines"
+
+msgid "Host printer configuration"
+msgstr "Configuration des imprimantes de la machine"
+
+msgid "Host token is currently in use"
+msgstr ""
+
+msgid "Host updated!"
+msgstr "Machine mise à jour !"
+
+msgid "Host/Group Name"
+msgstr "Machine / Nom de groupe"
+
+msgid "Hostname"
+msgstr "Hostname"
+
+msgid "Hostname / IP"
+msgstr "Hostname / IP"
+
+msgid "Hostname Changer"
+msgstr "Renommage machine"
+
+msgid "Hosts"
+msgstr "Machines"
+
+#, fuzzy
+msgid "Hosts And Users"
+msgstr "Connexion des machines et des utilisateurs du FOG"
+
+msgid "Hosts Associated"
+msgstr "Machines associées"
+
+msgid "Hosts do not have the same image assigned"
+msgstr "Les hôtes ne possèdent pas la même image assignée"
+
+msgid "Hosts in task"
+msgstr "Machines sur la tâche"
+
+msgid "Hot Key Enabled"
+msgstr "Touche de raccourci activée"
+
+msgid "Hot Key to use"
+msgstr "Touche de raccourci à utiliser"
+
+msgid "Hour value is not valid"
+msgstr "La valeur des heures n'est pas valide"
+
+msgid "Hourly"
+msgstr "Toutes les heures"
+
+msgid "I am not the fog web server"
+msgstr "Je ne suis pas le serveur web de FOG"
+
+msgid "I am the group manager"
+msgstr "Je suis le responsable du groupe"
+
+msgid "I have read"
+msgstr "J'ai lu"
+
+msgid "I.M.C."
+msgstr "I.M.C."
+
+msgid "I.M.I."
+msgstr "I.M.I."
+
+msgid "ID"
+msgstr "ID"
+
+msgid "ID Must be set to edit"
+msgstr "ID doit être configuré pour être modifié"
+
+msgid "IP"
+msgstr "IP"
+
+msgid "IP Address"
+msgstr "Adresse IP"
+
+msgid "IP Passed is incorrect"
+msgstr "L'IP passée est incorrecte"
+
+msgid "Icon"
+msgstr "Icône"
+
+msgid "Icon File not found"
+msgstr "Fichier icône introuvable"
+
+msgid "If MOK Manager does not appear, the machine did not boot through a shim and nothing was enrolled."
+msgstr ""
+
+msgid "If a new module is published the client will"
+msgstr "Si un nouveau module est publié, le client"
+
+msgid "If action of ask or get"
+msgstr "Si action de ask ou get"
+
+msgid "If credentials are correct"
+msgstr "Si les informations d'identification sont correctes"
+
+msgid "If none is specified"
+msgstr "Si aucun n'est spécifié"
+
+msgid "If off"
+msgstr "Si c'est désactivé"
+
+msgid "If on"
+msgstr "Sinon"
+
+msgid "If that chain loads but the network never comes up, the firmware's own UEFI network stack is at fault. Point the boot filename at"
+msgstr ""
+
+msgid "If there is not a task set"
+msgstr "S'il n'y a pas de tâche définie"
+
+msgid "If this is an upgrade"
+msgstr "Si c'est une mise à jour"
+
+msgid "If you add a blank node"
+msgstr "Si vous ajoutez un nœud vide"
+
+msgid "If you are looking to configure settings for a specific host"
+msgstr "Si vous cherchez à configurer les paramètres pour une machine spécifique"
+
+msgid "If you need help understanding what items are needed please"
+msgstr "Si vous avez besoin d'aide pour comprendre quels éléments sont nécessaires, veuillez"
+
+msgid "If you would like to backup your"
+msgstr "Si vous souhaitez sauvegarder votre"
+
+msgid "Ignore MAC on Client"
+msgstr "Ignorer MAC sur le client"
+
+msgid "Ignore MAC on Image"
+msgstr "Ignorez les MACs dans l'image"
+
+#, php-format
+msgid "Ignoring configured interface %s; %s routes over %s"
+msgstr ""
+
+#, fuzzy
+msgid "Ignoring invalid multicast bitrate"
+msgstr "Session multicast invalide"
+
+#, fuzzy
+msgid "Ignoring invalid multicast duplex setting"
+msgstr "Session multicast invalide"
+
+#, fuzzy
+msgid "Ignoring invalid multicast hello interval"
+msgstr "Session multicast invalide"
+
+msgid "Ignoring invalid multicast rendezvous address"
+msgstr ""
+
+msgid "Image"
+msgstr "Image"
+
+#, php-format
+msgid "Image %s for session %s is missing or invalid; skipping"
+msgstr ""
+
+msgid "Image Associated: "
+msgstr "Image associée : "
+
+msgid "Image Association"
+msgstr "Association Image"
+
+msgid "Image Associations"
+msgstr "Associations des images"
+
+msgid "Image Create Fail"
+msgstr "Échec dans la création de l'image"
+
+msgid "Image Create Success"
+msgstr "Succès dans la création de l'image"
+
+msgid "Image Definition"
+msgstr "Définition image"
+
+msgid "Image Desc"
+msgstr "Image Desc"
+
+msgid "Image Description"
+msgstr "Description de l'image"
+
+msgid "Image Enabled"
+msgstr "Image activée"
+
+msgid "Image General"
+msgstr "Généralités sur les images"
+
+msgid "Image History"
+msgstr "Historique des images"
+
+msgid "Image ID"
+msgstr "Image ID"
+
+msgid "Image Management"
+msgstr "Gestion des images"
+
+msgid "Image Manager"
+msgstr "Gestionnaire d'image"
+
+msgid "Image Membership"
+msgstr "Membres de l'image"
+
+msgid "Image Name"
+msgstr "Nom de l'image"
+
+msgid "Image Path"
+msgstr "Chemin de l'image"
+
+msgid "Image Replicator"
+msgstr "Réplicateur d'images"
+
+msgid "Image Size"
+msgstr "Taille de l'image"
+
+msgid "Image Size: ON CLIENT"
+msgstr "Taille de l'image : sur le client"
+
+msgid "Image Size: ON SERVER"
+msgstr "Taille de l'image : sur le serveur"
+
+msgid "Image Storage Groups"
+msgstr "Groupe de stockage des images"
+
+msgid "Image Task Completed"
+msgstr "Tâche de clonage terminé"
+
+msgid "Image Transfer Log"
+msgstr "Journal du transfert d'images"
+
+msgid "Image Type"
+msgstr "Type d'image"
+
+msgid "Image Update Fail"
+msgstr "Échec de la mise à jour de l'image"
+
+msgid "Image Update Success"
+msgstr "Réussite de la mise à jour de l'image"
+
+msgid "Image Used"
+msgstr "Image utilisée"
+
+msgid "Image added!"
+msgstr "Image ajoutée !"
+
+msgid "Image is not enabled"
+msgstr "L'image n'est pas activée"
+
+msgid "Image is not valid"
+msgstr "L'image n'est pas valide"
+
+msgid "Image is protected and cannot be deleted"
+msgstr "L'image est protégée et ne peut être supprimée"
+
+msgid "Image to DMI Mappings"
+msgstr "Correspondances entre images et DMI"
+
+msgid "Image update failed!"
+msgstr "La mise à jour de l'image a échoué !"
+
+msgid "Image updated!"
+msgstr "Image mise à jour !"
+
+msgid "Imaged"
+msgstr "Clonée"
+
+msgid "Imaged By"
+msgstr "Cloné par"
+
+msgid "Imaged For"
+msgstr "Cloné pour"
+
+msgid "Imaged From"
+msgstr "Clonée depuis"
+
+msgid "Images"
+msgstr "Images"
+
+msgid "Imaging Completed"
+msgstr "Clonage terminé"
+
+msgid "Imaging Duration"
+msgstr "Durée du clonage"
+
+#, fuzzy
+msgid "Imaging Failed"
+msgstr "La connexion a échoué"
+
+msgid "Imaging Log"
+msgstr "Journal des clonages"
+
+msgid "Imaging Over the last 30 days"
+msgstr "Clonage des 30 derniers jours"
+
+msgid "Imaging Started"
+msgstr "Clonage lancé"
+
+msgid "Import"
+msgstr "Importer"
+
+msgid "Import Accesscontrols"
+msgstr "Importation des contrôles d'accès"
+
+msgid "Import CSV"
+msgstr "Import CSV"
+
+msgid "Import CSV?"
+msgstr "Import CSV ?"
+
+msgid "Import Configuration"
+msgstr "Importer la configuration"
+
+msgid "Import Database"
+msgstr "Exporter la base de données"
+
+msgid "Import Database?"
+msgstr "Importer la base de données ?"
+
+msgid "Import FOG Reports"
+msgstr "Importations des rapports FOG"
+
+msgid "Import Failed"
+msgstr "L'import a échoué"
+
+msgid "Import Groups"
+msgstr "Importer les groupes"
+
+msgid "Import Hosts"
+msgstr "Importer les machines"
+
+msgid "Import Images"
+msgstr "Importer les images"
+
+msgid "Import LDAPs"
+msgstr "Importation LDAP"
+
+msgid "Import Locations"
+msgstr "Import des emplacements"
+
+msgid "Import Printers"
+msgstr "Importer les imprimantes"
+
+msgid "Import Report?"
+msgstr "Importer les rapports ?"
+
+msgid "Import Reports"
+msgstr "Importation des rapports"
+
+msgid "Import Sites"
+msgstr "Importation de sites"
+
+msgid "Import Snapins"
+msgstr "Importer les SnapIns"
+
+msgid "Import Subnetgroups"
+msgstr "Importation de groupes de sous-réseau"
+
+msgid "Import Successful"
+msgstr "Import réussi"
+
+msgid "Import Task States"
+msgstr "Importation des états de la tâche"
+
+msgid "Import Task Types"
+msgstr "Importation des types de tâches"
+
+msgid "Import Users"
+msgstr "Importer les utilisateurs"
+
+msgid "Import WOLBroadcasts"
+msgstr "Exportation des WOL Broadcasts"
+
+msgid "Import Windows Keys"
+msgstr "Importation des clés Windows"
+
+msgid "In"
+msgstr "Dans"
+
+msgid "In FOG"
+msgstr "Dans FOG"
+
+msgid "Included Items"
+msgstr "Éléments inclus"
+
+msgid "Info"
+msgstr "Info"
+
+msgid "Information"
+msgstr "Information"
+
+msgid "Init"
+msgstr "Init"
+
+msgid "Initial Template"
+msgstr "Modèle initial"
+
+#, fuzzy
+msgid "Initrd Name"
+msgstr "Nom du site"
+
+#, fuzzy
+msgid "Initrd Update"
+msgstr "Date invalide"
+
+msgid "Install"
+msgstr "Installation"
+
+msgid "Install / Update Failed!"
+msgstr "Installation / mise à jour a échoué !"
+
+msgid "Install / Update Successful!"
+msgstr "Installation / Mise à jour réussie !"
+
+#, fuzzy
+msgid "Install Initrd"
+msgstr "Installation"
+
+msgid "Install Kernel"
+msgstr "Installation du Kernel"
+
+msgid "Install Plugin"
+msgstr "Installer greffons"
+
+msgid "Install Plugins"
+msgstr "Installation greffons"
+
+msgid "Install/Update"
+msgstr "Installation / mise à jour"
+
+msgid "Install/Update Now"
+msgstr "Installation / Mise à niveau maintenant"
+
+msgid "Installed Plugins"
+msgstr "Greffons installés"
+
+msgid "Integrity Settings"
+msgstr "Paramètres d'intégrité"
+
+msgid "Interface"
+msgstr "Interface"
+
+#, php-format
+msgid "Interface Ready with IP Address: %s"
+msgstr ""
+
+msgid "Interface not ready, waiting for it to come up"
+msgstr "L'interface n'est pas prête, j'attends qu'elle apparaisse"
+
+msgid "Invalid"
+msgstr "Invalide"
+
+#, fuzzy, php-format
+msgid "Invalid %s"
+msgstr "Invalide"
+
+msgid "Invalid Class"
+msgstr "Classe non valide"
+
+msgid "Invalid File"
+msgstr "Fichier invalide"
+
+msgid "Invalid Folder"
+msgstr "Dossier non valide"
+
+msgid "Invalid Host"
+msgstr "Machine non valide"
+
+msgid "Invalid Host Colors"
+msgstr "Couleurs d'hôte non valides"
+
+msgid "Invalid ID passed"
+msgstr "ID non valide transmis"
+
+msgid "Invalid IP"
+msgstr "IP invalide"
+
+msgid "Invalid Login"
+msgstr "Identifiant invalide"
+
+msgid "Invalid MAC Address!"
+msgstr "Adresse MAC invalide !"
+
+msgid "Invalid Multicast Session"
+msgstr "Session multicast invalide"
+
+#, fuzzy
+msgid "Invalid Path"
+msgstr "Date invalide"
+
+msgid "Invalid Plugin Passed"
+msgstr "Greffon non valide passé"
+
+msgid "Invalid Server Information!"
+msgstr "Informations sur le serveur invalide !"
+
+msgid "Invalid Snapin"
+msgstr "Snapin invalide"
+
+msgid "Invalid Snapin Tasking"
+msgstr "Affectation de la tâche Snapin invalide"
+
+msgid "Invalid Snapin Tasking object"
+msgstr "Objet Snapin Tasking non valide"
+
+msgid "Invalid Storage Group"
+msgstr "Groupe de stockage non valide"
+
+msgid "Invalid Storage Node"
+msgstr "Nœud de stockage non valide"
+
+msgid "Invalid Task Type"
+msgstr "Invalid Type de tâche"
+
+#, fuzzy
+msgid "Invalid Tasking"
+msgstr "Tâche non valide !"
+
+msgid "Invalid Timeout Value"
+msgstr "Valeur Timeout non valide"
+
+msgid "Invalid Type"
+msgstr "Type non valide"
+
+#, fuzzy
+msgid "Invalid URL"
+msgstr "Unité invalide"
+
+msgid "Invalid cron field value. Only digits, *, /, -, and commas are allowed."
+msgstr ""
+
+msgid "Invalid data being parsed"
+msgstr "Des données non valides sont analysées"
+
+msgid "Invalid data found"
+msgstr "Données invalides trouvées"
+
+msgid "Invalid date"
+msgstr "Date invalide"
+
+msgid "Invalid image"
+msgstr "Image invalide"
+
+msgid "Invalid image assigned to host"
+msgstr "Image non valide assigné à l'hôte"
+
+msgid "Invalid key being added"
+msgstr "Une clé non valide est ajoutée"
+
+msgid "Invalid key being destroyed"
+msgstr "Clé invalide en cours de destruction"
+
+msgid "Invalid key being removed"
+msgstr "Clé non valide en cours de retrait"
+
+msgid "Invalid key being requested"
+msgstr "La clé demandée n'est pas valide"
+
+msgid "Invalid key being set"
+msgstr "Clé invalide définie"
+
+msgid "Invalid method called"
+msgstr "Méthode invalide appelée"
+
+msgid "Invalid numeric entry"
+msgstr "Entrée numérique non valide"
+
+msgid "Invalid object to try tasking"
+msgstr "Objet non valide pour essayer d'attribuer une tâche"
+
+msgid "Invalid object type passed"
+msgstr "Le type d'objet transmis est invalide"
+
+msgid "Invalid operational mode"
+msgstr "Mode de fonctionnement non valide"
+
+#, fuzzy
+msgid "Invalid path"
+msgstr "Date invalide"
+
+#, fuzzy
+msgid "Invalid product key supplied"
+msgstr "Le type d'objet transmis est invalide"
+
+msgid "Invalid scheduling type"
+msgstr "Type de programmation non valide"
+
+msgid "Invalid snapin"
+msgstr "Snapin invalide"
+
+#, fuzzy
+msgid "Invalid snapin filename"
+msgstr "Snapin invalide"
+
+#, fuzzy
+msgid "Invalid status payload"
+msgstr "ID tâche invalide"
+
+msgid "Invalid task"
+msgstr "Tâche non valide"
+
+msgid "Invalid task id"
+msgstr "ID tâche invalide"
+
+msgid "Invalid task id sent"
+msgstr "L'ID de la tâche invalide envoyé"
+
+msgid "Invalid tasking type passed"
+msgstr "Le type de tâche transmis est invalide"
+
+msgid "Invalid tasking!"
+msgstr "Tâche non valide !"
+
+msgid "Invalid token passed"
+msgstr "Jeton non valide transmis"
+
+#, fuzzy
+msgid "Invalid token passed for host"
+msgstr "Jeton non valide transmis"
+
+msgid "Invalid type, merge to add, diff to remove"
+msgstr "Type non valide, merge pour ajouter, diff pour enlever"
+
+msgid "Invalid user and/or channel passed"
+msgstr "Utilisateur et / ou d'un canal non valide transmis"
+
+msgid "Inventory"
+msgstr "Inventaire"
+
+msgid "Inventory ID"
+msgstr "N° d'inventaire"
+
+#, fuzzy
+msgid "Inventory Report"
+msgstr "Export complet Inventaire"
+
+msgid "Is Advanced"
+msgstr "Est avancée"
+
+msgid "Is Enabled"
+msgstr "Est autorisé"
+
+msgid "Is Graph Enabled"
+msgstr "Le graphique est-il activé"
+
+msgid "Is Group"
+msgstr "Est Groupe"
+
+msgid "Is Master Node"
+msgstr "Est nœud maître"
+
+msgid "Is Pack"
+msgstr "Est un paquet"
+
+msgid "Is Restricted User "
+msgstr "Est un utilisateur restreint "
+
+msgid "Is a"
+msgstr "Est un"
+
+msgid "Is restricted"
+msgstr "Est restreint"
+
+msgid "It can be used on Windows"
+msgstr "Il peut être utilisé sur Windows"
+
+msgid "It can no longer be joined"
+msgstr ""
+
+msgid "It is primarily geared for the smart installer methodology now"
+msgstr "Il est principalement destiné à la méthodologie de l'installateur intelligent"
+
+msgid "It operates by getting the max bandwidth setting of the node"
+msgstr "Il fonctionne en obtenant le réglage de la bande passante maximale du nœud"
+
+msgid "It tells the client to download snapins from"
+msgstr "Il indique au client de télécharger les Snapins à partir de"
+
+msgid "It will operate based on the fields the area typically requires"
+msgstr "Il fonctionnera sur la base des champs dont la zone a généralement besoin"
+
+msgid "Item removed successfully!"
+msgstr "Élément retiré avec succès !"
+
+msgid "Items must be an array"
+msgstr "Les éléments doivent être des tableaux"
+
+msgid "Job Create Date"
+msgstr "Date de création du job"
+
+msgid "Job Create Time"
+msgstr "Heure de création du job"
+
+msgid "Join Domain after deploy"
+msgstr "Joindre le domaine après le déploiement"
+
+msgid "Kernel"
+msgstr "Noyau"
+
+msgid "Kernel Args"
+msgstr "Kernel Args"
+
+msgid "Kernel Arguments"
+msgstr "Arguments du noyau"
+
+msgid "Kernel Name"
+msgstr "Nom du Kernel"
+
+msgid "Kernel Update"
+msgstr "Mise à jour Kernel"
+
+msgid "Kernel Versions"
+msgstr "Versions Kernel"
+
+msgid "Kernels/Inits from location"
+msgstr "Kernels / Inits de l'emplacement"
+
+msgid "Key"
+msgstr "Clé"
+
+msgid "Key Name"
+msgstr "Nom de clé"
+
+msgid "Key field must be a string"
+msgstr "Le champ clé doit être une chaîne de caractères"
+
+msgid "Key must be a string"
+msgstr "La clé doit être une chaîne de caractères"
+
+msgid "Key must be a string or index"
+msgstr "La clé doit être une chaîne de caractères ou un index"
+
+msgid "Key must be an array of keys or a string."
+msgstr "La clé doit être un tableau de clés ou une chaîne de caractères."
+
+msgid "Kill"
+msgstr "Tuer"
+
+msgid "LDAP Connection Name"
+msgstr "Nom de la connexion LDAP"
+
+msgid "LDAP Create Fail"
+msgstr "Échec de la création de LDAP"
+
+msgid "LDAP Create Success"
+msgstr "Succès de la création de LDAP"
+
+msgid "LDAP General"
+msgstr "Généralités sur LDAP"
+
+msgid "LDAP Management"
+msgstr "Gestion LDAP"
+
+msgid "LDAP Ports"
+msgstr "Ports LDAP"
+
+msgid "LDAP Server"
+msgstr "Serveur LDAP"
+
+msgid "LDAP Server Address"
+msgstr "Adresse du serveur LDAP"
+
+msgid "LDAP Server Description"
+msgstr "Serveur LDAP description"
+
+msgid "LDAP Server Port"
+msgstr "Port du serveur LDAP"
+
+msgid "LDAP Server added!"
+msgstr "Le serveur LDAP a été ajouté !"
+
+msgid "LDAP Server updated!"
+msgstr "Serveur LDAP mis à jour !"
+
+msgid "LDAP Servers"
+msgstr "Serveurs LDAP"
+
+msgid "LDAP Update Fail"
+msgstr "Échec de la mise à jour LDAP"
+
+msgid "LDAP Update Success"
+msgstr "Succès de la mise à jour LDAP"
+
+msgid "Language"
+msgstr "Langue"
+
+msgid "Last Captured"
+msgstr "Dernière capturée"
+
+msgid "Last Deployed"
+msgstr "Dernière déployée"
+
+msgid "Last Updated Time"
+msgstr "Heure de la dernière mise à jour"
+
+msgid "Last captured"
+msgstr "Dernière capture"
+
+msgid "Latest Development Version"
+msgstr "Dernière version de développement "
+
+msgid "Latest Version"
+msgstr "Dernière version "
+
+msgid "Leave a field blank to keep each host's current value."
+msgstr ""
+
+msgid "Leave empty unless this node is its own FOG server"
+msgstr ""
+
+msgid "Level must be an integer"
+msgstr "Le niveau doit être un nombre entier"
+
+msgid "License"
+msgstr "Licence"
+
+msgid "Line"
+msgstr "Ligne"
+
+msgid "Lines"
+msgstr "Lignes"
+
+msgid "Link New Account"
+msgstr "Lien Nouveau compte"
+
+msgid "Link Pushbullet Account"
+msgstr "Compte Lien Pushbullet"
+
+msgid "Link Pushbullet Account Fail"
+msgstr "Échec de la liaison du compte Pushbullet"
+
+msgid "Link Pushbullet Account Success"
+msgstr "Succès de la liaison du compte Pushbullet"
+
+msgid "Link Slack Account"
+msgstr "Lien compte Slack"
+
+msgid "Link Slack Account Fail"
+msgstr "Échec de la liaison du compte Slack"
+
+msgid "Link Slack Account Success"
+msgstr "Réussite de la liaison du compte Slack"
+
+msgid "Link must be a string"
+msgstr "Le lien doit être une chaîne de caractères"
+
+msgid "Linux"
+msgstr "Linux"
+
+msgid "List"
+msgstr "Liste"
+
+#, php-format
+msgid "List All %s"
+msgstr "Lister tous les %s"
+
+msgid "List All Groups"
+msgstr "Lister tous les groupes"
+
+msgid "List All Hosts"
+msgstr "Lister toutes les machines"
+
+msgid "List All Images"
+msgstr "Lister toutes les images"
+
+msgid "List All Printers"
+msgstr "Lister toutes les imprimantes"
+
+msgid "List All Snapins"
+msgstr "Lister tous les snapins"
+
+msgid "List All Storage Groups"
+msgstr "Lister tous les groupes de stockage"
+
+msgid "List All Storage Nodes"
+msgstr "Lister tous les nœuds de stockage"
+
+msgid "List All Users"
+msgstr "Lister tous les utilisateurs"
+
+#, php-format
+msgid "List all roles"
+msgstr "Lister tous les rôles"
+
+#, php-format
+msgid "List all rules"
+msgstr "Lister toutes les règles"
+
+msgid "Listener must be an array or an object"
+msgstr "L'écouteur doit être un tableau ou un objet"
+
+msgid "Load Average"
+msgstr "Charge moyenne"
+
+msgid "Load MAC Vendors"
+msgstr "Chargez les fournisseurs MAC"
+
+msgid "Load failed"
+msgstr "Échec du chargement"
+
+msgid "Loading data to field"
+msgstr "Chargement des données dans le champ"
+
+msgid "Location"
+msgstr "Emplacement"
+
+msgid "Location Association"
+msgstr "Association d'emplacement"
+
+msgid "Location Create Fail"
+msgstr "Échec de la création de l'emplacement"
+
+msgid "Location Create Success"
+msgstr "Succès de la création de l'emplacement"
+
+msgid "Location General"
+msgstr "Généralités Emplacement"
+
+msgid "Location Management"
+msgstr "Gestion des localisations"
+
+msgid "Location Name"
+msgstr "Nom de la localisation"
+
+msgid "Location Update Fail"
+msgstr "Échec de la mise à jour de l'emplacement"
+
+msgid "Location Update Success"
+msgstr "Succès de la mise à jour de l'emplacement"
+
+msgid "Location added!"
+msgstr "Emplacement ajouté !"
+
+msgid "Location already Exists, please try again."
+msgstr "Cet emplacement existe déjà, s'il vous plaît essayer à nouveau."
+
+msgid "Location is a plugin that allows your FOG Server"
+msgstr "Location est un greffon qui permet à votre serveur FOG"
+
+msgid "Location update failed!"
+msgstr "La mise à jour de l'emplacement a échoué !"
+
+msgid "Location updated!"
+msgstr "Emplacement mis à jour !"
+
+msgid "Location/Deployed"
+msgstr "Lieu / Déployé"
+
+msgid "Locations"
+msgstr "Emplacements"
+
+msgid "Log Viewer"
+msgstr "Visionneuse de journaux"
+
+msgid "Log in as a FOG administrator to apply this update"
+msgstr ""
+
+msgid "Login"
+msgstr "S'identifier"
+
+msgid "Login History"
+msgstr "Historique de connexion"
+
+msgid "Login Users"
+msgstr "Utilisateurs connectés"
+
+msgid "Login accepted"
+msgstr "Connexion acceptée"
+
+msgid "Login failed"
+msgstr "La connexion a échoué"
+
+msgid "Login time"
+msgstr "Temps de connexion"
+
+msgid "Login with the FOG credentials and you will see the menu"
+msgstr "Connectez-vous avec les informations d'identification de FOG et vous verrez le menu"
+
+msgid "Logout"
+msgstr "Se déconnecter"
+
+msgid "Logout not found"
+msgstr "Déconnexion non trouvée"
+
+msgid "MAC"
+msgstr "MAC"
+
+msgid "MAC Address"
+msgstr "Adresse MAC"
+
+msgid "MAC Address List"
+msgstr "Liste de MAC Address"
+
+msgid "MAC Address Manufacturer Listing"
+msgstr "Liste des fabricants d'adresses MAC"
+
+msgid "MAC Format is invalid"
+msgstr "Le format de l'adresse MAC est invalide"
+
+msgid "MAC address is already in use by another host"
+msgstr "L'adresse MAC est déjà utilisée par un autre hôte"
+
+#, fuzzy
+msgid "MACs approved successfully"
+msgstr "Les machines sélectionnés ont été approuvés avec succès"
+
+#, fuzzy
+msgid "MACs deleted successfully"
+msgstr "Règle supprimée avec succès !"
+
+msgid "MB Asset"
+msgstr "Actif de la carte mère"
+
+msgid "MB Manufacturer"
+msgstr "Fabricant de la carte mère"
+
+msgid "MB Name"
+msgstr "Nom carte mère"
+
+msgid "MB Serial"
+msgstr "Numéro de série carte mère"
+
+msgid "MB Version"
+msgstr "Version carte mère"
+
+msgid "MSI"
+msgstr "MSI"
+
+msgid "Machine Details"
+msgstr "Détails sur la machine"
+
+msgid "Main Colors"
+msgstr "Couleurs principales"
+
+msgid "Main Menu"
+msgstr "Menu principal"
+
+msgid "Main fallback pairings"
+msgstr "Principales associations de secours"
+
+msgid "Main pairings"
+msgstr "Principales associations"
+
+msgid "Make Changes"
+msgstr "Sauvegarder les modifications"
+
+msgid "Make Changes?"
+msgstr "Sauvegarder les modifications ?"
+
+msgid "Make Printer Changes"
+msgstr "Modifications de l'imprimante"
+
+msgid "Make Snapin Changes"
+msgstr "Apporter des modifications au Snapin"
+
+msgid "Make changes?"
+msgstr "Effectuer les changements ?"
+
+#, php-format
+msgid "Malformed upload for \"%s\""
+msgstr ""
+
+msgid "Management"
+msgstr "Gestion"
+
+msgid "Management Login"
+msgstr "Gestion des connexions"
+
+msgid "Management Password"
+msgstr "Gestion des mots de passe"
+
+msgid "Management Username"
+msgstr "Gestion des identifiants"
+
+#, fuzzy
+msgid "Marked failed, task"
+msgstr "Tâche annulée"
+
+#, fuzzy
+msgid "Mass destroy failed"
+msgstr "Échec de la destruction"
+
+#, fuzzy
+msgid "Mass update failed"
+msgstr "La mise à jour de l'utilisateur a échoué !"
+
+msgid "Master Node"
+msgstr "Nœud maître"
+
+msgid "Max"
+msgstr "Max"
+
+msgid "Max Clients"
+msgstr "Clients maximum"
+
+msgid "Max Size"
+msgstr "Taille max"
+
+msgid "Members"
+msgstr "Membres"
+
+msgid "Membership"
+msgstr "Membres"
+
+msgid "Memory"
+msgstr "Mémoire"
+
+msgid "Menu Background File"
+msgstr "Fichier d'arrière-plan du menu"
+
+msgid "Menu Hide/No Menu settings"
+msgstr "Paramètres du menu Caché / Pas de Menu"
+
+msgid "Menu Item"
+msgstr "Élément du menu"
+
+msgid "Menu Item or title cannot be blank"
+msgstr "Élément de menu ou le titre ne peut pas être vide"
+
+msgid "Menu Show with"
+msgstr "Menu Afficher avec"
+
+msgid "Menu Timeout"
+msgstr "Délai d'attente du menu"
+
+msgid "Menu colors, pairings, settings"
+msgstr "Couleurs de menu, associations, réglages"
+
+msgid "Message"
+msgstr "Message"
+
+msgid "Method does not exist"
+msgstr "Méthode n'existe pas"
+
+msgid "Microsoft AD"
+msgstr "Microsoft AD"
+
+msgid "Midnight"
+msgstr "Minuit"
+
+msgid "Mind you"
+msgstr "Pensez-y"
+
+msgid "Minute value is not valid"
+msgstr "La valeur des minutes n'est pas valide"
+
+msgid "Miscellaneous"
+msgstr "Divers"
+
+msgid "Missing a temporary folder"
+msgstr "Manquer un dossier temporaire"
+
+msgid "Missing one or more extensions."
+msgstr "Il manque une ou plusieurs extensions."
+
+msgid "Mobile Group"
+msgstr "Groupe mobile"
+
+msgid "Mode"
+msgstr "Mode"
+
+msgid "Model"
+msgstr "Modèle"
+
+msgid "Module MD5"
+msgstr "Module MD5"
+
+msgid "Module Name"
+msgstr "Nom du module"
+
+msgid "Module Type"
+msgstr "Type de module"
+
+msgid "Module Update Fail"
+msgstr "Échec de la mise à jour du module"
+
+msgid "Module Update Success"
+msgstr "Succès de la mise à jour du module"
+
+msgid "Module updated!"
+msgstr "Module mis à jour !"
+
+msgid "Modules added/updated successfully!"
+msgstr "Modules ajoutées / mises à jour avec succès !"
+
+msgid "Month value is not valid"
+msgstr "La valeur du mois n'est pas valide"
+
+msgid "Monthly"
+msgstr "Mensuel"
+
+msgid "Motherboard Asset Tag"
+msgstr "Étiquette d'inventaire Carte mère"
+
+msgid "Motherboard Manufacturer"
+msgstr "Fabricant Carte mère"
+
+msgid "Motherboard Product Name"
+msgstr "Nom du produit Carte mère"
+
+msgid "Motherboard Serial Number"
+msgstr "Numéro de série Carte mère"
+
+msgid "Motherboard Version"
+msgstr "Version Carte mère"
+
+msgid "Multicast"
+msgstr "Multicast"
+
+msgid "Multicast Image"
+msgstr "Image Multicast"
+
+msgid "Multicast Quick Deploy"
+msgstr "Multicast Déploiement rapide"
+
+msgid "Multicast session created"
+msgstr "Session Multicast créé"
+
+msgid "Multicast tasks from groups"
+msgstr "Tâches multicast à partir de groupes"
+
+msgid "MulticastTask"
+msgstr "Tâche Multicast"
+
+msgid "Must be 0 through 23 for hours in a day."
+msgstr "Doit être compris entre 0 et 23 pour les heures d'une journée."
+
+msgid "Must be 0 through 59 for minutes in an hour."
+msgstr "Doit être compris entre 0 et 59 pour les minutes d'une heure."
+
+msgid "Must be encrypted"
+msgstr "Doit être chiffré"
+
+msgid "Must have a name to create the table"
+msgstr "Il faut avoir un nom pour créer la table"
+
+msgid "Must have an image associated"
+msgstr "Doit avoir une image associée"
+
+msgid "Must use an"
+msgstr "Doit utiliser un"
+
+msgid "MySQL Administrator or by running"
+msgstr "l'administration MySQL ou en exécutant"
+
+msgid "N/A"
+msgstr "N/A"
+
+msgid "NAME"
+msgstr "NOM"
+
+msgid "NOT"
+msgstr "NE PAS"
+
+msgid "NOTE"
+msgstr "NOTE"
+
+msgid "NOTICE"
+msgstr "NOTICE"
+
+msgid "Name"
+msgstr "Nom"
+
+msgid "Name Change/AD Join Forced reboot"
+msgstr "Forcer un reboot (changer le nom ou intégrer au domaine AD)"
+
+msgid "Need more support"
+msgstr "Besoin de davantage de support"
+
+msgid "Need the table name to drop"
+msgstr "Besoin du nom de la table à supprimer"
+
+msgid "Needs a 256-bit key"
+msgstr "Nécessite une clé de 256 bits"
+
+msgid "Needs action string of ask, get, or list"
+msgstr "Nécessite une chaîne d'action telle que ask, get ou list"
+
+msgid "Network Information"
+msgstr "Information sur le réseau"
+
+msgid "Network Installer"
+msgstr "Installateur réseau"
+
+msgid "Network Printer"
+msgstr "Imprimante réseau"
+
+msgid "New"
+msgstr "Nouveau"
+
+msgid "New Broadcast Address"
+msgstr "Nouvelle Adresse de diffusion"
+
+msgid "New Client and Utilities"
+msgstr "Nouveau client et utilitaires"
+
+msgid "New Event"
+msgstr "Nouvel événement"
+
+msgid "New Group"
+msgstr "Nouveau groupe"
+
+msgid "New Host"
+msgstr "Nouvelle machine"
+
+msgid "New Image"
+msgstr "Nouvelle image"
+
+msgid "New LDAP Server"
+msgstr "Nouveau serveur LDAP"
+
+msgid "New Location"
+msgstr "Nouvel emplacement"
+
+msgid "New Role"
+msgstr "Nouveau rôle"
+
+msgid "New Rule"
+msgstr "Nouvelle règle"
+
+msgid "New Search"
+msgstr "Nouvelle recherche"
+
+msgid "New Site"
+msgstr "Nouveau site"
+
+msgid "New Snapin"
+msgstr "Nouveau Snapin"
+
+msgid "New Storage Group"
+msgstr "Nouveau groupe de stockage"
+
+msgid "New Storage Node"
+msgstr "Nouveau nœud de stockage"
+
+msgid "New Subnetgroup"
+msgstr "Nouveau sous-groupe de réseau"
+
+msgid "New Task State"
+msgstr "Nouvel état Tâche"
+
+msgid "New Task Type"
+msgstr "Nouveau Type de tâche"
+
+msgid "New User"
+msgstr "Nouvel utilisateur"
+
+msgid "New Windows Key"
+msgstr "Nouvelle clé Windows"
+
+msgid "New iPXE Menu"
+msgstr "Nouveau menu iPXE"
+
+msgid "New key must be a string"
+msgstr "La nouvelle clé doit être une chaîne de caractères"
+
+msgid "New power management task"
+msgstr "Nouvelle tâche de gestion de l'alimentation"
+
+msgid "No"
+msgstr "Non"
+
+msgid "No Active Snapin Jobs Found For Host"
+msgstr "Aucun travail de Snapin actif trouvé pour cette image"
+
+msgid "No Active Task found for Host"
+msgstr "Aucune tâche active trouvée pour Host"
+
+msgid "No Data"
+msgstr "Pas de données"
+
+msgid "No Data Available"
+msgstr "Aucune donnée disponible"
+
+msgid "No FOGPage Class found for this node"
+msgstr "Aucune classe FOGPage n'a été trouvée pour ce nœud"
+
+msgid "No Host found for MAC Address"
+msgstr "Aucune machine trouvée pour l'adresse MAC"
+
+msgid "No Image specified"
+msgstr "Pas d'image spécifiée"
+
+msgid "No Menu"
+msgstr "Pas de menu"
+
+msgid "No Printer Management"
+msgstr "Pas de gestion des imprimantes"
+
+msgid "No Site"
+msgstr "Pas de Site"
+
+msgid "No access is allowed"
+msgstr "Aucun accès n'est autorisé"
+
+#, fuzzy
+msgid "No active task found for this host"
+msgstr "Aucune tâche active trouvée pour Host"
+
+#, fuzzy
+msgid "No active tasks to cancel for this group"
+msgstr "Aucune tâche active trouvée pour Host"
+
+msgid "No activity information available for this group"
+msgstr "Aucune information sur l'activité n'est disponible pour ce groupe"
+
+msgid "No class value sent"
+msgstr "Aucune valeur de classe envoyé"
+
+msgid "No complete time recorded"
+msgstr "Aucun temps complet enregistré"
+
+msgid "No connection available"
+msgstr "Aucune connexion disponible"
+
+msgid "No connection to the database"
+msgstr "Pas de connexion à la base de données"
+
+#, fuzzy
+msgid "No data found"
+msgstr "Pas trouvé"
+
+msgid "No data returned"
+msgstr "Aucune donnée retournée"
+
+msgid "No data to insert"
+msgstr "Aucune donnée à insérer"
+
+msgid "No database to work off"
+msgstr "Pas de base de données pour travailler"
+
+msgid "No directories defined to be cleaned up"
+msgstr "Aucun dossier défini à nettoyer"
+
+msgid "No fields passed"
+msgstr "Aucun champ passé"
+
+msgid "No file uploaded!"
+msgstr "Aucun fichier envoyé !"
+
+msgid "No file was uploaded"
+msgstr "Aucun fichier n'a été téléchargé"
+
+msgid "No files matched multicast image pattern"
+msgstr ""
+
+msgid "No firmware changes are needed"
+msgstr ""
+
+msgid "No friendly name defined"
+msgstr "Aucun nom usuel défini"
+
+msgid "No groups defined, search will return all hosts."
+msgstr "Aucun groupe défini, la recherche renverra toutes les machines."
+
+msgid "No groups selected to be removed"
+msgstr "Aucun groupe sélectionné ne peut être supprimé"
+
+msgid "No hosts available to task"
+msgstr "Aucune machine disponible pour la tâche"
+
+msgid "No hosts to task"
+msgstr "Aucune machine pour la tâche"
+
+msgid "No icons found"
+msgstr "Pas d'icônes trouvés"
+
+msgid "No image specified"
+msgstr "Aucune image spécifiée"
+
+msgid "No images associated with this group as master"
+msgstr "Aucune image associée à ce groupe en tant que maître"
+
+msgid "No items found"
+msgstr "Aucun élément trouvé"
+
+msgid "No key being requested"
+msgstr "Aucune clé demandée"
+
+msgid "No link established to the database"
+msgstr "Aucun lien établi avec la base de données"
+
+msgid "No master nodes are enabled to delete this image"
+msgstr "Pas de nœuds maîtres activés pour supprimer cette image"
+
+msgid "No need to sync"
+msgstr "Pas besoin de synchroniser"
+
+msgid "No new tasks found"
+msgstr "Aucune nouvelle tâche trouvée"
+
+msgid "No node associated"
+msgstr "Aucun nœud associé"
+
+msgid "No node associated with any addresses of this system"
+msgstr "Aucun nœud associé à une adresse de ce système"
+
+msgid "No open slots"
+msgstr "Pas de créneaux ouverts"
+
+msgid "No query passed"
+msgstr "Aucune requête passée"
+
+msgid "No query result, use query() first"
+msgstr "Aucun résultat de requête, utilisez query () en premier"
+
+msgid "No query sent"
+msgstr "Aucune requête envoyée"
+
+msgid "No report text supplied"
+msgstr ""
+
+msgid "No results found"
+msgstr "Aucun résultat trouvé"
+
+msgid "No role selected"
+msgstr "Pas de rôle sélectionné"
+
+msgid "No rule selected"
+msgstr "Pas de règle sélectionnée"
+
+msgid "No site"
+msgstr "Pas de site"
+
+msgid "No snapins associated with this group as master"
+msgstr "Aucun Snapin associé à ce groupe en tant que maître"
+
+msgid "No token passed to authenticate this host"
+msgstr ""
+
+#, fuzzy
+msgid "No unrunnable tasks found."
+msgstr "Aucune nouvelle tâche trouvée"
+
+msgid "No valid Image defined for this host"
+msgstr "Pas d'image définie pour cette machine"
+
+msgid "No valid class sent"
+msgstr "Aucune classe valide envoyée"
+
+msgid "No valid hosts found and"
+msgstr "Aucune machine valide trouvée et"
+
+msgid "No valid storage nodes found"
+msgstr "Aucun nœud de stockage valide n'a été trouvé"
+
+msgid "No valid tasks found"
+msgstr "Aucune tâche valide n'a été trouvée"
+
+msgid "No values passed"
+msgstr "Aucune valeur passée"
+
+msgid "No viable macs to use"
+msgstr "Pas de MACs viables à utiliser"
+
+msgid "No viable storage groups found"
+msgstr "Aucun groupe de stockage viable n'a été trouvé"
+
+msgid "Node"
+msgstr "Nœud"
+
+msgid "Node API Signing Key"
+msgstr ""
+
+msgid "Node Offline"
+msgstr "Nœud hors-ligne"
+
+msgid "Node Parent"
+msgstr "Nœud parent"
+
+msgid "Node is unavailable"
+msgstr "Le nœud est indisponible"
+
+msgid "Node must be a string"
+msgstr "Le nœud doit être une chaîne de caractères"
+
+msgid "Nodes"
+msgstr "Nœuds"
+
+msgid "Normal Snapin"
+msgstr "Snapin normal"
+
+msgid "Not Available"
+msgstr "Indisponible"
+
+msgid "Not Registered Hosts"
+msgstr "Machines non enregistrées"
+
+msgid "Not Valid"
+msgstr "Non valide"
+
+msgid "Not a number"
+msgstr "Pas un nombre"
+
+msgid "Not able to add"
+msgstr "Pas en mesure d'ajouter"
+
+msgid "Not all elements in filter or ports setting are integer"
+msgstr "Tous les éléments du filtre ou du réglage des ports ne sont pas des entiers"
+
+msgid "Not allowed here"
+msgstr "Non autorisé ici"
+
+msgid "Not found"
+msgstr "Pas trouvé"
+
+msgid "Not protected"
+msgstr "Non protégé"
+
+msgid "Not set"
+msgstr "Pas encore défini"
+
+msgid "Not syncing"
+msgstr "Pas de synchronisation"
+
+msgid "Not syncing Image"
+msgstr "Pas de synchronisation de l'image"
+
+msgid "Not syncing Snapin"
+msgstr "Pas de synchronisation du Snapin"
+
+msgid "Notes"
+msgstr "Remarques"
+
+msgid "Nothing passed to search for"
+msgstr "Rien n'est passé pour chercher"
+
+msgid "O/S"
+msgstr "O/S"
+
+msgid "OS Name"
+msgstr "Nom OS"
+
+msgid "Object"
+msgstr "Objet"
+
+msgid "Old clients are the clients that came with FOG"
+msgstr "Les anciens clients sont les clients qui sont venus avec FOG"
+
+msgid "Old key must be a string"
+msgstr "L'ancienne clé doit être une chaîne de caractères"
+
+msgid "On Dashboard"
+msgstr "Sur le tableau de bord"
+
+msgid "On each client, once"
+msgstr ""
+
+msgid "On reboot we will try to find a new node"
+msgstr "Au redémarrage, nous allons essayer de trouver un nouveau nœud"
+
+msgid "One or more files must be uploaded via the \"snapinfiles[]\" multipart field"
+msgstr ""
+
+msgid "One or more macs are associated with a host"
+msgstr "Un ou plusieurs macs sont associés à un hôte"
+
+msgid "Only Assigned Printers"
+msgstr "Imprimantes attribuées uniquement"
+
+msgid "Only allowed to have"
+msgstr "Seulement autorisé à avoir"
+
+msgid "Only for a peer running its own FOG database. On that peer run bin/fog-node-key.php --set with this same value, or it cannot verify requests this server signs."
+msgstr ""
+
+msgid "Open Source Computer Cloning Solution"
+msgstr "Solution open-source de clonage d'ordinateurs"
+
+msgid "Open VNC connection to"
+msgstr "Ouvrir la connexion VNC pour"
+
+msgid "OpenLDAP"
+msgstr "OpenLDAP"
+
+msgid "Operating System"
+msgstr "Système d'exploitation"
+
+msgid "Operation field not set"
+msgstr "Opération pas définie"
+
+msgid "Option below enforces a login system"
+msgstr "L'option ci-dessous met en place un système de connexion"
+
+msgid "Option sets if there will even"
+msgstr "Cette option permet de déterminer si"
+
+msgid "Option sets the ipxe keysequence to enter to gain menu"
+msgstr "L'option définit la séquence de touches de l'iPXE pour entrer dans le menu de contrôle"
+
+msgid "Option sets the key sequence"
+msgstr "L'option définit la séquence de touches"
+
+msgid "Option specifies the background file to use"
+msgstr "L'option spécifie le fichier d'arrière-plan à utiliser"
+
+msgid "Option specifies the color settings of the main menu items"
+msgstr "Option qui spécifie les paramètres de couleur des éléments du menu principal"
+
+msgid "Option specifies the color text on the menu if the host"
+msgstr "L'option spécifie la couleur du texte du menu si la machine"
+
+msgid "Option specifies the efi boot exit method ipxe will use"
+msgstr "L'option spécifie la méthode de sortie de boot efi qu'iPXE utilisera"
+
+msgid "Option specifies the legacy boot exit method ipxe will use"
+msgstr "L'option spécifie la méthode de sortie de boot traditionnel qu'iPXE utilisera"
+
+msgid "Option specifies the menu timeout"
+msgstr "L'option spécifie le délai d'attente du menu"
+
+msgid "Option specifies the pairings after host checks"
+msgstr "L'option spécifie les associations après les contrôles des machines"
+
+msgid "Option specifies the pairings as a fallback"
+msgstr "L'option spécifie les associations comme solution de secours"
+
+msgid "Option specifies the pairings of colors to"
+msgstr "L'option spécifie les paires de couleurs à"
+
+msgid "Option specifies the timeout value for the hidden menu system"
+msgstr "Cette option spécifie la valeur de délai d'attente pour le système de menu caché"
+
+msgid "Or there was no number defined for joining session"
+msgstr "Ou il n'y avait pas de numéro défini pour la session de jonction"
+
+msgid "Organizational Unit"
+msgstr "Unité organisationnelle"
+
+msgid "Other Tag #1"
+msgstr "Autre Tag # 1"
+
+msgid "Other Tag #2"
+msgstr "Autre Tag # 2"
+
+msgid "Other Tag 1"
+msgstr "Autre Tag 1"
+
+msgid "Other Tag 2"
+msgstr "Autre Tag 2"
+
+msgid "Otherwise it will just boot like normal"
+msgstr "Sinon, il démarrera comme d'habitude"
+
+msgid "PC Check-out Agreement"
+msgstr "PC Check-out Agreement"
+
+msgid "Parameters"
+msgstr "Paramètres"
+
+msgid "Parent"
+msgstr "Parent"
+
+msgid "Parent Node"
+msgstr "Nœud parent"
+
+msgid "Partclone"
+msgstr "Partclone"
+
+msgid "Partclone Compressed"
+msgstr "Partclone Compressé"
+
+msgid "Partclone Compressed 200MiB split"
+msgstr "Partclone compressé 200 Mo split"
+
+msgid "Partclone Gzip"
+msgstr "Partclone Gzip"
+
+msgid "Partclone Gzip Split 200MiB"
+msgstr "Partclone Gzip Split 200 Mo"
+
+msgid "Partclone Uncompressed"
+msgstr "Partclone non compressé"
+
+msgid "Partclone Uncompressed 200MiB split"
+msgstr "Partclone non compressé 200 Mo split"
+
+msgid "Partclone Uncompressed Split 200MiB"
+msgstr "Partclone non compressé Split 200 Mo"
+
+msgid "Partclone Zstd"
+msgstr "Partclone Zstd"
+
+msgid "Partclone Zstd Split 200MiB"
+msgstr "Partclone Zstd Split 200 Mo"
+
+msgid "Partimage"
+msgstr "Partimage"
+
+msgid "Partition"
+msgstr "Partition"
+
+msgid "Password"
+msgstr "Mot de passe"
+
+msgid "Password reset requires a user account to reset"
+msgstr "La réinitialisation du mot de passe nécessite un compte utilisateur"
+
+msgid "Path"
+msgstr "Chemin"
+
+msgid "Path is unavailable"
+msgstr "Le chemin est indisponible"
+
+#, fuzzy
+msgid "Path not allowed"
+msgstr "Non autorisé ici"
+
+msgid "Pause"
+msgstr "Pause"
+
+msgid "Pending Host List"
+msgstr "Liste des machines en attente"
+
+msgid "Pending Hosts"
+msgstr "Machines en attente"
+
+msgid "Pending MAC Actions"
+msgstr "Actions MAC en cours"
+
+msgid "Pending MAC Export"
+msgstr "En attente MAC Export"
+
+msgid "Pending MACs"
+msgstr "MACs en attente"
+
+#, fuzzy
+msgid "Pending Mac List"
+msgstr "Liste des machines en attente"
+
+msgid "Pending Registered Hosts"
+msgstr "Machines enregistrés en attente"
+
+msgid "Pending Registration created by FOG_CLIENT"
+msgstr "Inscription en attente créée par FOG_CLIENT"
+
+msgid "Pending hosts"
+msgstr "Machines en attente"
+
+msgid "Pending macs"
+msgstr "MACs en attente"
+
+msgid "Pending..."
+msgstr "En attente de..."
+
+msgid "Percent"
+msgstr "Pour cent"
+
+msgid "Perform Immediately?"
+msgstr "Exécuter immédiatement ?"
+
+msgid "Perform search"
+msgstr "Effectuer une recherche"
+
+msgid "Personal Information"
+msgstr "Informations personnelles"
+
+msgid "Pick a template"
+msgstr "Choisir un modèle"
+
+msgid "Ping Hosts"
+msgstr "Ping machines"
+
+msgid "Please Enter an admin or mobile lookup name"
+msgstr "Veuillez entrer un nom de recherche d'administrateur ou mobile"
+
+msgid "Please Select an option"
+msgstr "Veuillez sélectionner une option"
+
+msgid "Please be very careful changing any of the following settings"
+msgstr "Soyez très prudent lorsque vous modifiez l'un des paramètres suivants"
+
+msgid "Please check your credentials in"
+msgstr "Veuillez vérifier vos informations d'identification dans"
+
+msgid "Please choose a different name"
+msgstr "Veuillez choisir un autre nom"
+
+msgid "Please choose a different path"
+msgstr "Veuillez choisir un autre chemin"
+
+msgid "Please choose an image"
+msgstr "Veuillez choisir une image"
+
+msgid "Please confirm you want to delete"
+msgstr "Veuillez confirmer que vous voulez supprimer"
+
+msgid "Please enter a Group Member Attribute"
+msgstr "Veuillez entrer un attribut de membre de groupe"
+
+msgid "Please enter a LDAP server address"
+msgstr "Veuillez entrer une adresse de serveur LDAP"
+
+msgid "Please enter a Search Base DN"
+msgstr "Veuillez entrer une base de recherche DN"
+
+msgid "Please enter a User Name Attribute"
+msgstr "Veuillez entrer un attribut de nom d'utilisateur"
+
+msgid "Please enter a hostname"
+msgstr "Veuillez entrer un nom de machine"
+
+msgid "Please enter a mac address"
+msgstr "Veuillez entrer une adresse MAC"
+
+msgid "Please enter a name for this LDAP server."
+msgstr "Veuillez entrer un nom pour ce serveur LDAP."
+
+msgid "Please enter a name for this location."
+msgstr "S'il vous plaît entrer un nom pour cet emplacement."
+
+msgid "Please enter a valid CIDR subnet."
+msgstr "Veuillez entrer un sous-réseau CIDR valide."
+
+msgid "Please enter a valid CIDR subnets comma separated list"
+msgstr "Veuillez entrer une liste valide de sous-réseaux CIDR séparés par des virgules"
+
+msgid "Please enter a valid hostname"
+msgstr "Veuillez entrer un nom de machine valide"
+
+msgid "Please enter a valid ip"
+msgstr "S'il vous plaît entrer une adresse IP valide"
+
+msgid "Please enter a valid mac address"
+msgstr "Veuillez entrer une adresse MAC valide"
+
+msgid "Please enter an access token"
+msgstr "S'il vous plaît entrer un jeton d'accès"
+
+msgid "Please input a session name"
+msgstr "Veuillez saisir un nom de session"
+
+msgid "Please physically associate"
+msgstr "Veuillez associer physiquement"
+
+msgid "Please select a valid ldap port"
+msgstr "Veuillez sélectionner un port LDAP valide"
+
+msgid "Please select an LDAP port to use"
+msgstr "Veuillez sélectionner un port LDAP à utiliser"
+
+msgid "Please select an option"
+msgstr "Veuillez sélectionner une option"
+
+msgid "Please select the snapin you want to install"
+msgstr "Veuillez sélectionner le Snapin que vous voulez installer"
+
+msgid "Please select the storage group this location relates to."
+msgstr "S'il vous plaît, sélectionnez le groupe de stockage auquel ce lieu se rapporte."
+
+msgid "Please update your FOG Client, this is old and insecure"
+msgstr ""
+
+msgid "Please use another hostname"
+msgstr "Veuillez utiliser un autre nom de machine"
+
+msgid "Plugin"
+msgstr "Greffon"
+
+msgid "Plugin Configuration"
+msgstr "Configuration Greffon"
+
+msgid "Plugin Description"
+msgstr "Description du greffon"
+
+msgid "Plugin Installation"
+msgstr "Installation du greffon"
+
+msgid "Plugin Installed!"
+msgstr "Greffon installé !"
+
+msgid "Plugin Management"
+msgstr "Gestion des plugins"
+
+msgid "Plugin Name"
+msgstr "Nom greffon"
+
+msgid "Plugins"
+msgstr "Greffons"
+
+msgid "Point your DHCP boot filename at"
+msgstr ""
+
+msgid "Port"
+msgstr "Port"
+
+msgid "Port is not valid ldap/ldaps port"
+msgstr "Le port n'est pas un port LDAP valide"
+
+msgid "Postfix requires an action of login"
+msgstr "Postfix requiert une action de connexion"
+
+msgid "Postfix requires an action of login, logout, or start to operate"
+msgstr "Postfix exige une action de connexion, déconnexion, ou commencer à fonctionner"
+
+msgid "Power Management"
+msgstr "Gestion de l'alimentation"
+
+msgid "Power Management Task run time"
+msgstr "Durée d'exécution de la tâche de gestion de l'énergie"
+
+msgid "Primary Group"
+msgstr "Groupe primaire"
+
+msgid "Primary MAC"
+msgstr "MAC primaire"
+
+msgid "Primary Storage Group"
+msgstr "Groupe de stockage primaire"
+
+msgid "Primary User"
+msgstr "Utilisateur principal"
+
+msgid "Printed"
+msgstr "Imprimé"
+
+msgid "Printer"
+msgstr "Imprimante"
+
+msgid "Printer Alias"
+msgstr "Alias imprimante"
+
+msgid "Printer Associations"
+msgstr "Associations d'imprimantes"
+
+msgid "Printer Config File"
+msgstr "Fichier de configuration de l'imprimante"
+
+msgid "Printer Configuration"
+msgstr "Configuration de l'imprimante"
+
+msgid "Printer Create Fail"
+msgstr "Échec dans la création de l'imprimante"
+
+msgid "Printer Create Success"
+msgstr "Succès dans la création de l'imprimante"
+
+msgid "Printer Description"
+msgstr "Description imprimante"
+
+msgid "Printer General"
+msgstr "Imprimante Général"
+
+msgid "Printer INF File"
+msgstr "Fichier INF imprimante"
+
+msgid "Printer IP"
+msgstr "Imprimante IP"
+
+#, fuzzy
+msgid "Printer IP/Hostname"
+msgstr "Nom de l'imprimante"
+
+msgid "Printer Management"
+msgstr "Gestion des imprimantes"
+
+msgid "Printer Model"
+msgstr "Modèle d'imprimante"
+
+msgid "Printer Name"
+msgstr "Nom de l'imprimante"
+
+msgid "Printer Name/Alias"
+msgstr "Nom / alias de l'imprimante"
+
+msgid "Printer Port"
+msgstr "Port d'imprimante"
+
+msgid "Printer Type"
+msgstr "Type d'imprimante"
+
+msgid "Printer Update Fail"
+msgstr "Impossible de mettre à jour l'imprimante"
+
+msgid "Printer Update Success"
+msgstr "Imprimante mise à jour"
+
+msgid "Printer added!"
+msgstr "Imprimante ajoutée !"
+
+msgid "Printer name already exists"
+msgstr "Ce nom d'imprimante existe déjà"
+
+msgid "Printer update failed!"
+msgstr "Mise à jour de l'imprimante a échoué !"
+
+msgid "Printer updated!"
+msgstr "Imprimante mis à jour!"
+
+msgid "Printers"
+msgstr "Imprimantes"
+
+msgid "Private key failed"
+msgstr "La clé privée a échoué"
+
+msgid "Private key not found"
+msgstr "Clé privée non trouvée"
+
+msgid "Private key not readable"
+msgstr "Clé privée non lisible"
+
+msgid "Private key path not found"
+msgstr "Chemin de la clé privée non trouvée"
+
+#, fuzzy
+msgid "Product Keys"
+msgstr "Clés du produit de la machine"
+
+msgid "Protected"
+msgstr "Protégé"
+
+msgid "Pushbullet Accounts"
+msgstr "Comptes Pushbullet"
+
+#, fuzzy
+msgid "Pushbullet Management"
+msgstr "Gestion des clients"
+
+msgid "Quarantine"
+msgstr "Quarantaine"
+
+msgid "Queued"
+msgstr "en attente"
+
+msgid "Quick"
+msgstr "Rapide"
+
+msgid "RX"
+msgstr "RX"
+
+msgid "Reboot"
+msgstr "Redémarrage"
+
+msgid "Reboot after deploy"
+msgstr "Reboot après déploiement"
+
+msgid "Reboot after install"
+msgstr "Redémarrez après l'installation"
+
+msgid "Reboot. The machine stops on the blue MOK Manager screen: Enroll MOK, View key 0, Continue, Yes, then the password, then Reboot."
+msgstr ""
+
+msgid "Rebranding element has been successfully updated!"
+msgstr "L'élément sur l'image a été mis à jour avec succès !"
+
+msgid "Receive"
+msgstr "Réception"
+
+msgid "Recommended"
+msgstr "Recommandé"
+
+msgid "Record not found"
+msgstr "Enregistrement non trouvé"
+
+msgid "Register must be managed from hooks or events"
+msgstr "Le registre doit être géré à partir de crochets ou d'événements"
+
+msgid "Registered"
+msgstr "Inscrit"
+
+msgid "Registered Hosts"
+msgstr "Machines enregistrées"
+
+msgid "Releasing Staff Initials"
+msgstr "Initiales du personnel ayant libéré"
+
+msgid "Remit Hello Interval"
+msgstr "Intervalle Remit Hello"
+
+msgid "Remote address attempting to login"
+msgstr "L'adresse distante tente de se connecter"
+
+msgid "Remove"
+msgstr "Retirer"
+
+#, fuzzy, php-format
+msgid "Remove %s"
+msgstr "Retirer "
+
+msgid "Remove Accesscontrol Rules"
+msgstr "Supprimer les règles de contrôle d'accès"
+
+msgid "Remove Associations"
+msgstr "Supprimer les associations"
+
+msgid "Remove Hosts"
+msgstr "Supprimer des machines"
+
+msgid "Remove Images"
+msgstr "Supprimer les images"
+
+msgid "Remove MAC"
+msgstr "Retirer MAC"
+
+msgid "Remove Selected?"
+msgstr "Supprimer la sélection ?"
+
+msgid "Remove Users"
+msgstr "Retirer des utilisateurs"
+
+msgid "Remove failed"
+msgstr "La suppression a échoué"
+
+#, fuzzy, php-format
+msgid "Remove selected %s"
+msgstr "Retirer les sélectionnés "
+
+msgid "Remove selected groups"
+msgstr "Supprimer les groupes sélectionnés"
+
+msgid "Remove selected hosts"
+msgstr "Supprimer les machines sélectionnées"
+
+msgid "Remove selected images"
+msgstr "Supprimer les images sélectionnées"
+
+msgid "Remove selected printers"
+msgstr "Supprimer les imprimantes sélectionnées"
+
+msgid "Remove selected rules"
+msgstr "Supprimer les règles sélectionnées"
+
+msgid "Remove selected snapins"
+msgstr "Retirer Snapins sélectionnés"
+
+msgid "Remove selected users"
+msgstr "Retirer les utilisateurs sélectionnés"
+
+msgid "Remove snapins"
+msgstr "Retirer Snapins"
+
+msgid "Remove these items?"
+msgstr "Retirer ces éléments ?"
+
+msgid "Removed"
+msgstr "Supprimé"
+
+msgid "Removing Key"
+msgstr "Retrait de la clé"
+
+msgid "Replay from journal"
+msgstr "Reprise du journal"
+
+msgid "Replicate?"
+msgstr "Reproduire ?"
+
+msgid "Replicating"
+msgstr "Clonage"
+
+msgid "Replication Bandwidth"
+msgstr "Bande passante de réplication"
+
+msgid "Replication already running with PID"
+msgstr "Réplication déjà en cours avec le PID"
+
+msgid "Report"
+msgstr "Rapport"
+
+msgid "Report Management"
+msgstr "Gestion des rapports"
+
+msgid "Reports"
+msgstr "Rapports"
+
+msgid "Required database field is empty"
+msgstr "Le champ obligatoire de la base de données est vide"
+
+msgid "Requires templates to process"
+msgstr "Requiert des modèles pour traiter"
+
+msgid "Reset Encryption Data"
+msgstr "Réinitialiser les données de chiffrement"
+
+msgid "Reset Token"
+msgstr "Réinitialisation du jeton"
+
+msgid "Result"
+msgstr "Résultat"
+
+msgid "Results"
+msgstr "Résultats"
+
+msgid "Return Code"
+msgstr "Code de retour"
+
+msgid "Return Desc"
+msgstr "Retour Desc"
+
+msgid "Return code"
+msgstr "Code de retour"
+
+msgid "Returning array within key"
+msgstr "De retour tableau dans la clé"
+
+msgid "Returning value of key"
+msgstr "Retour de la valeur de la clé"
+
+msgid "Reverse the file: (newest on top)"
+msgstr "Inverser le fichier : (le plus récent en haut)"
+
+msgid "Rexmit Hello Interval"
+msgstr "Intervalle Rexmit Hello"
+
+msgid "Role"
+msgstr "Rôle"
+
+msgid "Role Create Fail"
+msgstr "Échec de la création du rôle"
+
+msgid "Role Create Success"
+msgstr "Rôle crée avec succès"
+
+msgid "Role Description"
+msgstr "Description du rôle"
+
+msgid "Role Name"
+msgstr "Nom du rôle"
+
+msgid "Role Update Fail"
+msgstr "Échec de la mise à jour du rôle"
+
+msgid "Role Update Success"
+msgstr "Succès de la mise à jour du rôle"
+
+msgid "Role added!"
+msgstr "Rôle ajouté !"
+
+msgid "Role update failed!"
+msgstr "La mise à jour du rôle a échoué !"
+
+msgid "Role updated!"
+msgstr "Rôle mis à jour !"
+
+msgid "Routes should be an array or an instance of Traversable"
+msgstr "Les routes doivent être un tableau ou une instance de Traversable"
+
+msgid "Row"
+msgstr "Ligne"
+
+msgid "Row number not set properly"
+msgstr "Numéro de ligne pas réglé correctement"
+
+msgid "Rule Associate Fail"
+msgstr "Échec de l'association de la règle"
+
+msgid "Rule Associate Success"
+msgstr "Succès dans l'association de la règle"
+
+msgid "Rule Association"
+msgstr "Association de règles"
+
+msgid "Rule Create Fail"
+msgstr "Échec dans la création de la règle"
+
+msgid "Rule Create Success"
+msgstr "Succès dans la création de la règle"
+
+msgid "Rule Delete Fail"
+msgstr "Échec de la suppression de la règle"
+
+msgid "Rule Delete Success"
+msgstr "Succès de la suppression de la règle"
+
+msgid "Rule Membership"
+msgstr "Membres de la règle"
+
+msgid "Rule Name"
+msgstr "Nom de la règle"
+
+msgid "Rule Type"
+msgstr "Type de règle"
+
+msgid "Rule Update Fail"
+msgstr "Échec dans la mise à jour de la règle"
+
+msgid "Rule Update Success"
+msgstr "Succès de la mise à jour de la règle"
+
+msgid "Rule Value"
+msgstr "Valeur de la règle"
+
+msgid "Rule added!"
+msgstr "Règle ajoutée !"
+
+msgid "Rule associate success!"
+msgstr "L'association de la règle a réussi !"
+
+msgid "Rule deleted successfully!"
+msgstr "Règle supprimée avec succès !"
+
+msgid "Rule type"
+msgstr "Type de règle"
+
+msgid "Rule updated!"
+msgstr "Règle mise à jour !"
+
+msgid "Rule value"
+msgstr "Valeur de la règle"
+
+msgid "Run the launcher (fog-enroll-mok.desktop, or fog-enroll-mok.sh directly). It re-runs itself with sudo."
+msgstr ""
+
+msgid "Running Windows"
+msgstr "Exécution de Windows"
+
+msgid "SQL Error"
+msgstr "Erreur SQL"
+
+msgid "SSL Path"
+msgstr "Chemin SSL"
+
+msgid "Save Changes"
+msgstr "Sauvegarder les modifications"
+
+msgid "Save Initrd"
+msgstr ""
+
+msgid "Save Kernel"
+msgstr "Sauvegarder le noyau"
+
+msgid "Save completed but no valid ID was assigned (insertId=0). Possible duplicate-key update or missing auto-increment."
+msgstr ""
+
+msgid "Saving data for"
+msgstr "Sauvegarde des données pour"
+
+msgid "Schedule"
+msgstr "Programme"
+
+msgid "Schedule Power"
+msgstr "Programmation alimentation"
+
+msgid "Schedule as debug task"
+msgstr "Planifier comme tâche de débogage"
+
+msgid "Schedule cron-style"
+msgstr "Programmation de type cron"
+
+msgid "Schedule delayed"
+msgstr "Programmation décalée"
+
+msgid "Schedule instant"
+msgstr "Programmation instantanée"
+
+msgid "Schedule with shutdown"
+msgstr "Programmation avec arrêt"
+
+msgid "Scheduled Task run time"
+msgstr "Durée d'exécution de la tâche planifiée"
+
+msgid "Scheduled Tasks"
+msgstr "Tâches planifiées"
+
+msgid "Scheduled date is in the past"
+msgstr "La date prévue est dans le passé"
+
+msgid "Scheduled tasks successfully created"
+msgstr "Tâches planifiées créées avec succès"
+
+msgid "Scheduler"
+msgstr "Planificateur"
+
+msgid "Screen Height (in pixels)"
+msgstr "Hauteur de l'écran (en pixels)"
+
+msgid "Screen Refresh Rate (in Hz)"
+msgstr "Taux de rafraîchissement écran (en Hz)"
+
+msgid "Screen Width (in pixels)"
+msgstr "Largeur de l'écran (en pixels)"
+
+msgid "Search"
+msgstr "Chercher"
+
+msgid "Search Base DN"
+msgstr "Recherche Base DN"
+
+msgid "Search DN"
+msgstr "Recherche DN"
+
+msgid "Search DN did not return any results"
+msgstr "La recherche DN n'a donné aucun résultat"
+
+msgid "Search Method"
+msgstr "Méthode de recherche"
+
+msgid "Search Scope"
+msgstr "Périmètre de recherche"
+
+msgid "Search pattern"
+msgstr "Schéma de recherche"
+
+msgid "Search results returned false"
+msgstr "Les résultats de la recherche sont faux"
+
+#, fuzzy
+msgid "Second parameter must be in array(class,function)"
+msgstr "Deuxième paramètre doit être sous la forme array (class, function)"
+
+msgid "Secure Boot"
+msgstr ""
+
+msgid "Secure Boot PXE and HTTPS are mutually exclusive: on an HTTPS install the installer skips these binaries, because rebuilding them to trust this server's CA would invalidate the signature that makes them bootable."
+msgstr ""
+
+#, fuzzy
+msgid "Secure Boot kernel signing is not configured on this server"
+msgstr "Il n'y a pas d'images sur ce serveur"
+
+msgid "Select Image"
+msgstr "Sélectionner l'image"
+
+msgid "Select User"
+msgstr "Sélectionnez l'utilisateur"
+
+msgid "Select a cron type"
+msgstr "Sélectionnez un type de cron"
+
+msgid "Select a valid image"
+msgstr "Sélectionnez une image valide"
+
+msgid "Select management level for these hosts"
+msgstr "Sélectionnez le niveau de gestion pour ces machines"
+
+msgid "Select management level for this host"
+msgstr "Sélectionnez le niveau de gestion pour cette machine"
+
+msgid "Select/Deselect All"
+msgstr "Sélectionner / désélectionner"
+
+msgid "Selected Logins"
+msgstr "Logins sélectionnés"
+
+msgid "Selected groups's current activity"
+msgstr "Activité actuelle des groupes sélectionnés"
+
+msgid "Selected hosts approved successfully"
+msgstr "Les machines sélectionnés ont été approuvés avec succès"
+
+msgid "Selected hosts deleted successfully"
+msgstr "Les machines sélectionnées ont été supprimés avec succès"
+
+msgid "Selected node's disk usage"
+msgstr "Utilisation du disque du nœud sélectionné"
+
+msgid "Serial"
+msgstr "En série"
+
+msgid "Serial Number"
+msgstr "Numéro de série"
+
+msgid "Server Shell"
+msgstr "Serveur Shell"
+
+msgid "Server information"
+msgstr "Informations sur le serveur"
+
+msgid "Server information at a glance."
+msgstr "Informations sur le serveur en un coup d'œil."
+
+#, php-format
+msgid "Server is only configured to run %d multicast tasks"
+msgstr ""
+
+msgid "Service"
+msgstr "Service"
+
+msgid "Service Configuration"
+msgstr "Configuration du service"
+
+msgid "Service Master"
+msgstr "Service principal"
+
+msgid "Service Setting Update Failed"
+msgstr "Échec de la mise à jour des paramètres du service"
+
+msgid "Service Setting Update Success"
+msgstr "Succès de la mise à jour des paramètres de service"
+
+msgid "Service Start"
+msgstr "Démarrage du service"
+
+msgid "Service Status"
+msgstr "État du service"
+
+msgid "Service Tag"
+msgstr "Numéro de service"
+
+msgid "Service general"
+msgstr "À propos des services"
+
+msgid "Service update failed"
+msgstr "La mise à jour du service a échoué"
+
+#, fuzzy, php-format
+msgid "Session ID"
+msgstr "Nom de session"
+
+msgid "Session Name"
+msgstr "Nom de session"
+
+msgid "Session name cannot be the same as an existing hostname"
+msgstr "Nom de la session ne peut pas être le même qu'un nom de machine"
+
+msgid "Session timeout"
+msgstr "Expiration de la session"
+
+msgid "Session with that name already exists"
+msgstr "Une session avec ce nom existe déjà"
+
+msgid "Set Failed"
+msgstr "Échec de la mise en place"
+
+msgid "Set failed"
+msgstr "Le réglage a échoué"
+
+msgid "Setting Key"
+msgstr "Touche de réglage"
+
+msgid "Setting logout to one second prior to next login"
+msgstr "Réglage de la déconnexion à une seconde avant la prochaine connexion"
+
+msgid "Settings"
+msgstr "Paramètres"
+
+msgid "Settings Update Fail"
+msgstr "Échec de la mise à jour des paramètres"
+
+msgid "Settings Update Success"
+msgstr "Succès de la mise à jour des paramètres"
+
+msgid "Settings successfully stored!"
+msgstr "Les paramètres ont été enregistrés avec succès !"
+
+msgid "Should anything go wrong"
+msgstr "En cas de problème"
+
+msgid "Shutdown"
+msgstr "Arrêt"
+
+msgid "Shutdown after deploy"
+msgstr "Arrêt après déploiement"
+
+msgid "Shutdown after install"
+msgstr "Arrêt après l'installation"
+
+msgid "Signed"
+msgstr "Signé"
+
+msgid "Signing is already done on this server. The remaining work is per-client and has to be done by someone at the machine -- that is what makes enrolment a deliberate act rather than something a server can do to a client remotely."
+msgstr ""
+
+msgid "Site"
+msgstr "Site"
+
+msgid "Site Association"
+msgstr "Association de site"
+
+#, fuzzy
+msgid "Site Control Management"
+msgstr "Gestion des contrôles d'accès"
+
+msgid "Site Create Fail"
+msgstr "Impossible de créer le site"
+
+msgid "Site Create Success"
+msgstr "Site crée avec succès"
+
+msgid "Site Description"
+msgstr "Description du site"
+
+msgid "Site General"
+msgstr "Généralités sur les sites"
+
+msgid "Site Name"
+msgstr "Nom du site"
+
+msgid "Site Update Fail"
+msgstr "Échec de la mise à jour du site"
+
+msgid "Site Update Success"
+msgstr "Succès de la mise à jour du site"
+
+msgid "Site Updated!"
+msgstr "Site mis à jour !"
+
+msgid "Site added!"
+msgstr "Site ajouté !"
+
+msgid "Site update failed!"
+msgstr "La mise à jour du site a échoué !"
+
+msgid "Sites"
+msgstr "Sites"
+
+msgid "Size"
+msgstr "Taille"
+
+msgid "Slack Accounts"
+msgstr "Comptes Slack"
+
+#, fuzzy
+msgid "Slack Management"
+msgstr "Gestion des tâches"
+
+msgid "Smart Installer"
+msgstr "Installateur intelligent"
+
+msgid "Snapin"
+msgstr "Snapin"
+
+msgid "Snapin Args"
+msgstr "Args SnapIn"
+
+msgid "Snapin Arguments"
+msgstr "Arguments SnapIn"
+
+msgid "Snapin Arguments Hidden"
+msgstr "Arguments Snapin cachés"
+
+msgid "Snapin Client"
+msgstr "Client Snapin"
+
+msgid "Snapin Command"
+msgstr "Commande Snapin"
+
+msgid "Snapin Create Fail"
+msgstr "Impossible de créer le Snapin"
+
+msgid "Snapin Create Success"
+msgstr "Succès dans la création du Snapin"
+
+msgid "Snapin Created"
+msgstr "Snapin crée"
+
+msgid "Snapin Creation Date"
+msgstr "Date de création Snapin"
+
+msgid "Snapin Creation Time"
+msgstr "Date de création Snapin"
+
+msgid "Snapin Description"
+msgstr "Description Snapin"
+
+msgid "Snapin Enabled"
+msgstr "Snapin activé"
+
+msgid "Snapin File"
+msgstr "Fichier du Snapin"
+
+msgid "Snapin File (exists)"
+msgstr "Fichier Snapin (existe)"
+
+#, fuzzy
+msgid "Snapin File Upload Fail"
+msgstr "Échec de la mise à jour du Snapin"
+
+msgid "Snapin General"
+msgstr "Généralités Snapins"
+
+msgid "Snapin Hash"
+msgstr "Hash du Snapin"
+
+msgid "Snapin History"
+msgstr "Historique des Snapins"
+
+msgid "Snapin ID"
+msgstr "ID Snapin"
+
+msgid "Snapin Locations"
+msgstr "Emplacements des Snapins"
+
+msgid "Snapin Log"
+msgstr "Journal Snapin"
+
+msgid "Snapin Management"
+msgstr "Gestion des Snapins"
+
+msgid "Snapin Name"
+msgstr "Nom Snapin"
+
+msgid "Snapin Pack"
+msgstr "Paquet Snapin"
+
+msgid "Snapin Pack Arguments"
+msgstr "Arguments paquet snapIn"
+
+msgid "Snapin Pack File"
+msgstr "Fichier paquet Snapin"
+
+msgid "Snapin Pack Template"
+msgstr "Modèle de paquet Snapin"
+
+msgid "Snapin Path"
+msgstr "Chemin du Snapin"
+
+msgid "Snapin Protected"
+msgstr "Snapin protégé"
+
+msgid "Snapin Replicator"
+msgstr "Réplicateur de Snapin"
+
+msgid "Snapin Return Code"
+msgstr "Code de retour Snapin"
+
+msgid "Snapin Return Detail"
+msgstr "Détail du retour Snapin"
+
+msgid "Snapin Run With"
+msgstr "Le Snapin s'exécute avec"
+
+msgid "Snapin Run With Args"
+msgstr "Arguments exécuter avec du Snapin"
+
+msgid "Snapin Run With Argument"
+msgstr "Argument pour l'exécution du Snapin"
+
+msgid "Snapin State"
+msgstr "État du Snapin"
+
+msgid "Snapin Storage Groups"
+msgstr "Groupes de stockage Snapin"
+
+msgid "Snapin Task is invalid"
+msgstr "Tâche Snapin n'est pas valide"
+
+msgid "Snapin Template"
+msgstr "Modèle Snapin"
+
+msgid "Snapin Timeout (seconds)"
+msgstr "Délai d'attente pour le Snapin (secondes)"
+
+msgid "Snapin Transfer Log"
+msgstr "Journal du transfert de Snapins"
+
+msgid "Snapin Type"
+msgstr "Type de Snapin"
+
+msgid "Snapin Update Fail"
+msgstr "Échec de la mise à jour du Snapin"
+
+msgid "Snapin Update Success"
+msgstr "Succès de la mise à jour du Snapin"
+
+msgid "Snapin Used"
+msgstr "SnapIn utilisé"
+
+msgid "Snapin added!"
+msgstr "Snapin ajouté !"
+
+msgid "Snapin file is too big, increase post_max_size in php.ini."
+msgstr "Le fichier Snapin est trop gros, augmentez post_max_size dans le fichier php.ini."
+
+msgid "Snapin is invalid"
+msgstr "Snapin n'est pas valide"
+
+msgid "Snapin is protected and cannot be deleted"
+msgstr "Snapin est protégé et ne peut être supprimé"
+
+msgid "Snapin task not completed"
+msgstr "Tâche Snapin non terminée"
+
+msgid "Snapin to be installed"
+msgstr "Snapin à installer"
+
+msgid "Snapin update failed!"
+msgstr "Mise à jour du Snapin en échec !"
+
+msgid "Snapin updated!"
+msgstr "Snapin mis à jour !"
+
+msgid "Snapins"
+msgstr "Snapins"
+
+msgid "Snapins Are already deployed to this host"
+msgstr "Les snapIns sont déjà déployés sur cette machine"
+
+msgid "So if you are trying to transmit to remote node A"
+msgstr "Donc si vous essayez de transmettre au nœud distant A"
+
+msgid "Somebody will be able to help in some form"
+msgstr "Quelqu'un pourra vous aider d'une manière ou d'une autre"
+
+msgid "Space variable must be boolean"
+msgstr "La variable Space doit être booléenne"
+
+msgid "Specified download URL not allowed!"
+msgstr "L'URL de téléchargement spécifié n'est pas autorisé !"
+
+msgid "Start"
+msgstr "Démarrer"
+
+msgid "Start Date"
+msgstr "Date de début"
+
+msgid "Start Multicast Session"
+msgstr "Démarrez la session Multicast"
+
+msgid "Start Session"
+msgstr "Démarrer la session"
+
+msgid "Start Time"
+msgstr "Heure de départ"
+
+msgid "Started By:"
+msgstr "Commencé par :"
+
+msgid "Started sync for"
+msgstr "A commencé la synchronisation pour"
+
+msgid "Starting Image Replication"
+msgstr "Démarrage de la réplication d'images"
+
+msgid "Starting Image Size Service"
+msgstr "Démarrage du service de taille d'image"
+
+msgid "Starting Snapin Hashing Service"
+msgstr "Démarrage du service de hachage de Snapin"
+
+msgid "Starting Snapin Replication"
+msgstr "Démarrer la réplication de Snapin"
+
+msgid "Starting Sync Actions"
+msgstr "Démarrer les actions de synchronisation"
+
+msgid "Starting process"
+msgstr "Début de process"
+
+msgid "State"
+msgstr "État"
+
+#, fuzzy
+msgid "Static"
+msgstr "État"
+
+msgid "Status"
+msgstr "Statut"
+
+msgid "Stop Task"
+msgstr "Arrêter la tâche"
+
+msgid "Storage"
+msgstr "Stockage"
+
+msgid "Storage Group"
+msgstr "Groupe de stockage"
+
+msgid "Storage Group Activity"
+msgstr "Activité du groupe de stockage"
+
+msgid "Storage Group Already Exists"
+msgstr "Groupe de stockage existe déjà"
+
+msgid "Storage Group Create Fail"
+msgstr "Échec de la création d'un groupe de stockage"
+
+msgid "Storage Group Create Success"
+msgstr "Succès de la création d'un groupe de stockage"
+
+msgid "Storage Group Created"
+msgstr "Groupe de stockage créé"
+
+msgid "Storage Group Description"
+msgstr "Description du groupe de stockage"
+
+msgid "Storage Group General"
+msgstr "Généralités sur le groupe de stockage"
+
+msgid "Storage Group Name"
+msgstr "Nom du groupe de stockage"
+
+msgid "Storage Group Update Fail"
+msgstr "Échec de la mise à jour du groupe de stockage"
+
+msgid "Storage Group Update Success"
+msgstr "Succès de la mise à jour d'un groupe de stockage"
+
+msgid "Storage Group Updated"
+msgstr "Groupe de stockage mis à jour"
+
+msgid "Storage Group deleted"
+msgstr "Groupe de stockage supprimé"
+
+#, fuzzy
+msgid "Storage Group has no reachable Master Node"
+msgstr "Groupe de stockage créé"
+
+#, fuzzy
+msgid "Storage Group not found"
+msgstr "Groupe de stockage créé"
+
+msgid "Storage Group update failed!"
+msgstr "Échec de la mise à jour du groupe de stockage !"
+
+msgid "Storage Group updated!"
+msgstr "Groupe de stockage mis à jour !"
+
+msgid "Storage Management"
+msgstr "Gestion du stockage"
+
+msgid "Storage Node"
+msgstr "Nœud de stockage"
+
+msgid "Storage Node Create Fail"
+msgstr "Échec de la création d'un nœud de stockage"
+
+msgid "Storage Node Create Success"
+msgstr "Succès de la création d'un nœud de stockage"
+
+msgid "Storage Node Created"
+msgstr "Nœud de stockage créé"
+
+msgid "Storage Node Description"
+msgstr "Description du nœud de stockage"
+
+msgid "Storage Node Disk Usage"
+msgstr "Utilisation du disque du nœud de stockage"
+
+msgid "Storage Node General"
+msgstr "Généralités sur le nœud de stockage"
+
+msgid "Storage Node IP"
+msgstr "IP du nœud de stockage"
+
+msgid "Storage Node Interface"
+msgstr "Interface du nœud de stockage"
+
+msgid "Storage Node Max Clients"
+msgstr "Clients max pour ce nœud de stockage"
+
+msgid "Storage Node Name"
+msgstr "Nom du nœud de stockage"
+
+msgid "Storage Node Password"
+msgstr "Mot de passe du nœud de stockage"
+
+#, fuzzy
+msgid "Storage Node Protocol"
+msgstr "IP du nœud de stockage"
+
+msgid "Storage Node Update Fail"
+msgstr "Échec de la mise à jour du nœud de stockage"
+
+msgid "Storage Node Update Success"
+msgstr "Succès de la mise à jour du nœud de stockage"
+
+msgid "Storage Node Updated"
+msgstr "Nœud de stockage mis à jour"
+
+msgid "Storage Node Username"
+msgstr "Nom d'utilisateur du nœud de stockage"
+
+msgid "Storage Node added!"
+msgstr "Nœud de stockage ajouté !"
+
+msgid "Storage Node already exists"
+msgstr "Le nœud de stockage existe déjà"
+
+msgid "Storage Node deleted"
+msgstr "Nœud de stockage supprimé"
+
+msgid "Storage Node update failed!"
+msgstr "Échec de la mise à jour du nœud de stockage !"
+
+msgid "Storage Node updated!"
+msgstr "Nœud de stockage mis à jour !"
+
+msgid "String must be a string"
+msgstr "La chaîne doit être une chaîne de caractères"
+
+msgid "Subnet Groups"
+msgstr "Groupes de sous-réseau"
+
+msgid "SubnetGroup General"
+msgstr "Généralités Groupe de sous-réseaux"
+
+msgid "Subnetgroup Create Fail"
+msgstr "Échec de la création d'un groupe de sous-réseau"
+
+msgid "Subnetgroup Create Success"
+msgstr "Succès de la création d'un groupe de sous-réseau"
+
+#, fuzzy
+msgid "Subnetgroup Management"
+msgstr "Gestion des groupes"
+
+msgid "Subnetgroup Update Fail"
+msgstr "Échec dans la mise à jour du groupe de sous-réseau"
+
+msgid "Subnetgroup Update Success"
+msgstr "Succès dans la mise à jour du groupe de sous-réseau"
+
+msgid "Subnetgroup added!"
+msgstr "Groupe de sous-réseau ajouté !"
+
+msgid "Subnetgroup update failed!"
+msgstr "La mise à jour du groupe de sous-réseau a échoué !"
+
+msgid "Subnetgroup updated!"
+msgstr "Groupe de sous-réseau mis à jour !"
+
+msgid "Subnets"
+msgstr "Sous-réseaux"
+
+msgid "Subtree Only"
+msgstr "Sous-arbre seulement"
+
+#, fuzzy
+msgid "Subtree and Below"
+msgstr "Sous-arbre et dessous"
+
+msgid "Successful"
+msgstr "Réussite"
+
+msgid "Successfully added selected hosts to the group!"
+msgstr "Les hôtes sélectionnés ont été ajoutés au groupe avec succès !"
+
+msgid "Successfully created"
+msgstr "Créé avec succès"
+
+msgid "Successfully deleted"
+msgstr "Supprimé avec succès"
+
+msgid "System Manufacturer"
+msgstr "Fabricant du système"
+
+msgid "System Overview"
+msgstr "Présentation du système"
+
+msgid "System Product"
+msgstr "Produit du système"
+
+msgid "System Serial"
+msgstr "Numéro de série du système"
+
+msgid "System Serial Number"
+msgstr "Numéro de série du système"
+
+msgid "System Tools"
+msgstr "Outils système"
+
+msgid "System Type"
+msgstr "Type de système"
+
+msgid "System UUID"
+msgstr "Système UUID"
+
+msgid "System Uptime"
+msgstr "Temps de fonctionnement du système"
+
+msgid "System Version"
+msgstr "Version du système"
+
+msgid "TCP/IP"
+msgstr "TCP / IP"
+
+msgid "TCP/IP Port Printer"
+msgstr "Imprimante Port TCP / IP"
+
+msgid "TX"
+msgstr "TX"
+
+#, fuzzy
+msgid "Table"
+msgstr "Activé"
+
+msgid "Table not defined for this class"
+msgstr "Tableau non défini pour cette classe"
+
+#, fuzzy
+msgid "Table uninstall failed"
+msgstr "La sauvegarde de la base de données a échoué"
+
+#, fuzzy
+msgid "Tag Name"
+msgstr "Nom de la tâche"
+
+msgid "Task"
+msgstr "Tâche"
+
+msgid "Task Checkin Date"
+msgstr "Date de vérification de la tâche"
+
+msgid "Task Checkin Time"
+msgstr "Heure de vérification de la tâche"
+
+msgid "Task Complete Date"
+msgstr "Date d'achèvement de la tâche"
+
+msgid "Task Complete Time"
+msgstr "Heure d'achêvement de la tâche"
+
+msgid "Task ID"
+msgstr "ID tâche"
+
+msgid "Task Management"
+msgstr "Gestion des tâches"
+
+msgid "Task Name"
+msgstr "Nom de la tâche"
+
+msgid "Task Reboot"
+msgstr "Tâche de reboot"
+
+msgid "Task State"
+msgstr "État tâche"
+
+msgid "Task State Create Fail"
+msgstr "Échec de la création de l'état tâche"
+
+msgid "Task State Create Success"
+msgstr "Succès de la création de l'état tâche"
+
+msgid "Task State General"
+msgstr "Généralités sur l'état des tâches"
+
+#, fuzzy
+msgid "Task State Management"
+msgstr "Gestion des tâches"
+
+msgid "Task State Update Fail"
+msgstr "Échec de la mise à jour à jour de l'état tâche"
+
+msgid "Task State Update Success"
+msgstr "Succès de la mise à jour à jour de l'état tâche"
+
+msgid "Task State Updated!"
+msgstr "État Tâche mis à jour !"
+
+msgid "Task State added!"
+msgstr "État Tâche ajouté !"
+
+msgid "Task States"
+msgstr "États de la tâche"
+
+msgid "Task Type"
+msgstr "Type de tâche"
+
+msgid "Task Type Create Fail"
+msgstr "Échec de la création du type de tâche"
+
+msgid "Task Type Create Success"
+msgstr "Succès de la création du type de tâche"
+
+msgid "Task Type General"
+msgstr "État Tâche - Généralités"
+
+#, fuzzy
+msgid "Task Type Management"
+msgstr "Gestion des tâches"
+
+msgid "Task Type Update Fail"
+msgstr "La mise à jour du type de tâche a échoué"
+
+msgid "Task Type Update Success"
+msgstr "Mise à jour réussie du type de tâche"
+
+msgid "Task Type Updated!"
+msgstr "Type de tâche mise à jour !"
+
+msgid "Task Type added!"
+msgstr "Le type de tâche a été ajouté !"
+
+msgid "Task Type is not valid"
+msgstr "Type de tâche n'est pas valide"
+
+msgid "Task Types"
+msgstr "Types de tâches"
+
+msgid "Task can never run and was marked failed"
+msgstr ""
+
+msgid "Task forced to start"
+msgstr "Tâche forcée de commencer"
+
+#, fuzzy
+msgid "Task is not active and cannot be cancelled"
+msgstr "L'image est protégée et ne peut être supprimée"
+
+msgid "Task not created as there are no associated tasks"
+msgstr "Tâche non créée car il n'y a pas de tâches associées"
+
+msgid "Task sent to"
+msgstr "Tâche envoyée à"
+
+msgid "Task started"
+msgstr "Tâche amorcée"
+
+msgid "Task started for"
+msgstr "Tâche commencée pour"
+
+msgid "Task type is not valid"
+msgstr "Type de tâche n'est pas valide"
+
+msgid "Tasked Successfully"
+msgstr "Tâches effectuées avec succès"
+
+msgid "Tasked successfully, click active tasks to view in line."
+msgstr "Tâches réussies, cliquez sur les tâches actives pour les visualiser en ligne."
+
+msgid "Tasking"
+msgstr "Attribution des tâches"
+
+msgid "Tasking Failed"
+msgstr "Échec de l'affectation des tâches"
+
+msgid "Tasks"
+msgstr "Tâches"
+
+msgid "Team"
+msgstr "Équipe"
+
+msgid "Terminal"
+msgstr "Terminal"
+
+msgid "Terms and Conditions"
+msgstr "Termes et conditions"
+
+msgid "Text"
+msgstr "Texte"
+
+msgid "That is the signed chain staged by the installer; the default boot file is unsigned and a Secure Boot client will refuse it"
+msgstr ""
+
+#, fuzzy
+msgid "That session has already started"
+msgstr "Cette machine existe déjà"
+
+msgid "The 'Is Master Node' setting defines which"
+msgstr "Le paramètre \"Est nœud maître\" définit quel"
+
+msgid "The assigned image is protected"
+msgstr "L'image assignée est protégée"
+
+msgid "The below items are only used for the old client."
+msgstr "Les éléments ci-dessous ne sont utilisés que pour l'ancien client."
+
+msgid "The clients will checkin with the server from time"
+msgstr "Les clients s'enregistreront auprès du serveur de temps"
+
+#, fuzzy
+msgid "The following MACs have been approved."
+msgstr "Tous les MACs en attente approuvés."
+
+msgid "The following MACs have been deleted."
+msgstr ""
+
+msgid "The following errors occured"
+msgstr "Les erreurs suivantes se sont produites"
+
+msgid "The following errors occurred"
+msgstr "Les erreurs suivantes sont survenues"
+
+msgid "The image storage group assigned is not valid"
+msgstr "Le groupe de stockage d'images attribuée est non valable"
+
+msgid "The installers for the fog client"
+msgstr "Les installateurs pour le client FOG"
+
+msgid "The key will be assigned to registered hosts when a"
+msgstr "La clé sera attribuée aux machines enregistrées lorsqu'une"
+
+msgid "The node trying to be used is currently"
+msgstr "Le nœud que l'on essaie d'utiliser est actuellement"
+
+msgid "The old client is what was distributed with"
+msgstr "L'ancien client est celui qui était distribué avec"
+
+msgid "The old client is what was distributed with FOG 1.2.0 and earlier"
+msgstr "L'ancien client est celui qui était distribué avec FOG 1.2.0 et les versions antérieures"
+
+msgid "The old client iswhat was distributed with"
+msgstr "L'ancien client est celui qui était distribué avec"
+
+msgid "The old client was distributed with FOG 1.2.0 and earlier."
+msgstr "L'ancien client était distribué avec FOG 1.2.0 et antérieur."
+
+msgid "The primary mac associated is"
+msgstr "La MAC principale associée est"
+
+msgid "The settings tend to be global which affects all hosts."
+msgstr "Les paramètres ont tendance à être globaux, ce qui affecte tous les hôtes."
+
+msgid "The storage groups associated storage node is not valid"
+msgstr "Le nœud de stockage des groupes de stockage associé n'est pas valide"
+
+msgid "The uploaded file exceeds the max_file_size"
+msgstr "Le fichier téléchargé dépasse la directive max_file_size"
+
+msgid "The uploaded file exceeds the upload_max_filesize"
+msgstr "Le fichier envoyé excède la directive upload_max_filesize"
+
+msgid "The uploaded file was only partially uploaded"
+msgstr "Le fichier n'a été que partiellement téléchargé"
+
+msgid "There are"
+msgstr "Il y a"
+
+msgid "There are many reasons why this could be the case"
+msgstr "Il y a plusieurs raisons pour lesquelles cela pourrait être le cas"
+
+msgid "There are no groups on this server"
+msgstr "Il n'y a pas de groupes sur ce serveur"
+
+msgid "There are no hosts to task in this group"
+msgstr "Il n'y a pas de machines à cibler dans ce groupe"
+
+msgid "There are no images on this server"
+msgstr "Il n'y a pas d'images sur ce serveur"
+
+msgid "There are no locations on this server"
+msgstr "Il n'y a pas d'emplacement sur ce serveur"
+
+msgid "There are no other members to sync to"
+msgstr "Il n'y a pas d'autres membres à synchroniser"
+
+msgid "There are no snapins associated with this host"
+msgstr "Il n'y a pas Snapins associés à cette machine"
+
+msgid "There are no snapins on this server"
+msgstr "Il n'y a pas Snapins sur ce serveur"
+
+msgid "There are open slots"
+msgstr "Il y a des créneaux ouverts"
+
+msgid "There is a host in a tasking"
+msgstr "Il y a une machine dans une tâche"
+
+msgid "There is nothing to replicate"
+msgstr "Il n'y a rien à répliquer"
+
+msgid "There were errors during import!"
+msgstr "Il y a eu des erreurs pendant l'importation !"
+
+msgid "There you can download utilities such as FOG Prep"
+msgstr "Vous pouvez y télécharger des utilitaires tels que FOG Prep"
+
+msgid "This MAC Belongs to another host"
+msgstr "Cette MAC appartient à une autre machine"
+
+msgid "This area will allow the host checking in to tell"
+msgstr "Cette zone permettra à l'hôte qui s'enregistre de dire"
+
+msgid "This build is experimental and may not work as expected"
+msgstr ""
+
+msgid "This file will only work on Windows"
+msgstr "Ce fichier ne fonctionnera que sous Windows"
+
+msgid "This host already exists"
+msgstr "Cette machine existe déjà"
+
+#, fuzzy, php-format
+msgid "This host failed imaging %1$s: %2$s"
+msgstr "Cette machine existe déjà"
+
+msgid "This installation process may take a few minutes"
+msgstr "Ce processus d'installation peut prendre quelques minutes"
+
+msgid "This is a cron style task that should not run now."
+msgstr "C'est une tâche de type cron qui ne doit pas être exécutée maintenant."
+
+msgid "This is a cron style task that should run now."
+msgstr "C'est une tâche de type cron qui devrait être exécutée maintenant."
+
+msgid "This is a single run task that should not run now."
+msgstr "Il s'agit d'une tâche unique qui ne doit pas être exécutée maintenant."
+
+msgid "This is a single run task that should run now."
+msgstr "Il s'agit d'une tâche unique qui devrait s'exécuter maintenant."
+
+msgid "This is especially useful if you have multiple"
+msgstr "Ceci est particulièrement utile si vous avez plusieurs"
+
+msgid "This is ipxe script commands to operate with"
+msgstr "Il s'agit de commandes de script iPXE pour fonctionner avec"
+
+msgid "This is not the master for this group"
+msgstr "Ce n'est pas le maître pour ce groupe"
+
+msgid "This is not the primary group"
+msgstr "Ce n'est pas le groupe principal"
+
+msgid "This is only here to maintain old client operations"
+msgstr "C'est seulement ici pour maintenir les anciennes opérations du client"
+
+msgid "This is set in seconds and causes the default option"
+msgstr "Ceci est défini en secondes et provoque l'option par défaut"
+
+msgid "This is the recommended installer to use now"
+msgstr "C'est l'installateur recommandé à utiliser maintenant"
+
+msgid "This is useful in the case of slow links between"
+msgstr "Ceci est utile dans le cas de liaisons lentes entre"
+
+msgid "This is what MokManager's own View key screen shows after enrolling from the PXE menu -- that route never runs the script above, so check it against this value instead."
+msgstr ""
+
+msgid "This item allows you to edit all of the iPXE Menu items as you"
+msgstr "Cet élément vous permet de modifier tous les éléments du menu iPXE comme vous le souhaitez"
+
+msgid "This module did not work past Windows XP"
+msgstr "Ce module n'a pas fonctionné après Windows XP"
+
+msgid "This module did not work past Windows XP due"
+msgstr "Ce module n'a pas fonctionné après Windows XP en raison"
+
+msgid "This module did not work past Windows XP due to"
+msgstr "Ce module n'a pas fonctionné après Windows XP en raison de"
+
+msgid "This module did not work past Windows XP due to UAC."
+msgstr "Ce module n'a pas fonctionné après Windows XP en raison de l'UAC."
+
+msgid "This module has been replaced in the new client"
+msgstr "Ce module a été remplacé dans le nouveau client"
+
+msgid "This module has since been replaced with Power Management."
+msgstr "Ce module a depuis été remplacé par Gestion Alimentation."
+
+msgid "This module is only used"
+msgstr "Ce module est uniquement utilisé"
+
+msgid "This module is only used on the old client"
+msgstr "Ce module n'est utilisé que sur l'ancien client"
+
+msgid "This module is only used on the old client."
+msgstr "Ce module n'est utilisé que sur l'ancien client."
+
+msgid "This node does not appear to be online"
+msgstr "Ce nœud ne semble pas être en ligne"
+
+msgid "This page allows you to upload a CSV file into FOG to ease"
+msgstr "Cette page vous permet de télécharger un fichier CSV dans FOG pour faciliter"
+
+msgid "This plugin is not installed"
+msgstr "Ce greffon n'est pas installé"
+
+msgid "This section allows you to customize or alter"
+msgstr "Cette section vous permet de personnaliser ou de modifier"
+
+msgid "This section allows you to import known mac address makers into the FOG database for easier identification"
+msgstr "Cette section vous permet d'importer les fabricants connus d'adresses MAC dans la base de données de FOG pour faciliter l'identification"
+
+msgid "This section allows you to update"
+msgstr "Cette section vous permet de mettre à jour"
+
+msgid "This section allows you to update the modules and"
+msgstr "Cette section vous permet de mettre à jour les modules et"
+
+#, fuzzy
+msgid "This section allows you to upload user"
+msgstr "Cette section vous permet d'uploader"
+
+msgid "This servers ip(s)"
+msgstr "Les IP de ce serveur"
+
+msgid "This setting"
+msgstr "Ce paramètre"
+
+msgid "This setting defines sending the"
+msgstr "Ce paramètre définit l'envoi de l'"
+
+msgid "This setting limits the bandwidth for replication between nodes"
+msgstr "Ce paramètre limite la bande passante pour la réplication entre les nœuds"
+
+msgid "This setting only adds and removes printers that are managed by FOG. If the printer exists in printer management but is not assigned to a host, it will remove the printer if it exists on the unassigned host. It will add printers to the host that are assigned."
+msgstr "Ce paramètre ajoute et supprime uniquement les imprimantes gérées par FOG. Si l'imprimante existe dans la gestion des imprimantes mais n'est pas affectée à une machine, elle sera supprimée si elle existe sur la machine non affecté. Il ajoutera à la machine les imprimantes qui sont affectées."
+
+msgid "This setting turns off all FOG Printer Management"
+msgstr "Ce paramètre désactive toutes les fonctions de gestion d'imprimante de FOG"
+
+msgid "This setting will only allow FOG Assigned printers to be added to the host. Any printer that is not assigned will be removed including non-FOG managed printers."
+msgstr "Ce paramètre n'autorise que les imprimantes attribuées par FOG à être ajoutées à la machine. Toute imprimante non assignée sera supprimée, y compris les imprimantes non gérées par FOG."
+
+msgid "This will allow you to configure how services"
+msgstr "Cela vous permettra de configurer la façon dont les services"
+
+msgid "Those images should be activated with the associated"
+msgstr "Ces images doivent être activées avec l'image associée"
+
+msgid "Time"
+msgstr "Temps"
+
+msgid "Time Already Exists"
+msgstr "L'heure existe déjà"
+
+msgid "Timeout"
+msgstr "Délai d'attente"
+
+msgid "Title must be a string"
+msgstr "Le titre doit être une chaîne de caractères"
+
+msgid "To PXE boot with Secure Boot on"
+msgstr ""
+
+msgid "To be released only by"
+msgstr "Pour être libéré que par"
+
+msgid "To get started please select an item from the menu."
+msgstr "Pour commencer, veuillez sélectionner un élément dans le menu."
+
+msgid "To perform an imaging task an image must be assigned"
+msgstr "Pour effectuer une tâche de clonage, une image doit être attribuée"
+
+msgid "To view a report, select an item from the menu"
+msgstr "Pour afficher un rapport, sélectionnez un item du menu latéral"
+
+msgid "Toggle Navigation"
+msgstr "Naviguer dans le menu"
+
+msgid "Too many MACs"
+msgstr "Trop de MACs"
+
+msgid "Total Disk Space"
+msgstr "Espace disque total"
+
+msgid "Total Memory"
+msgstr "Mémoire totale"
+
+msgid "Total Rows"
+msgstr "Nombre de lignes"
+
+msgid "Transmit"
+msgstr "Transmission"
+
+msgid "Trying Snapin hash for"
+msgstr "Essai de hachage de Snapin pour"
+
+msgid "Trying image size for"
+msgstr "Essayer la taille de l'image pour"
+
+msgid "Txt must be a string"
+msgstr "Txt doit être une chaîne de caractères"
+
+msgid "Type"
+msgstr "Type"
+
+msgid "UAC introduced in Vista and up"
+msgstr "L'UAC a été introduite dans Vista et les versions ultérieures"
+
+msgid "Unable to Authenticate"
+msgstr "Impossible de s'authentifier"
+
+msgid "Unable to determine plugin details."
+msgstr "Impossible de déterminer les détails du greffon."
+
+msgid "Unable to find basic information!"
+msgstr "Impossible de trouver les informations de base !"
+
+msgid "Unable to find master Storage Node"
+msgstr "Impossible de trouver le nœud de stockage principal"
+
+#, fuzzy
+msgid "Unable to get server information!"
+msgstr "Impossible d'obtenir des informations sur le serveur !"
+
+msgid "Unable to move the captured image into place"
+msgstr ""
+
+msgid "Unable to open file for reading"
+msgstr "Impossible d'ouvrir le fichier pour la lecture"
+
+msgid "Unauthorized"
+msgstr ""
+
+msgid "Unavailable"
+msgstr "Indisponible"
+
+msgid "Unicaset"
+msgstr "Unicast"
+
+msgid "Unit of time must be a string"
+msgstr "L'unité de temps doit être une chaîne de caractères"
+
+msgid "Unknown"
+msgstr "Inconnu"
+
+#, fuzzy
+msgid "Unknown DB error"
+msgstr "Une erreur de téléchargement inconnue s'est produite"
+
+msgid "Unknown upload error occurred"
+msgstr "Une erreur de téléchargement inconnue s'est produite"
+
+msgid "Unless it was declined with"
+msgstr ""
+
+msgid "Unsupported URL Scheme"
+msgstr ""
+
+msgid "Update"
+msgstr "Mettre à jour"
+
+msgid "Update API?"
+msgstr "Mise à jour de l'API ?"
+
+msgid "Update Default Printer"
+msgstr "Mise à jour de l'imprimante par défaut"
+
+msgid "Update General?"
+msgstr "Mise à jour générale ?"
+
+msgid "Update LDAP server failed!"
+msgstr "La mise à jour du serveur LDAP a échoué !"
+
+msgid "Update MACs"
+msgstr "Mettez à jour les MACs"
+
+msgid "Update PM Values"
+msgstr "Mise à jour des valeurs de la gestion de l'alimentation"
+
+msgid "Update Password?"
+msgstr "Mettre à jour le mot de passe ?"
+
+msgid "Update Windows Key failed!"
+msgstr "Échec de la mise à jour de la clé Windows !"
+
+msgid "Update auto-logout time"
+msgstr "Mise à jour du délai de déconnexion automatique"
+
+msgid "Update default printer"
+msgstr "Mise à jour de l'imprimante par défault"
+
+msgid "Update display resolution"
+msgstr "Mise à jour de la résolution d'affichage"
+
+msgid "Update module configurations"
+msgstr "Mise à jour des configurations des modules"
+
+msgid "Update not required!"
+msgstr "La mise à jour n'est pas nécessaire !"
+
+msgid "Update primary group"
+msgstr "Mise à jour du groupe principal"
+
+msgid "Update printer configuration"
+msgstr "Mise à jour de la configuration de l'imprimante"
+
+msgid "Update task state failed!"
+msgstr "Échec de la mise à jour de l'état tâche !"
+
+msgid "Update/Remove Storage Groups"
+msgstr "Mise à jour / suppression de groupes de stockage"
+
+msgid "Update/Remove printers"
+msgstr "Mise à jour / suppression des imprimantes"
+
+msgid "Upload Reports"
+msgstr "Télécharger Rapports"
+
+#, php-format
+msgid "Upload failed (error code %d)"
+msgstr ""
+
+#, php-format
+msgid "Upload failed for \"%s\" (error code %d)"
+msgstr ""
+
+msgid "Upload file"
+msgstr "Téléverser un fichier"
+
+msgid "Upload file extension must be, jpg, jpeg, or png"
+msgstr ""
+
+msgid "Uptime"
+msgstr "Temps de fonctionnement"
+
+msgid "Use Group Matching (recommended)"
+msgstr "Utiliser l'appariement des groupes (recommandé)"
+
+msgid "Use extreme caution with this setting"
+msgstr "Soyez extrêmement prudent avec ce paramètre"
+
+msgid "Use inits and kernels from this node"
+msgstr "Utilisez les inits et kernels de ce nœud"
+
+msgid "Use the following link to go to the client page."
+msgstr "Utilisez le lien suivant pour accéder à la page du client."
+
+msgid "Use the forums to post issues so others"
+msgstr "Utilisez les forums pour poster des problèmes afin que d'autres"
+
+msgid "Use the links below if you need assistance"
+msgstr "Utilisez les liens ci-dessous si vous avez besoin d'aide"
+
+msgid "Use this for network installs"
+msgstr "Utilisez ceci pour les installations via le réseau"
+
+msgid "Used"
+msgstr "Utilisé"
+
+msgid "Used Disk Space"
+msgstr "Espace disque utilisé"
+
+msgid "Used Memory"
+msgstr "Mémoire utilisée"
+
+msgid "User"
+msgstr "Utilisateur"
+
+msgid "User API Enabled"
+msgstr "API utilisateur activée"
+
+msgid "User API Settings"
+msgstr "Paramètres de l'API utilisateur"
+
+msgid "User API Token"
+msgstr "Jeton d'accès API utilisateur"
+
+msgid "User Access Control"
+msgstr "Contrôle d'accès des utilisateurs"
+
+msgid "User Already Exists"
+msgstr "L'utilisateur existe déjà"
+
+msgid "User Change Password"
+msgstr "Changement de mot de passe par l'utilisateur"
+
+msgid "User Cleanup"
+msgstr "Nettoyage de l'utilisateur"
+
+msgid "User Create Fail"
+msgstr "Échec de la création de l'utilisateur"
+
+msgid "User Create Success"
+msgstr "Succès de la création de l'utilisateur"
+
+msgid "User DN"
+msgstr "Utilisateur DN"
+
+msgid "User Filter"
+msgstr "Filtre utilisateur"
+
+msgid "User General"
+msgstr "Généralités sur l'utilisateur"
+
+msgid "User Management"
+msgstr "Gestion des utilisateurs"
+
+msgid "User Name"
+msgstr "Identifiant"
+
+msgid "User Name Attribute"
+msgstr "Attribut du nom d'utilisateur"
+
+msgid "User Password"
+msgstr "Mot de passe de l'utilisateur"
+
+msgid "User Password (confirm)"
+msgstr "Mot de passe de l'utilisateur (confirmation)"
+
+msgid "User Tracker"
+msgstr "Tracker utilisateur"
+
+#, fuzzy
+msgid "User Tracking"
+msgstr "Tracker utilisateur"
+
+msgid "User Update Fail"
+msgstr "Échec de la mise à jour de l'utilisateur"
+
+msgid "User Update Success"
+msgstr "Succès de la mise à jour de l'utilisateur"
+
+msgid "User added!"
+msgstr "Utilisateur ajouté !"
+
+msgid "User call is invalid"
+msgstr "L'appel de l'utilisateur est invalide"
+
+msgid "User name"
+msgstr "Identifiant"
+
+msgid "User update failed!"
+msgstr "La mise à jour de l'utilisateur a échoué !"
+
+msgid "User updated!"
+msgstr "Utilisateur mis à jour !"
+
+msgid "User was not authorized by the LDAP server"
+msgstr "L'utilisateur n'a pas été autorisé par le serveur LDAP"
+
+msgid "User/Channel Name"
+msgstr "Utilisateur / Nom de la chaîne"
+
+msgid "User/Channel to post to"
+msgstr "Utilisateur / Canal pour poster à"
+
+msgid "Username"
+msgstr "Identifiant"
+
+msgid "Username cannot contain contiguous special characters"
+msgstr "Le nom d'utilisateur ne peut pas contenir de caractères spéciaux contigus"
+
+msgid "Username does not meet requirements"
+msgstr "Le nom d'utilisateur ne répond pas aux exigences"
+
+msgid "Username must be at least 3 characters"
+msgstr "Le nom d'utilisateur doit comporter au moins 3 caractères"
+
+msgid "Username must be less than 41 characters"
+msgstr "Le nom d'utilisateur doit comporter moins de 41 caractères"
+
+msgid "Username must start with a word character"
+msgstr "Le nom d'utilisateur doit commencer par un caractère de mot"
+
+msgid "Users"
+msgstr "Utilisateurs"
+
+msgid "Using the group match function"
+msgstr "Utilisation de la fonction de correspondance de groupe"
+
+msgid "VNC"
+msgstr "VNC"
+
+msgid "Valid Host Colors"
+msgstr "Couleurs valides de la machine"
+
+msgid "Value"
+msgstr "Valeur"
+
+msgid "Variable contains"
+msgstr "La variable contient"
+
+msgid "Version"
+msgstr "Version"
+
+msgid "Version 1.2.0 and earlier"
+msgstr "Version 1.2.0 et antérieure"
+
+msgid "View History For"
+msgstr "Voir l'historique pour"
+
+msgid "View advanced tasks for this"
+msgstr "Voir tâches avancées pour cette"
+
+msgid "Virus History"
+msgstr "Historique des virus"
+
+msgid "Virus Name"
+msgstr "Nom du virus"
+
+msgid "Virus Report"
+msgstr "Rapport sur les virus"
+
+msgid "Virus items removed!"
+msgstr "Les éléments concernant les virus ont été supprimés !"
+
+msgid "WOL Broadcast General"
+msgstr "WOL Broadcast Général"
+
+#, fuzzy
+msgid "WOL Broadcast Management"
+msgstr "Gestion des localisations"
+
+msgid "WOL Broadcasts"
+msgstr "WOL Broadcasts"
+
+msgid "Wait time has changed to"
+msgstr "Le temps d'attente est passé à"
+
+msgid "Waiting for mysql to be available"
+msgstr "En attente que MySql soit disponible"
+
+msgid "Wake On Lan"
+msgstr "Wake On Lan"
+
+msgid "Wake on lan?"
+msgstr "Wake on lan ?"
+
+msgid "We are group ID"
+msgstr "Nous sommes le groupe ID"
+
+msgid "We are group name"
+msgstr "Nous sommes le nom du groupe"
+
+msgid "We are node ID"
+msgstr "Nous sommes le nœud ID"
+
+msgid "We are node name"
+msgstr "Nous sommes le nom du nœud"
+
+msgid "We cannot connect to LDAP server"
+msgstr "Nous ne pouvons pas nous connecter au serveur LDAP"
+
+msgid "Web Server"
+msgstr "Serveur Web"
+
+msgid "Web root"
+msgstr "Racine web"
+
+msgid "Weekly"
+msgstr "Hebdomadaire"
+
+msgid "What to do next"
+msgstr ""
+
+msgid "When the plugin is removed, the assigned key will remain"
+msgstr "Lorsque le greffon est enlevé, la clé assignée demeure"
+
+msgid "Where to get help"
+msgstr "Où trouver de l'aide"
+
+msgid "Width must be 650 pixels."
+msgstr "La largeur doit être de 650 pixels."
+
+msgid "Window size must be greater than 1"
+msgstr "La taille de la fenêtre doit être supérieure à 1"
+
+msgid "Windows Key"
+msgstr "Clé Windows"
+
+msgid "Windows Key Create Fail"
+msgstr "Échec dans la création de la clé Windows"
+
+msgid "Windows Key Create Success"
+msgstr "Succès dans la création de la clé Windows"
+
+msgid "Windows Key Description"
+msgstr "Description de la clé Windows"
+
+msgid "Windows Key General"
+msgstr "Généralités sur les clés Windows"
+
+#, fuzzy
+msgid "Windows Key Management"
+msgstr "Nom de clé Windows"
+
+msgid "Windows Key Name"
+msgstr "Nom de clé Windows"
+
+msgid "Windows Key Update Fail"
+msgstr "Échec de la mise à jour de la clé Windows"
+
+msgid "Windows Key Update Success"
+msgstr "Succès de la mise à jour de la clé Windows"
+
+msgid "Windows Key added!"
+msgstr "Clé Windows ajoutée !"
+
+msgid "Windows Key for Image"
+msgstr "Clé Windows pour l'image"
+
+msgid "Windows Key updated!"
+msgstr "Clé Windows mise à jour !"
+
+msgid "Windows Keys"
+msgstr "Clés Windows"
+
+msgid "Windows keys is a plugin that associates product keys"
+msgstr "Windows keys est un plugin qui associe les clés de produit"
+
+msgid "Working with node"
+msgstr "Travailler avec un nœud"
+
+#, fuzzy
+msgid "Wrong file name!"
+msgstr "Aucun fichier envoyé !"
+
+msgid "Yearly"
+msgstr "Annuel"
+
+msgid "Yes"
+msgstr "Oui"
+
+msgid "You are only allowed to assign"
+msgstr "Vous êtes seulement autorisé à attribuer"
+
+msgid "You have version"
+msgstr "Vous avez la version"
+
+msgid "You must have at least one Storage Group"
+msgstr "Vous devez avoir au moins un groupe de stockage"
+
+msgid "You must have at least one group associated"
+msgstr "Vous devez avoir au moins un groupe de stockage associé"
+
+msgid "You must select an action to perform"
+msgstr "Vous devez sélectionner une action à effectuer"
+
+msgid "Your FOG database schema is not up to date"
+msgstr "Le schéma de votre base de données FOG n'est pas à jour"
+
+msgid "Your Location Here"
+msgstr "Votre lieu ici"
+
+msgid "Your database connection appears to be invalid"
+msgstr "Votre connexion à la base de données semble être invalide"
+
+msgid "Your form is ready"
+msgstr "Votre formulaire est prêt"
+
+msgid "Your system PHP Version is not sufficient"
+msgstr "La version PHP de votre système n'est pas suffisante"
+
+msgid "ZSTD Compressed"
+msgstr "ZSTD Compressé"
+
+msgid "ZSTD Compressed 200MiB split"
+msgstr "ZSTD Compressé 200 Mo split"
+
+msgid "access to the hidden menu system"
+msgstr "accès au système de menu caché"
+
+msgid "additional macs"
+msgstr "adresses MACs supplémentaires"
+
+msgid "ago"
+msgstr "depuis"
+
+msgid "all current storage nodes"
+msgstr "tous les nœuds de stockage actuels"
+
+#, fuzzy
+msgid "an unnamed image"
+msgstr "Image invalide"
+
+msgid "and Mac OS X"
+msgstr "and MacOS X"
+
+msgid "and agree to all the"
+msgstr "et accepté tous les"
+
+msgid "and both the legacy and new FOG clients."
+msgstr "et les anciens et nouveaux clients FOG."
+
+msgid "and cannot be captured"
+msgstr "et ne peut pas être capturée"
+
+msgid "and if the Database service is running"
+msgstr "et si le service de base de données est en cours d'exécution"
+
+msgid "and much easier on the server"
+msgstr "et beaucoup plus facile sur le serveur"
+
+msgid "and node A only has a 5Mbps and you want the speed"
+msgstr "et le nœud A a seulement un 5Mbps et vous voulez la vitesse"
+
+msgid "and set it to master"
+msgstr "et que vous le définissez comme maître"
+
+msgid "and stores their respective checksums"
+msgstr "et stocke leurs sommes de contrôle respectives"
+
+msgid "and the equivalent module for what Green"
+msgstr "et le module équivalent à ce que faisait FOG"
+
+msgid "and the location of the file on that"
+msgstr "et l'emplacement du fichier sur ce"
+
+msgid "answering \"does not exist\" for a read that never ran"
+msgstr ""
+
+msgid "answering 0 for a read that never ran"
+msgstr ""
+
+msgid "answering an empty set for a read that never ran"
+msgstr ""
+
+msgid "as FOG will attempt to go out to the internet"
+msgstr "car FOG va essayer de sortir sur internet"
+
+msgid "as its primary group"
+msgstr "comme groupe principal"
+
+msgid "as they can cause issues that are difficult to troubleshoot"
+msgstr "car ils peuvent causer des problèmes difficiles à résoudre"
+
+msgid "automatically"
+msgstr "automatiquement"
+
+msgid "bandwidth graph, and multicast when the interface cannot be derived from the routing table"
+msgstr ""
+
+msgid "based task."
+msgstr "tâche basée."
+
+msgid "be the presence of a menu"
+msgstr "un menu sera présent"
+
+msgid "before me"
+msgstr "avant moi"
+
+msgid "before me on this node"
+msgstr "avant moi sur ce nœud"
+
+msgid "between"
+msgstr "entre"
+
+msgid "between different sites"
+msgstr "entre différents sites"
+
+msgid "between host and global settings"
+msgstr "entre les paramètres de la machine et les paramètres globaux"
+
+msgid "boot the client computers"
+msgstr "démarrer les ordinateurs clients"
+
+msgid "but bind password is not set"
+msgstr "mais le mot de passe de liaison n'est pas défini"
+
+msgid "but has recently failed for this host"
+msgstr "mais a récemment échoué pour cette machine"
+
+#, fuzzy
+msgid "but there are"
+msgstr "Il y a"
+
+msgid "check to ensure your filesystem has enough space"
+msgstr "vérifiez que votre système de fichiers dispose de suffisamment d'espace"
+
+msgid "client"
+msgstr "client"
+
+msgid "clients"
+msgstr "clients"
+
+#, fuzzy
+msgid "completed imaging."
+msgstr "Clonage terminé"
+
+#, fuzzy
+msgid "completed snapin tasking."
+msgstr "Clonage terminé"
+
+msgid "config files that run on the client computers."
+msgstr "les fichiers de configuration qui s'exécutent sur les ordinateurs clients."
+
+msgid "could not be cancelled"
+msgstr "n'a pas pu être annulé"
+
+msgid "could not be completed"
+msgstr "n'a pas pu être complété"
+
+msgid "could not be killed"
+msgstr "n'a pas pu être tué"
+
+msgid "day"
+msgstr "jour"
+
+msgid "day of month"
+msgstr "jour du mois"
+
+msgid "day of week"
+msgstr "jour de la semaine"
+
+msgid "defined reports that may not be a part of"
+msgstr "des rapports définis par l'utilisateur qui peuvent ne pas faire partie de"
+
+msgid "deleted"
+msgstr "supprimé"
+
+msgid "deploy task occurs for it"
+msgstr "tâche de déploiement se présente pour elles"
+
+msgid "directive in php.ini"
+msgstr "directive dans le fichier php.ini"
+
+msgid "directive specified in the HTML form"
+msgstr "spécifiée dans le formulaire HTML"
+
+msgid "directory"
+msgstr "dossier"
+
+msgid "download the module and use it on the next"
+msgstr "téléchargera le module et l'utilisera sur la prochaine"
+
+msgid "due to UAC introduced in Vista and up."
+msgstr "en raison de l'UAC introduit dans Vista et les versions ultérieures."
+
+msgid "e.g."
+msgstr "par exemple"
+
+msgid "either already selected or uploaded"
+msgstr "soit déjà sélectionné ou téléchargé"
+
+msgid "either because you have updated"
+msgstr "soit parce que vous avez mis à jour"
+
+msgid "every column will be treated as untyped"
+msgstr ""
+
+msgid "failed to execute, image file: "
+msgstr "n'a pas réussi à s'exécuter, fichier image : "
+
+msgid "failed to execute, port must be even and numeric"
+msgstr "a échoué à s'exécuter, le port doit être pair et numérique"
+
+msgid "failed to execute, there are no clients included"
+msgstr "a échoué à s'exécuter, il n'y a pas de clients inclus"
+
+msgid "failed to login"
+msgstr "impossible de se connecter"
+
+msgid "failed to start"
+msgstr "a échoué à démarrer"
+
+msgid "faster"
+msgstr "plus rapide"
+
+msgid "filesize"
+msgstr "taille du fichier"
+
+msgid "for Microsoft Windows to images"
+msgstr "pour Microsoft Windows aux images"
+
+msgid "for the advanced menu parameters"
+msgstr "pour les paramètres du menu avancé"
+
+msgid "for the menu background"
+msgstr "pour l'arrière-plan du menu"
+
+#, fuzzy
+msgid "for user"
+msgstr "Créer un utilisateur ?"
+
+msgid "found"
+msgstr "trouvé"
+
+msgid "from"
+msgstr "de"
+
+msgid "function on client computers."
+msgstr "fonctionnent sur les ordinateurs clients."
+
+#, fuzzy
+msgid "got"
+msgstr "depuis"
+
+msgid "group"
+msgstr "groupe"
+
+msgid "has been cancelled"
+msgstr "a été annulé"
+
+msgid "has been completed"
+msgstr "a été achevé"
+
+msgid "has been killed"
+msgstr "a été tué"
+
+msgid "has been started on port"
+msgstr "a été lancé sur le port"
+
+msgid "has been successfully destroyed"
+msgstr "a été détruit avec succès"
+
+msgid "has been successfully updated"
+msgstr "a été mis à jour avec succès"
+
+msgid "has failed to destroy"
+msgstr "n'a pas réussi à détruire"
+
+msgid "has failed to save"
+msgstr "n'a pas réussi à sauver"
+
+msgid "has started"
+msgstr "a débuté"
+
+msgid "help with any aspect of FOG"
+msgstr "aide sur tous les aspects de FOG"
+
+msgid "here"
+msgstr "ici"
+
+msgid "host"
+msgstr "machine"
+
+#, fuzzy
+msgid "host no longer exists"
+msgstr "ne fonctionne plus"
+
+msgid "hosts"
+msgstr "machines"
+
+msgid "hour"
+msgstr "heure"
+
+msgid "hr"
+msgstr "heure"
+
+msgid "iPXE General Configuration"
+msgstr "Configuration générale iPXE"
+
+msgid "iPXE Item Create Fail"
+msgstr "Échec de la création de l'élément iPXE"
+
+msgid "iPXE Item Create Success"
+msgstr "Succès de la création de l'élément iPXE"
+
+msgid "iPXE Item Remove Success"
+msgstr "élément iPXE supprimé avec succès"
+
+msgid "iPXE Item Update Success"
+msgstr "Succès de la mise à jour de l'élément iPXE"
+
+msgid "iPXE Item added!"
+msgstr "l'élément iPXE a été ajouté !"
+
+msgid "iPXE Item create failed!"
+msgstr "la création de l'élément iPXE a échoué !"
+
+msgid "iPXE Menu Customization"
+msgstr "Personnalisation du menu iPXE"
+
+msgid "iPXE Menu Item Settings"
+msgstr "Réglages des éléments du menu iPXE"
+
+msgid "iPXE Menu Settings"
+msgstr "Paramètres du menu iPXE"
+
+msgid "iPXE New Menu Entry"
+msgstr "Nouvelle entrée de menu iPXE"
+
+msgid "iPXE Settings updated successfully!"
+msgstr "Paramètres iPXE ont été mis à jour avec succès !"
+
+msgid "iPXE Update Fail"
+msgstr "Échec de la mise à jour d'iPXE"
+
+msgid "iPXE Update Success"
+msgstr "Succès de la mise à jour d'iPXE"
+
+msgid "iPXE syntax is very finicky when it comes to editing"
+msgstr "La syntaxe de l'iPXE est très pointilleuse lorsqu'il s'agit d'éditer"
+
+msgid "iPrint Printer"
+msgstr "Imprimante iPrint"
+
+msgid "if there is a task"
+msgstr "s'il y a une tâche"
+
+msgid "if used incorrectly could potentially"
+msgstr "s'il est utilisé de manière incorrecte peut potentiellement"
+
+msgid "image"
+msgstr "image"
+
+msgid "image file found, file: "
+msgstr "fichier image trouvé, fichier : "
+
+#, fuzzy
+msgid "image no longer exists"
+msgstr "ne fonctionne plus"
+
+msgid "image replication"
+msgstr "réplication des images"
+
+msgid "images"
+msgstr "images"
+
+msgid "images to a storage group"
+msgstr "images vers un groupe de stockage"
+
+msgid "in batch row"
+msgstr ""
+
+msgid "in seconds"
+msgstr "en secondes"
+
+msgid "install or update the FOG database"
+msgstr "installer ou mettre à jour la base de données du FOG"
+
+msgid "instead, which uses iPXE's built-in NIC drivers rather than the firmware's. Arm64 clients use the files under secureboot/arm64-efi/"
+msgstr ""
+
+msgid "is already running with pid: "
+msgstr "est déjà en cours d'exécution avec le pid : "
+
+msgid "is going on with your FOG System"
+msgstr "se passe sur votre système FOG"
+
+msgid "is invalid"
+msgstr "est invalide"
+
+msgid "is new"
+msgstr "est nouveau"
+
+msgid "is no longer active, stopping its sender"
+msgstr ""
+
+msgid "is no longer running"
+msgstr "ne fonctionne plus"
+
+msgid "is now cancelled"
+msgstr "est maintenant annulé"
+
+msgid "is now completed"
+msgstr "est maintenant achevé"
+
+msgid "is open"
+msgstr "est ouvert"
+
+msgid "is protected"
+msgstr "est protégé"
+
+msgid "is protected, removal not allowed"
+msgstr "est protégé, suppression non autorisée"
+
+msgid "is required"
+msgstr "est requis"
+
+msgid "is there one enabled"
+msgstr "y a-t-il un activé"
+
+msgid "is valid"
+msgstr "est valide"
+
+msgid "it boots to the first device"
+msgstr "qui démarre sur le premier appareil"
+
+msgid "it performs that task"
+msgstr "qui exécute cette tâche"
+
+msgid "it will distribute its store"
+msgstr "il distribuera son magasin"
+
+msgid "it will enforce login to gain access to the advanced"
+msgstr "il imposera l'ouverture d'une session pour accéder aux fonctions avancées"
+
+msgid "it's transmitting to"
+msgstr "qu'il transmet à"
+
+#, fuzzy
+msgid "kernel to boot the client computers"
+msgstr "démarrer les ordinateurs clients"
+
+msgid "key"
+msgstr "clé"
+
+msgid "limited to 1Mbps on that node"
+msgstr "limitée à 1Mbps sur ce nœud"
+
+msgid "location url based on the host that checks in"
+msgstr "url de localisation basée sur la machine qui s'enregistre"
+
+msgid "logged in"
+msgstr "connecté"
+
+msgid "logout"
+msgstr "se déconnecter"
+
+msgid "may see the issue and help and/or use the solutions"
+msgstr "peuvent voir le problème et aider et/ou utiliser les solutions"
+
+msgid "meaning a node that has no images on it"
+msgstr "c'est-à-dire un nœud qui ne contient aucune image"
+
+msgid "menu system"
+msgstr "système de menu"
+
+msgid "migration or mass import new items"
+msgstr "la migration ou l'importation en masse de nouveaux éléments"
+
+msgid "min"
+msgstr "min"
+
+msgid "minute"
+msgstr "minute"
+
+msgid "minutes"
+msgstr "minutes"
+
+msgid "mod dates"
+msgstr "dates de modification"
+
+msgid "month"
+msgstr "mois"
+
+msgid "more secure"
+msgstr "plus sécurisé"
+
+msgid "multiple places to get your image"
+msgstr "plusieurs endroits pour obtenir votre image"
+
+msgid "must be specified"
+msgstr "doit être précisé"
+
+msgid "n/a"
+msgstr "n/a"
+
+msgid "no login will appear"
+msgstr "aucun login n'apparaîtra"
+
+msgid "no reason was reported"
+msgstr ""
+
+msgid "node is the distributor of the images"
+msgstr "nœud est le distributeur des images"
+
+msgid "nodes containing this image"
+msgstr "nœuds contenant cette image"
+
+msgid "not found on this node"
+msgstr "non trouvé sur ce nœud"
+
+msgid "object"
+msgstr "objet"
+
+msgid "of"
+msgstr "de"
+
+msgid "on the following pages of this document"
+msgstr "sur les pages suivantes de ce document"
+
+msgid "on the old client"
+msgstr "sur l'ancien client"
+
+msgid "open"
+msgstr "visible"
+
+msgid "or"
+msgstr "ou"
+
+msgid "or no valid images specified"
+msgstr "ou aucune image valide n'est spécifiée"
+
+msgid "or start to operate"
+msgstr "ou commencer à fonctionner"
+
+msgid "or this is a new FOG installation"
+msgstr "ou il s'agit d'une nouvelle installation de FOG"
+
+#, php-format
+msgid "orphaned udp-sender pid"
+msgstr ""
+
+msgid "particular node"
+msgstr "nœud particulier"
+
+msgid "per host"
+msgstr "par machine"
+
+msgid "please see the hosts service settings section."
+msgstr "veuillez consulter la section sur les paramètres du service des machines."
+
+msgid "power management task(s) to run"
+msgstr "tâche(s) de gestion de l'énergie à exécuter"
+
+msgid "present and where/how they need to display"
+msgstr "présenter et où / comment elles doivent être affichées"
+
+msgid "previous install if needed"
+msgstr "l'installation précédente si nécessaire"
+
+msgid "re-run the installer and check the installation log for a key generation or signing failure"
+msgstr ""
+
+msgid "read-only"
+msgstr "lecture seule"
+
+msgid "real insert time"
+msgstr "temps réel d'insertion"
+
+msgid "require all hosts have the same image"
+msgstr "exiger que toutes les machines aient la même image"
+
+msgid "scheduled task(s) to run"
+msgstr "tâche(s) planifiée(s) à exécuter"
+
+msgid "second"
+msgstr "seconde"
+
+msgid "seconds"
+msgstr "secondes"
+
+msgid "see fit"
+msgstr "voir si c'est le cas"
+
+msgid "see the forums or lookup the commands and scripts available"
+msgstr "consulter les forums ou rechercher les commandes et les scripts disponibles"
+
+msgid "sending on base port "
+msgstr "envoi sur le port de base "
+
+msgid "sites with clients moving back and forth"
+msgstr "sites avec des clients qui vont et viennent"
+
+msgid "snapin"
+msgstr "Snapin"
+
+msgid "snapin replication"
+msgstr "réplication Snapin"
+
+msgid "snapins"
+msgstr "snapins"
+
+msgid "snapins to a storage group"
+msgstr "Snapins à un groupe de stockage"
+
+msgid "so if it seems like the process is hanging please be patient"
+msgstr "donc si vous avez l'impression que le processus est suspendu, soyez patient"
+
+msgid "so if you are unable to boot a client you may wish to"
+msgstr "donc si vous ne parvenez pas à démarrer un client, vous pouvez souhaiter"
+
+#, php-format
+msgid "stale sender reference cleared"
+msgstr ""
+
+msgid "successfully removed!"
+msgstr "supprimé avec succès !"
+
+msgid "task found"
+msgstr "tâche trouvée"
+
+msgid "task type no longer exists"
+msgstr ""
+
+#, php-format
+msgid "terminating so it can be restarted"
+msgstr ""
+
+msgid "that detects the status on the fly, poweron or poweroff and the OS, of the client"
+msgstr "qui détecte l'état à la volée, mise sous tension ou hors tension et le système d'exploitation, du client"
+
+msgid "the Initrd (initial ramdisk) which is used alongside the"
+msgstr ""
+
+msgid "the Linux kernel which is used to"
+msgstr "le noyau Linux qui est utilisé pour"
+
+msgid "the advanced menu to use"
+msgstr "le menu avancé à utiliser"
+
+msgid "the base FOG install"
+msgstr "l'installation de base de FOG"
+
+msgid "the following command in a terminal"
+msgstr "la commande suivante dans un terminal"
+
+msgid "the host defined location where available"
+msgstr "l'emplacement défini par la machine, lorsqu'elle est disponible"
+
+msgid "the main and the host"
+msgstr "le principal et la machine"
+
+msgid "the way in which FOG operates"
+msgstr "le mode de fonctionnement de FOG"
+
+msgid "there one enabled within this Storage Group"
+msgstr "il y en a un activé dans ce groupe de stockage"
+
+msgid "there will be a database backup stored on your"
+msgstr "il y aura une sauvegarde de la base de données stockée sur votre"
+
+msgid "this backup will enable you to return to the"
+msgstr "cette sauvegarde vous permettra de revenir à"
+
+msgid "this is just another to ensure safety"
+msgstr "il s'agit d'un autre moyen d'assurer la sécurité"
+
+msgid "this kernel holds all the drivers for the client computer"
+msgstr "ce noyau contient tous les pilotes de l'ordinateur client"
+
+msgid "this one is already in use by another image"
+msgstr "celle-ci est déjà utilisée par une autre image"
+
+msgid "this one is reserved for FOG"
+msgstr "celui-ci est réservé à FOG"
+
+msgid "this will save the backup in your home"
+msgstr "cela permettra de réaliser un backup dans votre home"
+
+msgid "time the service is started."
+msgstr "fois où le service est lancé."
+
+msgid "to UAC introduced in Vista and up"
+msgstr "de l'UAC introduit dans Vista et plus"
+
+msgid "to all nodes in the group"
+msgstr "à tous les nœuds du groupe"
+
+msgid "to be booted if no keys are pressed when the menu is"
+msgstr "pour être démarré si aucune touche n'est pressée lorsque le menu est"
+
+#, fuzzy
+msgid "to clear the field on every host in this group."
+msgstr "Impossible de trouver un nœud de stockage dans ce groupe"
+
+#, fuzzy
+msgid "to get the requested Initrd"
+msgstr "pour obtenir le noyau demandé"
+
+msgid "to get the requested Kernel"
+msgstr "pour obtenir le noyau demandé"
+
+msgid "to login"
+msgstr "ouvrir une session"
+
+msgid "to operate in an environment where there may be"
+msgstr "de fonctionner dans un environnement où il peut y avoir"
+
+msgid "to review."
+msgstr "à examiner."
+
+msgid "to signify if this is a user or channel to send to"
+msgstr "pour indiquer s'il s'agit d'un utilisateur ou d'un canal à qui envoyer des informations"
+
+msgid "to the client systems"
+msgstr "sur les systèmes clients"
+
+msgid "to time to see if a new module is published."
+msgstr "en temps pour voir si un nouveau module est publié."
+
+msgid "to transfer to"
+msgstr "à transférer vers"
+
+msgid "to update hash values as needed"
+msgstr "pour mettre à jour les valeurs de hachage si nécessaire"
+
+msgid "to update size values as needed"
+msgstr "pour mettre à jour les valeurs de taille si nécessaire"
+
+msgid "unable to be updated"
+msgstr "impossible à mettre à jour"
+
+msgid "unavailable"
+msgstr "indisponible"
+
+msgid "understood"
+msgstr "compris"
+
+msgid "update to a newer kernel which may have more drivers built in"
+msgstr "mettre à jour vers un noyau plus récent qui peut avoir plus de pilotes intégrés"
+
+msgid "used"
+msgstr "utilisé"
+
+msgid "user failed to login"
+msgstr "l'utilisateur n'a pas réussi à se connecter"
+
+msgid "user successfully logged in"
+msgstr "utilisateur connecté avec succès dans"
+
+msgid "username"
+msgstr "identifiant"
+
+msgid "version"
+msgstr "version"
+
+msgid "we need a file name in the request"
+msgstr "nous avons besoin d'un nom de fichier dans la demande"
+
+msgid "where to download the snapin"
+msgstr "où télécharger le Snapin"
+
+msgid "which is empty"
+msgstr "qui est vide"
+
+msgid "window"
+msgstr "fenêtre"
+
+msgid "wipe out all of your images stored on"
+msgstr "effacer toutes vos images stockées sur"
+
+msgid "with modules and config"
+msgstr "avec les modules et la configuration"
+
+msgid "with the host"
+msgstr "avec la machine"
+
+msgid "with this group"
+msgstr "avec ce groupe"
+
+msgid "would you like to install it now"
+msgstr "souhaitez-vous l'installer maintenant"
+
+msgid "you set the bandwidth field on that node to 1000"
+msgstr "vous définissez le champ de la bande passante sur ce nœud à 1000"
+
+#~ msgid "A broadcast already exists with this name"
+#~ msgstr "Un broadcast existe déjà avec ce nom"
+
+#~ msgid "A hostext already exists with this name!"
+#~ msgstr "Une Host ext existe déjà avec ce nom !"
+
+#~ msgid "A site alread exists with this name!"
+#~ msgstr "Un site existe déjà avec ce nom !"
+
+#~ msgid "Active Multi-cast Tasks"
+#~ msgstr "Tâches Multicast actives"
+
+#~ msgid "Add ou failed!"
+#~ msgstr "L'ajout OU a échoué !"
+
+#~ msgid "Could not read temp file"
+#~ msgstr "Impossible de lire le fichier temporaire"
+
+#~ msgid "Create New Host Ext"
+#~ msgstr "Création nouveau Host Ext"
+
+#~ msgid "Database connection unavailable"
+#~ msgstr "Connexion à la base de données indisponible"
+
+#~ msgid "Export Host Exts"
+#~ msgstr "Exportation Host ext"
+
+#~ msgid "External Links"
+#~ msgstr "Liens externes"
+
+#~ msgid "FOG Snapin Log"
+#~ msgstr "FOG Snapin Connexion"
+
+#~ msgid "Hello FOG Client"
+#~ msgstr "Bonjour FOG client"
+
+#~ msgid "Host Ext"
+#~ msgstr "Host ext"
+
+#~ msgid "Host Ext Name"
+#~ msgstr "Nom Host ext"
+
+#~ msgid "Host Ext URL"
+#~ msgstr "URL Host ext"
+
+#~ msgid "Host Ext Variable"
+#~ msgstr "Variable Host ext"
+
+#~ msgid "Host Ext is a plugin which allows to assign to each host an external url."
+#~ msgstr "Host Ext est un greffon qui permet d'attribuer à chaque hôte une url externe."
+
+#~ msgid "Host External URL - "
+#~ msgstr "Host URL Externe - "
+
+#~ msgid "Hostext Create Fail"
+#~ msgstr "Création Host ext échouée"
+
+#~ msgid "Hostext Create Success"
+#~ msgstr "Host ext créée avec succès"
+
+#~ msgid "Hostext Update Fail"
+#~ msgstr "Échec mise à jour de Host ext"
+
+#~ msgid "Hostext Update Success"
+#~ msgstr "Mise à jour Host ext réussie"
+
+#~ msgid "Hostext added!"
+#~ msgstr "Host ext ajoutée !"
+
+#~ msgid "Hostext update failed!"
+#~ msgstr "Échec de la mise à jour Host ext !"
+
+#~ msgid "Hostext updated!"
+#~ msgstr "Host ext mise à jour !"
+
+#, fuzzy
+#~ msgid "I checked in at"
+#~ msgstr "Date de vérification de la tâche"
+
+#~ msgid "IP Address Changed"
+#~ msgstr "Adresse IP modifiée"
+
+#~ msgid "Import Host Exts"
+#~ msgstr "Importation Host ext"
+
+#~ msgid "Invalid unit passed"
+#~ msgstr "Unité non valide passée"
+
+#~ msgid "Inventory Desc"
+#~ msgstr "Inventaire Desc"
+
+#~ msgid "LDAP Connection  Name"
+#~ msgstr "Nom de la connexion LDAP"
+
+#~ msgid "Legacy Client and Utilities"
+#~ msgstr "Client hérité et utilitaires"
+
+#~ msgid "Legacy FOG Client"
+#~ msgstr "Héritage FOG client"
+
+#~ msgid "Please wait until a slot is open"
+#~ msgstr "Veuillez attendre qu'un créneau se libère"
+
+#~ msgid "Replicating ssl less private key"
+#~ msgstr "Réplication de ssl sans clé privée"
+
+#~ msgid "Session altered improperly"
+#~ msgstr "Session modifiée incorrectement"
+
+#~ msgid "There are currently"
+#~ msgstr "Il y a actuellement"
+
+#, fuzzy
+#~ msgid "This file is used to encrypt the AD Password"
+#~ msgstr "Ce fichier est utilisé pour chiffrer le mot de passe AD. NE PAS UTILISER CE SI VOUS UTILISEZ LE NOUVEAU CLIENT."
+
+#~ msgid "Unable to determine plugin details"
+#~ msgstr "Impossible de déterminer les détails du plugin"
+
+#~ msgid "Use the selector to choose how many items you want exported"
+#~ msgstr "Utilisez le sélecteur pour choisir le nombre d'éléments que vous souhaitez exporter"
+
+#~ msgid "User Agent Changed"
+#~ msgstr "L'agent utilisateur modifié"
+
+#~ msgid "Your server only allows"
+#~ msgstr "Votre serveur ne permet que"
+
+#, fuzzy
+#~ msgid "and"
+#~ msgstr "Fin"
+
+#~ msgid "but"
+#~ msgstr "mais"
+
+#, fuzzy
+#~ msgid "file to"
+#~ msgstr "Échec de"
+
+#~ msgid "no database to"
+#~ msgstr "aucune base de données pour"
+
+#~ msgid "tasks in queue"
+#~ msgstr "tâches dans la file d'attente"

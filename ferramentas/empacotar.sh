@@ -9,6 +9,13 @@ SAIDA="${1:-$RAIZ/dist}"
 VERSAO=$(cat "$RAIZ/VERSION")
 NOME="LabFreeImageDeploy-$VERSAO"
 [ -x "$RAIZ/base-fog/bin/installfog.sh" ] || { echo "Falta base-fog/ no repositório"; exit 1; }
+# O .gitignore da própria base FOG ignora *Image*, *.gz, *.exe, languages/ e packages/tftp/: esses arquivos foram
+# acrescentados ao git à força (git add -f). Um clone sem eles geraria um pacote que não instala o envio em grupo.
+for f in packages/udpcast-20250223.tar.gz packages/systemd/FOGImageSize.service packages/systemd/FOGImageReplicator.service \
+         packages/service/FOGImageSize/FOGImageSize packages/service/FOGImageReplicator/FOGImageReplicator \
+         packages/web/service/ipxe/grub.exe packages/web/management/languages/pt_BR.UTF-8/LC_MESSAGES/messages.po; do
+    [ -f "$RAIZ/base-fog/$f" ] || { echo "Falta base-fog/$f (ignorado pelo .gitignore da base: use git add -f)"; exit 1; }
+done
 for h in "$RAIZ"/terceiros/fos/*.sha256 "$RAIZ"/terceiros/fog-client/*.sha256 "$RAIZ"/terceiros/fog-ipxe/*.sha256; do
     (cd "$(dirname "$h")" && sha256sum --quiet -c "$(basename "$h")") || { echo "terceiros/: $(basename "$h" .sha256) corrompido"; exit 1; }
 done
@@ -33,7 +40,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf -- "$tmp"' EXIT
 D="$tmp/$NOME"
 mkdir -p "$D"
-rsync -a --exclude '.git' --exclude 'dist' --exclude 'testes' --exclude 'base-fog/tmp' --exclude '__pycache__' --exclude 'CLAUDE.md' --exclude 'docs/CUSTOMIZACOES-MAQUINA-ATUAL.md' "$RAIZ/" "$D/"
+rsync -a --exclude '.git' --exclude 'dist' --exclude 'testes' --exclude 'base-fog/tmp' --exclude 'base-fog/bin/error_logs' --exclude '__pycache__' --exclude 'CLAUDE.md' --exclude 'docs/CUSTOMIZACOES-MAQUINA-ATUAL.md' "$RAIZ/" "$D/"
 cp "$RAIZ/base-fog/LICENSE" "$D/LICENSE"
 # confere que nenhum segredo desta máquina entrou no pacote
 if [ -r /opt/fog/.fogsettings ]; then

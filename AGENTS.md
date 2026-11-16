@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 16/11/2026 (versão 0.14.3). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 16/11/2026 (versão 0.14.4). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub (github.com/EXTREMELYBR/LabFreeImageDeploy; remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -211,6 +211,10 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
     dá `chown`/`chmod`/`utime` por caminho ali; use `O_NOFOLLOW|O_EXCL`, `dir_fd` e `fchown`/`fchmod`/`utime(fd)`.
 48. `gh release download` sem a tag exige `--pattern`; a API do GitHub sem login pode responder 403 (limite): para
     achar a versão mais recente use o redirecionamento de `https://github.com/…/releases/latest` (cabeçalho Location).
+49. **O `.gitignore` da base FOG (`base-fog/.gitignore`) ignora arquivos que a instalação precisa** (`*Image*` pega
+    `FOGImageReplicator`/`FOGImageSize`; `*.gz` pega o udpcast; `*.exe` o `grub.exe`; `languages/*`; `/packages/tftp/`).
+    Eles estão no git com `git add -f`. Arquivo novo da base: confira com `git status --ignored base-fog`. O
+    `empacotar.sh` recusa pacote sem os principais. Sempre gere o pacote de um clone limpo (a 0.14.3 mostrou o erro).
 22. Nunca escreva um heredoc de bash contendo outro `EOF` dentro (o bash fecha no primeiro e executa o resto): scripts de
     edição vão em arquivo (Write) e rodam com `python3 -I arquivo`.
 
