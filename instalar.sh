@@ -177,14 +177,38 @@ for p in json.load(sys.stdin)["placas"]:
     print("    - %-18s %-6s %s  %-20s %s" % (p["nome"], tipo, p["mac"], ", ".join(p["ips"]) or "sem IP", obs))'
     [ -n "$candidatas" ] || falha "Nenhuma placa com cabo disponível. A rede de clonagem precisa de uma placa só para ela (pode ser um adaptador USB-Ethernet). A placa que leva a internet não pode ser usada."
     if [ -z "$PLACA" ]; then
-        local primeira; primeira=$(echo "$candidatas" | head -1)
-        if [ "$(echo "$candidatas" | wc -l)" -gt 1 ]; then
-            # sem perguntas, escolher sozinho poderia pôr IP fixo e DHCP na rede da escola/empresa
-            [ "$SIM" = 1 ] && falha "Há mais de uma placa que pode atender a rede de clonagem ($(echo $candidatas | tr ' ' '/')). Informe qual com --placa NOME."
-            perguntar "Qual placa vai atender a rede de clonagem? ($(echo $candidatas | tr ' ' '/'))" "$primeira"
-            PLACA="$RESP"
+        local n; n=$(echo "$candidatas" | wc -l)
+        if [ "$SIM" = 1 ]; then
+            # sem perguntas, escolher sozinho entre várias poderia pôr IP fixo e DHCP na rede da escola/empresa
+            [ "$n" -gt 1 ] && falha "Há mais de uma placa que pode atender a rede de clonagem ($(echo $candidatas | tr ' ' '/')). Informe qual com --placa NOME."
+            PLACA="$candidatas"
         else
-            PLACA="$primeira"
+            # a pessoa sempre escolhe (mesmo havendo uma só): pelo número ou pelo nome
+            echo
+            echo "  Placas que podem atender a rede de clonagem (o computador vai ter IP fixo e DHCP nela):"
+            local i=0 nome
+            while read -r nome; do
+                i=$((i + 1))
+                echo "$lista" | python3 -I -c '
+import json,sys
+p = next(p for p in json.load(sys.stdin)["placas"] if p["nome"] == sys.argv[2])
+tipo = "adaptador USB" if p["usb"] else "placa da máquina"
+modelo = (" (" + p["modelo"] + ")") if p.get("modelo") else ""
+print("    %s) %-18s %s%s, %s, %s" % (sys.argv[1], p["nome"], tipo, modelo, p["mac"], "cabo conectado" if p["cabo"] else "sem cabo"))' "$i" "$nome"
+            done <<<"$candidatas"
+            local tentativa resp
+            for tentativa in 1 2 3 4 5; do
+                perguntar "Qual placa vai atender a rede de clonagem? (número ou nome)" "1"
+                resp="$RESP"
+                if [[ "$resp" =~ ^[0-9]+$ ]] && [ "$resp" -ge 1 ] && [ "$resp" -le "$n" ]; then
+                    PLACA=$(echo "$candidatas" | sed -n "${resp}p"); break
+                elif grep -qxF -- "$resp" <<<"$candidatas"; then
+                    PLACA="$resp"; break
+                fi
+                echo "  Opção inválida: digite um número de 1 a $n ou o nome da placa."
+            done
+            [ -n "$PLACA" ] || falha "Nenhuma placa escolhida."
+            confirmar "Usar a placa $PLACA para a rede de clonagem?" || { echo "  Cancelado."; exit 0; }
         fi
     fi
     grep -qxF -- "$PLACA" <<<"$candidatas" || falha "A placa \"$PLACA\" não pode ser usada (não existe, é Wi-Fi ou leva a internet)."

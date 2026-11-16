@@ -40,7 +40,8 @@ cd LabFreeImageDeploy-*/
 sudo ./instalar.sh
 ```
 
-O instalador mostra as placas de rede e pergunta qual atende a rede de clonagem.
+O instalador mostra as placas de rede que podem ser usadas, numeradas, e você escolhe qual atende a rede de clonagem
+(a placa da internet e o Wi-Fi não entram na lista). A placa pode ser trocada depois pelo painel.
 Leva de 20 a 40 minutos. No final ele mostra o endereço do painel (por padrão `https://192.168.31.1/`).
 
 Instalação sem perguntas: `sudo ./instalar.sh --sim --placa enx00e04c690b37`

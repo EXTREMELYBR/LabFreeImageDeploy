@@ -24,8 +24,8 @@ antes de ir para o próximo.
    e eu rodo no terminal. Não tente contornar bloqueios de permissão.
 5. Não apague nada em `/images` nem dados do banco de dados.
 6. As senhas do banco ficam em `/opt/fog/.fogsettings`: são segredo. Nunca mostre, copie nem envie esse arquivo.
-7. O repositório no GitHub é **privado**. Não peça nem salve meu token; se eu precisar fazer login no GitHub,
-   eu mesmo faço.
+7. O pacote baixa do GitHub sem login (repositório público). Não peça nem salve token; se um dia for preciso
+   fazer login no GitHub, eu mesmo faço.
 
 ### Passo 1 — Conferir o computador
 
@@ -67,16 +67,24 @@ https://github.com/EXTREMELYBR/LabFreeImageDeploy/releases/latest
 Arquivos: `LabFreeImageDeploy-X.Y.Z.tar.gz` e `LabFreeImageDeploy-X.Y.Z.tar.gz.sha256` (X.Y.Z é o número da
 versão; nos comandos abaixo, troque pelo número que veio no nome do arquivo).
 
-Como o repositório é privado, me ofereça um destes caminhos:
+Me ofereça um destes caminhos:
 
-- **A) Pelo navegador**: eu entro no GitHub com a minha conta, abro o link acima e baixo os dois arquivos para a
-  pasta `~/Downloads` deste computador (ou copio de um pendrive).
-- **B) Pelo terminal com o `gh`**: se o `gh` não estiver instalado, `sudo apt install gh`. Depois eu rodo
-  `gh auth login` (interativo, eu faço) e você roda:
+- **A) Pelo terminal, sem login** (recomendado): você roda
 
   ```bash
   mkdir -p ~/Downloads && cd ~/Downloads
-  gh release download -R EXTREMELYBR/LabFreeImageDeploy   # sem número = a mais recente
+  V=$(curl -fsSI https://github.com/EXTREMELYBR/LabFreeImageDeploy/releases/latest | grep -i '^location:' | grep -oP 'tag/v\K[0-9.]+')
+  echo "Versão mais recente: $V"
+  wget https://github.com/EXTREMELYBR/LabFreeImageDeploy/releases/download/v$V/LabFreeImageDeploy-$V.tar.gz \
+       https://github.com/EXTREMELYBR/LabFreeImageDeploy/releases/download/v$V/LabFreeImageDeploy-$V.tar.gz.sha256
+  ```
+
+- **B) Pelo navegador**: eu abro o link acima e baixo os dois arquivos para `~/Downloads` (ou copio de um pendrive).
+- **C) Com o `gh`** (se eu já tiver feito `gh auth login`):
+
+  ```bash
+  mkdir -p ~/Downloads && cd ~/Downloads
+  gh release download -R EXTREMELYBR/LabFreeImageDeploy --pattern 'LabFreeImageDeploy-*'   # a mais recente
   ```
 
 ### Passo 3 — Conferir se o arquivo chegou inteiro
@@ -101,19 +109,21 @@ cd LabFreeImageDeploy-X.Y.Z
 
 ### Passo 5 — Instalar (eu rodo)
 
-Antes, confirme que o cabo da placa de clonagem está ligado no switch das máquinas.
+O cabo da placa de clonagem pode ser ligado antes ou depois (a instalação funciona sem cabo).
 
-Monte o comando com a placa escolhida no passo 1 e me passe para eu rodar. Sugira rodar dentro do `screen` para a
+Me passe o comando para eu rodar. Sugira rodar dentro do `screen` para a
 instalação não parar se o terminal fechar:
 
 ```bash
 sudo apt install -y screen
 screen -S instalar
 cd ~/Downloads/LabFreeImageDeploy-X.Y.Z
-sudo ./instalar.sh --placa NOME_DA_PLACA
+sudo ./instalar.sh
 ```
 
-- Sem `--placa`, o instalador mostra as placas e pergunta (a da internet e o Wi-Fi ficam bloqueados).
+- O instalador mostra as placas que podem ser usadas, numeradas, e **eu escolho** (pelo número ou pelo nome) e
+  confirmo. A placa da internet e o Wi-Fi não aparecem na lista. Me ajude a reconhecer a placa certa (adaptador USB,
+  MAC, "cabo conectado"). Para pular a pergunta: `sudo ./instalar.sh --placa NOME_DA_PLACA`.
 - Leva de **20 a 40 minutos**. Se o terminal cair: `screen -r instalar`.
 - Por padrão o servidor fica com o IP `192.168.31.1` na rede de clonagem. Se a rede da internet já usar
   `192.168.31.x`, use outro IP: `--ip 10.10.10.1`.

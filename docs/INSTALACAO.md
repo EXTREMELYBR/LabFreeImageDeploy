@@ -33,7 +33,7 @@ O instalador:
 
 | Opção | Para que serve |
 |---|---|
-| `--placa NOME` | placa da rede de clonagem (ex.: `enp3s0`, `enx00e04c690b37`) |
+| `--placa NOME` | placa da rede de clonagem (ex.: `enp3s0`, `enx00e04c690b37`). Sem ela, o instalador lista as placas possíveis, numeradas, e você escolhe e confirma |
 | `--ip IP` / `--mascara N` | IP fixo do servidor e máscara em bits (padrão `192.168.31.1` e `24`) |
 | `--faixa INI-FIM` | faixa de IPs entregues às máquinas (padrão: `.10` até o último) |
 | `--senha SENHA` | senha inicial do `admin` (padrão: `admin`, com troca obrigatória no primeiro acesso) |

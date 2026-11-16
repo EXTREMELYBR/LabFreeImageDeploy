@@ -1,6 +1,6 @@
 # LabFree ImageDeploy — guia para quem continuar (IA ou pessoa). LEIA INTEIRO ANTES DE MEXER.
 
-> Atualizado em 16/11/2026 (versão 0.14.2). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
+> Atualizado em 16/11/2026 (versão 0.14.3). Versão no arquivo `VERSION`; histórico em `CHANGELOG.md`.
 > Código no GitHub (github.com/EXTREMELYBR/LabFreeImageDeploy; remoto `origin`; veja `git remote -v`). `CLAUDE.md` é um link para este arquivo.
 >
 > **REGRA DO USUÁRIO (26/10): toda alteração precisa ser documentada e enviada ao GitHub como versão nova.**
@@ -72,14 +72,17 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     na 0.14.0 (seção 7j). Precisa do instalador na produção.
 26. (16/11) Em outro computador (notebook Lenovo, Mint 22.3): "revisar completamente, fazer funcionar e corrigir no
     GitHub" — feito na 0.14.2 (instalação sem cabo, instalação retomada, troca de adaptador, 3 revisões de código).
+27. (16/11) "Desinstalar completamente, baixar do GitHub e instalar de novo, para instalar em outro computador sem
+    dor de cabeça" — feito (seção 7k). "A pessoa deve selecionar o adaptador que quiser" — feito na 0.14.3.
 25. (28/10) "Crie um MD para eu rodar em outra Claude e instalar o sistema em outro computador" + "suba com um novo
     release" — `docs/PROMPT-INSTALAR.md` na 0.14.1 (só documentação).
 
 ## 2b. Segunda máquina (16/11/2026): notebook "labfree-lenovo5", Linux Mint 22.3, PHP 8.4 (PPA ondrej)
 - Internet pelo Wi-Fi `wlp1s0`; rede de clonagem num adaptador USB RTL8153 **`enx00e04c880309`**, 192.168.31.1/24
   (a instalação de 29/10 usou outro adaptador, `enx00e04c2803a7`, e falhou; ver CHANGELOG 0.14.2).
-- `/opt/LabFreeImageDeploy` é o repositório git (o `.git` veio de um clone do GitHub sobre a cópia do pacote).
-- 0.14.2 instalada e "Tudo certo." no `verificar`; nenhuma máquina/imagem cadastrada ainda; senha do admin já trocada pelo usuário no primeiro acesso (16/11).
+- Depois do teste da seção 7k, `/opt/LabFreeImageDeploy` é a cópia do pacote (sem git). Para desenvolver: clone o
+  GitHub numa pasta de trabalho e publique de lá com `ferramentas/publicar.sh` (o `gh` está logado como root).
+- 0.14.2 instalada do zero pela release (seção 7k), "Tudo certo."; admin/admin com troca obrigatória (instalação nova).
 
 ## 2. A máquina do usuário (desenvolvimento = PRODUÇÃO; há um laboratório usando)
 - Notebook Dell Inspiron 15 3520, Linux Mint 22.3 (base Ubuntu 24.04). Você roda como root.
@@ -206,6 +209,8 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
 46. O `/etc/kea/kea-dhcp4.conf` do pacote tem comentários `//` (o `json.load` falha) até a base gravar o dela.
 47. Pastas em `/images` são do `fogproject` (e `/images/dev` é NFS gravável pela rede de clonagem): o root nunca abre,
     dá `chown`/`chmod`/`utime` por caminho ali; use `O_NOFOLLOW|O_EXCL`, `dir_fd` e `fchown`/`fchmod`/`utime(fd)`.
+48. `gh release download` sem a tag exige `--pattern`; a API do GitHub sem login pode responder 403 (limite): para
+    achar a versão mais recente use o redirecionamento de `https://github.com/…/releases/latest` (cabeçalho Location).
 22. Nunca escreva um heredoc de bash contendo outro `EOF` dentro (o bash fecha no primeiro e executa o resto): scripts de
     edição vão em arquivo (Write) e rodam com `python3 -I arquivo`.
 
@@ -389,6 +394,18 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   gravada agora → recusadas; parada há 2 h → apagada e registrada); **restauração real** de uma VM cliente
   (`-boot n`, MAC `52:54:00:aa:00:77` = CLIENTE-1): linhas no painel 40 s depois do boot, durante a cópia, e o
   completo no fim; tela da máquina normal. `verificar` com a placa sem IP → aviso; com IP → "Tudo certo.".
+
+## 7k. Desinstalação total + instalação nova pela release (16/11, máquina da seção 2b)
+- Desinstalado: serviços/timers, conexão NM da clonagem, ganchos do apt, os pacotes das transações do apt da base
+  (`/var/log/apt/history.log`, 29/10 15:16–15:17; **conferir com `apt-get -s purge`**: a `libonig5` ficou porque o
+  `jq` do usuário depende dela), `/opt/fog`, `/opt/LabFreeImageDeploy`, `/var/www`, `/tftpboot`, `/images`,
+  `/var/lib/mysql`, `/etc/{fog,kea,php,apache2,mysql,chrony}`, unidades `FOG*`/`LabFreeImageDeploy*`, sudoers,
+  udev, logind/sleep (e `systemctl unmask` dos alvos de suspender), `/etc/hosts`, `/etc/exports`, certificado da CA
+  em `/usr/local/share/ca-certificates` (+ `update-ca-certificates --fresh`), PPAs ondrej, usuário `fogproject`.
+  **O chrony tinha removido o `systemd-timesyncd`**: reinstalado. Não fazem parte do LabFree e ficaram: grub-labfree
+  (`/etc/grub-labfree.conf`, `/etc/grub.d/09_labfree`…, produto à parte), kit de TI, AnyDesk, Chrome, gh.
+- Depois: release baixada (sha256 OK), `sudo ./instalar.sh --sim --placa enx00e04c880309` com a placa **sem cabo** e
+  uma "Conexão cabeada 1" automática do NM na mesma placa → "Tudo certo." de primeira (~25 min).
 
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,

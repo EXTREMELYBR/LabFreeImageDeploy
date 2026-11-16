@@ -5,6 +5,24 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.14.3] - 2026-11-16
+
+Só o instalador e a documentação: quem já tem o sistema instalado não precisa fazer nada.
+
+### Mudou
+- **Você escolhe a placa da rede de clonagem**: o instalador mostra as placas que podem ser usadas, numeradas, com
+  tipo (adaptador USB ou placa da máquina), modelo, MAC e se o cabo está conectado, e pergunta qual usar (pelo número
+  ou pelo nome), com confirmação. Antes, havendo uma só, ela era escolhida sem perguntar. Resposta inválida pergunta
+  de novo. `--placa NOME` continua pulando a pergunta; `--sim` sem `--placa` só segue sozinho se houver uma placa.
+
+### Documentação
+- `docs/PROMPT-INSTALAR.md`: o download da release mais recente funciona sem login (o repositório está público) —
+  comando com `wget` testado; o comando com `gh` precisava de `--pattern` (sem ele o `gh` só mostra a ajuda);
+  instalar sem `--placa` para a pessoa escolher a placa; o cabo pode ser ligado depois.
+- Teste completo nesta máquina: desinstalação total (LabFree, base FOG, 104 pacotes, banco, usuário `fogproject`,
+  rede, PPAs) e instalação nova pelo pacote baixado da release 0.14.2, com a placa sem cabo: "Tudo certo." na
+  primeira tentativa (AGENTS.md, seção 7k).
+
 ## [0.14.2] - 2026-11-16
 
 Correções da instalação num computador novo + revisão completa do código (3 revisões: painel, programas root,
