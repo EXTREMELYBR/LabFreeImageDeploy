@@ -123,7 +123,7 @@ traduzir() { # " * Looking for Hard Disk(s)......Done" -> "Procurando o disco ..
 etapa_de() { # mensagem original -> numero da etapa (so avanca)
     case "$1" in
         *"Processing Partition"*|*"Imaging using"*) echo 4 ;;
-        *"Updating Database"*|*"Changing hostname"*|*"Task Complete"*) echo 5 ;;
+        *"Updating Database"*|*"Changing hostname"*|*"Task Complete"*|*"no Linux"*|*"Nome do Linux"*) echo 5 ;;
         *"Erasing"*|*"Restoring Partition"*|*"Restoring Original"*|*"Preparing Partition"*|*"Saving Partition"*|*"Saving original"*|*"Shrinking"*|*"Running resize test"*|*"expand/fill"*|*"Removing"*|*"Recreating"*) echo 3 ;;
         *"Looking for Hard Disk"*|*"Reading Partition"*|*"Checking Operating System"*|*"Getting Windows"*|*"Enabling write cache"*) echo 2 ;;
         *) echo 0 ;;

@@ -5,6 +5,32 @@ Formato: a versão mais nova no topo; cada item diz o que mudou para quem usa e,
 Numeração: `MAIOR.MENOR.CORREÇÃO` — CORREÇÃO para correções, MENOR para funções novas, MAIOR para mudanças que exigem
 ação de quem já tem o sistema instalado.
 
+## [0.15.0] - 2026-11-16
+
+Precisa reinstalar por cima (`sudo ./instalar.sh` do pacote novo): o sistema de clonagem é reconstruído (~10 min).
+
+### Novo
+- **Nome do Linux trocado depois de restaurar**, como já acontecia com o Windows. A opção virou "Renomear com o nome
+  cadastrado (Windows e Linux)" (Configurações → *Nome e Windows*; vem ligada). Logo depois de gravar o disco e antes
+  do primeiro boot, o sistema de clonagem acha o Linux e grava o nome cadastrado em `/etc/hostname`, troca o nome
+  antigo no `/etc/hosts` (linha `127.0.1.1` do Debian/Ubuntu/Mint, e `nome`/`nome.domínio` nas linhas de localhost),
+  dá um `machine-id` novo (com o mesmo id, o DHCP pode entregar o **mesmo IP** a várias máquinas) e gera chaves de SSH
+  novas (mantendo dono e permissão). Abre ext2/3/4, xfs, LVM (liga os volumes e desliga de novo) e btrfs (subvolume
+  padrão e os do primeiro nível, como `@`). Windows e Linux no mesmo disco: os dois recebem o nome. Como o cadastro
+  nunca repete um nome, nenhuma máquina fica com o nome de outra.
+- **Disco criptografado é identificado**: LUKS (Linux) ou BitLocker (Windows) não podem ser abertos sem a senha. O
+  nome fica como estava e a tarefa termina com o aviso "Disco criptografado..." (na tela da máquina e no painel). Se
+  o Linux estiver aberto e só outra parte for criptografada (ex.: `/home`), o nome é trocado e o registro informa.
+  Outros avisos: imagem Linux sem Linux no disco, partição que não abre, nome cadastrado inválido. Nenhum deles
+  interrompe a clonagem.
+
+### Para quem mantém
+- `marca/fos/usr/share/fog/lib/labfree-nome.sh` (carregado pelo `labfree-tela.sh`) refaz o `completeTasking` do FOG
+  (igual ao da 1.5.10 + `labfreeRenomearLinux` antes do `fog.imgcomplete`). Nunca segue links do disco restaurado
+  (`/etc/hostname` em link vira arquivo; `hosts`, `machine-id` e `etc/ssh` em link ficam como estão).
+- Teste: `sudo bash testes/teste_nome_linux.sh` roda o `completeTasking` dentro do próprio `init.xz` (chroot) contra
+  15 discos de teste — 88 conferências.
+
 ## [0.14.4] - 2026-11-16
 
 **Use esta versão em vez da 0.14.3** (o pacote da 0.14.3 saiu incompleto). Quem já tem o sistema instalado não precisa

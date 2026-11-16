@@ -113,6 +113,9 @@ O LabFree **não é um fork** do código do FOG: a base FOG 1.5.10 é instalada 
 ## Ajustes do Windows e cópias
 - Windows: nome pelo FOS (`FOG_CHANGE_HOSTNAME_EARLY`); domínio e licença pelo agente da base (`FOGService.msi`, módulo
   hostnamechanger) com os dados que `Painel::aplicarWindows()` grava em cada máquina.
+- Linux: nome pelo FOS com a mesma opção (`hostearly=1`): `marca/fos/usr/share/fog/lib/labfree-nome.sh` refaz o
+  `completeTasking` e, depois de restaurar, grava `/etc/hostname`, `/etc/hosts`, `machine-id` novo e chaves de SSH
+  novas (ext/xfs/LVM/btrfs). LUKS/BitLocker: só aviso (`handleWarning`), a tarefa termina normalmente.
 - Cópias: `lib/LabFreeImageDeploy-copias` (root, chamado pela ação `copias` do ajudante). Trabalho em unidade própria
   do systemd; SHA-256 de cada arquivo no manifesto `labfree-imagem.json`; conferência lendo de volta do destino
   (cache descartado com `posix_fadvise`). O painel cadastra as imagens importadas com as classes da base.

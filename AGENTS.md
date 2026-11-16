@@ -74,6 +74,9 @@ LabFree é uma camada em volta. Pedidos do usuário (em ordem cronológica, todo
     GitHub" — feito na 0.14.2 (instalação sem cabo, instalação retomada, troca de adaptador, 3 revisões de código).
 27. (16/11) "Desinstalar completamente, baixar do GitHub e instalar de novo, para instalar em outro computador sem
     dor de cabeça" — feito (seção 7k). "A pessoa deve selecionar o adaptador que quiser" — feito na 0.14.3.
+28. (16/11) "Renomear as máquinas implantadas, Windows e Linux, automaticamente, sem nomes repetidos; identificar
+    quando for criptografado; teste e reteste" — feito na 0.15.0 (seção 7l). Versão Windows do servidor: o usuário
+    disse que não precisa ("só funcionar bem no Linux está ótimo").
 25. (28/10) "Crie um MD para eu rodar em outra Claude e instalar o sistema em outro computador" + "suba com um novo
     release" — `docs/PROMPT-INSTALAR.md` na 0.14.1 (só documentação).
 
@@ -215,6 +218,13 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
     `FOGImageReplicator`/`FOGImageSize`; `*.gz` pega o udpcast; `*.exe` o `grub.exe`; `languages/*`; `/packages/tftp/`).
     Eles estão no git com `git add -f`. Arquivo novo da base: confira com `git status --ignored base-fog`. O
     `empacotar.sh` recusa pacote sem os principais. Sempre gere o pacote de um clone limpo (a 0.14.3 mostrou o erro).
+50. Testar código do FOS sem VM: abra o `init.xz` (xz -dc + mount loop) numa pasta e rode o script em `chroot` com
+    `unshare -m` (proc, sys, dev, run e tmp montados dentro): são os mesmos bash/awk/blkid/lvm das máquinas. O
+    `getPartitions` do FOG ignora loops (major 7): o teste o troca por um igual sem `-I`.
+51. Nunca corte com `| head` a saída de um script que desmonta no fim (o SIGPIPE mata antes do `umount` e o disco fica
+    montado só leitura: o próximo `mount` rw falha com "would change RO state").
+52. Arquivo `/etc/machine-id` vazio faz o systemd tratar o boot como "primeiro boot" (pode perguntar idioma/fuso):
+    para clonagem grave um id novo já preenchido.
 22. Nunca escreva um heredoc de bash contendo outro `EOF` dentro (o bash fecha no primeiro e executa o resto): scripts de
     edição vão em arquivo (Write) e rodam com `python3 -I arquivo`.
 
@@ -237,6 +247,8 @@ marca, serviços renomeados). Use depois de qualquer mexida da base FOG.
 - **Painel** (Chrome headless): `testes/cdp_teste.py SID "rota1;;rota2|js@@js"`. Sessão de teste: crie como www-data em
   `/opt/fog/sessions` com `$_SESSION['FOG_USER']=1; $_SESSION['PAINEL_TOKEN']='tokteste'` e apague no fim.
   Variáveis `TELAS`, `TEMAS`, `MOCKS` (interceptar chamadas que dependem do sudo).
+- **Nome do Linux depois de restaurar** (root): `sudo bash testes/teste_nome_linux.sh [init.xz]` (`SOBREPOR=1` usa os
+  arquivos de `marca/fos` do repositório por cima do `init.xz`) — 15 discos de teste, deve terminar "0 falha(s)".
 - **Boot PXE real em VM** (QEMU/KVM instalados): `RAIZ_TFTP=/tftpboot testes/boot_vm.sh bios|uefi PASTA "segundos"`.
   FOS direto: `qemu-system-x86_64 -kernel bzImage -initrd init.xz -append "... mode=sysinfo|manreg"`; teclas via monitor `sendkey`.
 - **Instalação do zero SEM o GitHub/FOG (prova de autonomia)**: VM própria (overlay da imagem cloud do Ubuntu 24.04,
@@ -410,6 +422,18 @@ Quatro revisões (API, frontend, ajudante root, instalador/scripts) + medições
   (`/etc/grub-labfree.conf`, `/etc/grub.d/09_labfree`…, produto à parte), kit de TI, AnyDesk, Chrome, gh.
 - Depois: release baixada (sha256 OK), `sudo ./instalar.sh --sim --placa enx00e04c880309` com a placa **sem cabo** e
   uma "Conexão cabeada 1" automática do NM na mesma placa → "Tudo certo." de primeira (~25 min).
+
+## 7l. Versão 0.15.0 (16/11) — nome do Linux depois de restaurar
+- `marca/fos/usr/share/fog/lib/labfree-nome.sh`, carregado no fim do `labfree-tela.sh` (fora do `if LABFREE_TELA`:
+  vale também no modo depuração). Refaz o `completeTasking` (cópia do da 1.5.10) chamando `labfreeRenomearLinux`
+  antes do `fog.imgcomplete`, para todo `osid` menos 8 (Apple). Só age com `hostname` e `hostearly=1` (a base só manda
+  `hostearly` em tarefas de imagem com `FOG_CHANGE_HOSTNAME_EARLY=1`, que já vem ligado).
+- Procura: `blkid` de cada partição (`getPartitions` de cada disco em `$disks`, ou o disco inteiro sem partições);
+  LVM: `lvm vgchange -ay` só nos grupos que estavam desligados (desliga no fim); btrfs: subvolume padrão + pastas do
+  primeiro nível. Raiz = `etc/` real com `fstab` e `os-release`. LUKS/BitLocker contam para o aviso.
+- Testado com `testes/teste_nome_linux.sh` (88/88, duas vezes: com `SOBREPOR=1` e depois com o `init.xz`
+  reconstruído pelo instalador). **Não testado numa máquina real pela rede** (não havia cabo/máquina Linux; o QEMU
+  não pôde ser instalado nesta sessão). O caminho até o `completeTasking` é o mesmo do Windows, já usado.
 
 ## 8. Situação da máquina de produção (IMPORTANTE)
 - 26/10 21:43: o usuário rodou o instalador (versão anterior à varredura). Migração concluída: nomes antigos arquivados,

@@ -41,3 +41,6 @@ if [[ -n $LABFREE_TELA ]]; then
         usleep 10000000
     }
 fi
+
+# Nome do Linux depois de restaurar (vale dentro e fora da tela do LabFree)
+[[ -r /usr/share/fog/lib/labfree-nome.sh ]] && . /usr/share/fog/lib/labfree-nome.sh

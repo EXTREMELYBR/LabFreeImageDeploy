@@ -1835,9 +1835,10 @@ final class Painel
         return ['ok' => true, 'msg' => 'Cadastro pelo boot configurado.', 'cadastro' => self::cadastroConfig()];
     }
 
-    // ------------------------------------------------------------ ajustes do Windows depois de restaurar
-    // Renomear: o sistema de clonagem grava o nome cadastrado no registro do Windows logo depois de restaurar
-    // (FOG_CHANGE_HOSTNAME_EARLY; não precisa instalar nada). Domínio e licença: o agente para Windows (FOGService.msi,
+    // ------------------------------------------------------------ ajustes depois de restaurar (nome, domínio, licença)
+    // Renomear: o sistema de clonagem grava o nome cadastrado no registro do Windows e, no Linux, em /etc/hostname,
+    // /etc/hosts, machine-id e chaves de SSH (marca/fos/usr/share/fog/lib/labfree-nome.sh) logo depois de restaurar
+    // (FOG_CHANGE_HOSTNAME_EARLY; não precisa instalar nada; disco criptografado só gera aviso). Domínio e licença: o agente para Windows (FOGService.msi,
     // instalado uma vez na máquina modelo) pega nome, domínio e chave do servidor no primeiro boot.
 
     /** Módulos do agente que agiriam sozinhos na máquina (reiniciar, desligar, deslogar...): ficam desligados. */

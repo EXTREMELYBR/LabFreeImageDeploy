@@ -986,7 +986,7 @@ async function formImagem(sistemas) {
     el('span', { class: 'marca-sel' }, icone('check', '')))));
   return modal({
     titulo: 'Nova imagem', icone: 'imagens', cor: 'imagens', texto: 'A imagem começa vazia. Depois é só capturar uma máquina modelo para ela.',
-    conteudo: el('div', {}, campo('Nome da imagem', nome), campo('Sistema operacional', so, 'Windows e Linux na mesma máquina? Escolha o Windows.'),
+    conteudo: el('div', {}, campo('Nome da imagem', nome), campo('Sistema operacional', so, 'Windows e Linux na mesma máquina? Escolha o Windows (os dois recebem o nome cadastrado).'),
       el('div', { class: 'campo' }, el('span', { class: 'rot' }, 'Tipo de imagem'), tipos), campo('Descrição', desc), cc.no),
     botoes: [{ texto: 'Cancelar', classe: 'fantasma' }, { texto: 'Criar imagem', classe: 'primario', acao: async () => {
       const r = await api('criar_imagem', { nome: nome.value.trim(), os_id: Number(so.value), tipo: Number(tipos.querySelector('input:checked').value), descricao: desc.value, ...cc.valores() });
@@ -1751,7 +1751,7 @@ const MASCARAS = [[24, '255.255.255.0 (/24) — até 253 máquinas'], [23, '255.
 async function telaConfiguracoes(alvo, p) {
   const aba = ['rede', 'cadastro', 'windows', 'copias'].includes(p.get('aba')) ? p.get('aba') : 'dhcp';
   const abas = el('div', { class: 'abas', role: 'tablist' },
-    [['dhcp', 'DHCP', 'rede'], ['rede', 'Placa de rede', 'maquinas'], ['cadastro', 'Cadastro pelo boot', 'mais'], ['windows', 'Windows', 'config'],
+    [['dhcp', 'DHCP', 'rede'], ['rede', 'Placa de rede', 'maquinas'], ['cadastro', 'Cadastro pelo boot', 'mais'], ['windows', 'Nome e Windows', 'config'],
       ['copias', 'Cópias', 'disco']].map(([id, nome, ic]) => el('a', {
       role: 'tab', href: `#/configuracoes?aba=${id}`, 'aria-selected': String(aba === id), class: aba === id ? 'ativa' : null,
     }, icone(ic), nome)));
@@ -1880,7 +1880,7 @@ async function abaCopias(corpo) {
       el('div', { class: 'botoes' }, salvarRede))));
 }
 
-/** Ajustes do Windows depois de restaurar: nome (sem instalar nada), domínio e licença (agente na máquina modelo). */
+/** Ajustes depois de restaurar: nome do Windows e do Linux (sem instalar nada), domínio e licença (agente na máquina modelo). */
 async function abaWindows(corpo) {
   const w = await api('windows');
   const renomear = el('input', { type: 'checkbox', checked: w.renomear });
@@ -1903,7 +1903,7 @@ async function abaWindows(corpo) {
   const salvar = el('button', { class: 'btn primario g', type: 'button' }, icone('check'), 'Salvar e aplicar');
   salvar.addEventListener('click', async () => {
     const minha = el('input', { type: 'password', autocomplete: 'current-password' });
-    const ok = await modal({ titulo: 'Confirmar ajustes do Windows', icone: 'escudo', cor: 'inicio',
+    const ok = await modal({ titulo: 'Confirmar ajustes depois de restaurar', icone: 'escudo', cor: 'inicio',
       texto: `Vale para as ${w.maquinas} máquinas cadastradas e para as próximas restaurações.`,
       conteudo: campo(`Sua senha (${sessao.usuario})`, minha, 'Para confirmar que é você.'),
       botoes: [{ texto: 'Voltar', classe: 'fantasma' }, { texto: 'Salvar e aplicar', classe: 'primario', acao: async () => {
@@ -1925,8 +1925,8 @@ async function abaWindows(corpo) {
       passo(3, 'Capture a imagem', 'Toda máquina restaurada com essa imagem recebe nome, domínio e licença sozinha.')));
   corpo.replaceChildren(el('div', { class: 'pilha' },
     el('div', { class: 'cartao' }, el('h2', { style: 'margin-bottom:12px' }, 'Depois de restaurar, em cada máquina'),
-      el('label', { class: 'alternar' }, renomear, el('div', {}, el('strong', {}, 'Renomear o Windows com o nome cadastrado'),
-        el('small', {}, 'Feito pelo próprio sistema de clonagem, logo depois de gravar o disco. Não precisa instalar nada. Só máquinas cadastradas (têm nome).'))),
+      el('label', { class: 'alternar' }, renomear, el('div', {}, el('strong', {}, 'Renomear com o nome cadastrado (Windows e Linux)'),
+        el('small', {}, 'Feito pelo próprio sistema de clonagem, logo depois de gravar o disco. Não precisa instalar nada. No Linux também troca o /etc/hosts, o machine-id (sem ele, o DHCP pode repetir o IP) e as chaves de SSH. Disco criptografado não é aberto: a tarefa avisa e o nome fica como estava. Só máquinas cadastradas (têm nome).'))),
       el('label', { class: 'alternar', style: 'margin-top:14px' }, dom, el('div', {}, el('strong', {}, 'Entrar no domínio'),
         el('small', {}, 'A máquina entra no domínio do Active Directory no primeiro boot (precisa do agente e de acesso ao servidor do domínio).'))),
       caixaDom,

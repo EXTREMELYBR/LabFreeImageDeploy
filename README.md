@@ -19,7 +19,8 @@ agente para Windows): a instalação não baixa nada do projeto FOG. Acrescenta:
   sala está completa e só começa quando alguém clica em Iniciar. Nada começa sozinho na máquina.
 - **Imagens menores e conferidas**: com o servidor parado, as imagens são recomprimidas e conferidas bit a bit
   (restaurações mais rápidas, arquivo corrompido detectado antes de estragar uma sala).
-- **Windows pronto depois de restaurar**: nome cadastrado, entrada no domínio e ativação da licença.
+- **Windows e Linux prontos depois de restaurar**: cada máquina com o seu nome cadastrado (no Linux também machine-id
+  e chaves de SSH novos; disco criptografado é identificado e avisado), entrada no domínio e ativação da licença.
 - **Cópias das imagens** para HD externo ou pasta de rede (e importação), conferidas bit a bit.
 - **Telas da máquina com a identidade da LabFree**: menu de boot, cadastro e acompanhamento da clonagem.
 - **Cadastro de máquinas em 2 passos** direto na tela da máquina, pelo boot da rede: nome sugerido e imagem.

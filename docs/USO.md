@@ -31,9 +31,16 @@ Depois ligue a máquina com boot pela rede. Acompanhe em Tarefas.
 **Tipo de imagem**: prefira *Redimensionável* — restaura em discos de tamanhos diferentes, inclusive menores.
 Imagens de *tamanho fixo* só restauram em discos iguais ou maiores que o original (o painel mostra o mínimo).
 
-## Ajustes do Windows depois de restaurar (Configurações → Windows)
-- **Renomear o Windows com o nome cadastrado**: liga e pronto. O sistema de clonagem troca o nome logo depois de
-  gravar o disco (só máquinas cadastradas).
+## Ajustes depois de restaurar (Configurações → Nome e Windows)
+- **Renomear com o nome cadastrado (Windows e Linux)**: liga e pronto. O sistema de clonagem troca o nome logo depois
+  de gravar o disco, antes do primeiro boot (só máquinas cadastradas; o cadastro nunca repete um nome).
+  - Windows: o nome vai para o registro.
+  - Linux (Ubuntu, Mint, Debian, Fedora...): `/etc/hostname`, o nome antigo no `/etc/hosts`, um `machine-id` novo
+    (com o mesmo id, o DHCP pode dar o mesmo IP a várias máquinas) e chaves de SSH novas. Abre partições comuns
+    (ext4, xfs), LVM e btrfs (subvolumes como `@`).
+  - Windows e Linux no mesmo disco: os dois recebem o nome.
+  - **Disco criptografado** (LUKS, BitLocker): não dá para abrir sem a senha. O nome fica como estava e a tarefa
+    avisa ("Disco criptografado... nome do Linux não foi trocado"); troque o nome nessa máquina depois do boot.
 - **Entrar no domínio** e **ativar a licença**: precisam do *agente para Windows* instalado **uma vez na máquina
   modelo**, antes de capturar (o painel mostra o link e os 3 passos). No primeiro boot depois de restaurar, o agente
   coloca a máquina no domínio e ativa a licença. Chave própria de uma máquina: Máquinas → Editar → *Chave do

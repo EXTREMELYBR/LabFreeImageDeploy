@@ -87,7 +87,7 @@ Cada linha vira um item de teste na etapa correspondente (seção 8). "Fora" = n
   terminar", desliga em 60 s.
 - No painel: cartão ao vivo por tarefa, "sem notícia há X", tarefa esquecida (> 24 h), cancelar, motivo da falha,
   "Ver registro" (mensagem da máquina + erros do servidor + log completo).
-- Renomear o Windows offline (FOS, com `hostearly=1`).
+- Renomear o Windows e o Linux offline (FOS, com `hostearly=1`; Linux pelo `labfree-nome.sh` desde a 0.15.0).
 
 ### 3.5 Restaurar em grupo (multicast)
 - Sessão com nome (2–20, único, ≠ nome de máquina) e quantidade (1–200).
